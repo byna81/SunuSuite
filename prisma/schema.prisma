@@ -92,14 +92,16 @@ model SaleItem {
   product   Product  @relation(fields: [productId], references: [id])
 }
 model Payment {
-  id         String   @id @default(uuid())
-  saleId      String
-  method      String
-  amount      Float
-  status      String   @default("paid")
-  reference   String?
-  phoneNumber String?
-  createdAt   DateTime @default(now())
+  id           String   @id @default(uuid())
+  saleId       String
+  method       String
+  amount       Float
+  status       String   @default("paid")
+  reference    String?
+  phoneNumber  String?
+  provider     String?
+  providerRef  String?
+  createdAt    DateTime @default(now())
 
-  sale        Sale     @relation(fields: [saleId], references: [id])
+  sale         Sale     @relation(fields: [saleId], references: [id])
 }
