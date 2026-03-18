@@ -8,27 +8,45 @@ export class DashboardController {
   @Get('summary')
   getSummary(
     @Query('tenantId') tenantId: string,
+    @Query('period') period?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.dashboardService.getSummary(tenantId, startDate, endDate);
+    return this.dashboardService.getSummary(
+      tenantId,
+      period,
+      startDate,
+      endDate,
+    );
   }
 
   @Get('top-products')
   getTopProducts(
     @Query('tenantId') tenantId: string,
+    @Query('period') period?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.dashboardService.getTopProducts(tenantId, startDate, endDate);
+    return this.dashboardService.getTopProducts(
+      tenantId,
+      period,
+      startDate,
+      endDate,
+    );
   }
 
   @Get('sales')
   getSales(
     @Query('tenantId') tenantId: string,
+    @Query('period') period?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.dashboardService.getSales(tenantId, startDate, endDate);
+    return this.dashboardService.getSales(
+      tenantId,
+      period,
+      startDate,
+      endDate,
+    );
   }
 }
