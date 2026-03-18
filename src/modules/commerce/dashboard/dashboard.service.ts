@@ -43,4 +43,68 @@ export class DashboardService {
       paymentsByMethod,
     };
   }
+
+  async getTopProducts(tenantId: string) {
+    const items = await this.prisma.saleItem.findMany({
+      where: {
+        sale: {
+          tenantId,
+        },
+      },
+      include: {
+        product: true,
+      },
+    });
+
+    const map: Record<
+      string,
+      { productId: string; name: string; quantitySold: number; revenue: number }
+    > = {};
+
+    for (const item of items) {
+      const key = item.productId;
+
+      if (!map[key]) {
+        map[key] = {
+          productId: item.productId,
+          name: item.product.name,
+          quantitySold: 0,
+          revenue: 0,
+        };
+      }
+
+      map[key].quantitySold += item.quantity;
+      map[key].revenue += Number(item.price) * item.quantity;
+    }
+
+    return Object.values(map).sort((a, b) => b.quantitySold - a.quantitySold);
+  }
+
+  async getTodaySales(tenantId: string) {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    return this.prisma.sale.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        payments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
