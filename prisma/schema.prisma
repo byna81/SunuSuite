@@ -1,16 +1,8 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 model Tenant {
   id         String     @id @default(uuid())
   name       String
   createdAt  DateTime   @default(now())
+
   users      User[]
   vehicles   Vehicle[]
   categories Category[]
@@ -24,7 +16,7 @@ model User {
   tenantId  String
   createdAt DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }
 
 model Vehicle {
@@ -37,7 +29,7 @@ model Vehicle {
   usageType String   @default("sale")
   createdAt DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }
 
 model Category {
@@ -53,17 +45,17 @@ model Category {
 }
 
 model Product {
-  id          String    @id @default(uuid())
-  tenantId    String
-  categoryId  String?
-  name        String
-  price       Float
-  stock       Int       @default(0)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(uuid())
+  tenantId   String
+  categoryId String?
+  name       String
+  price      Float
+  stock      Int       @default(0)
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
 
-  tenant      Tenant    @relation(fields: [tenantId], references: [id])
-  category    Category? @relation(fields: [categoryId], references: [id])
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  category   Category? @relation(fields: [categoryId], references: [id])
 
   @@unique([tenantId, name])
 }
@@ -75,24 +67,26 @@ model Sale {
   createdAt DateTime   @default(now())
 
   items     SaleItem[]
+  payments  Payment[]
 }
 
 model SaleItem {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   saleId    String
   productId String
   quantity  Int
   price     Float
 
-  sale      Sale    @relation(fields: [saleId], references: [id])
+  sale      Sale     @relation(fields: [saleId], references: [id])
 }
 
 model Payment {
   id        String   @id @default(uuid())
   saleId    String
-  method    String   // cash, wave, orange
+  method    String
   amount    Float
+  status    String   @default("paid")
   createdAt DateTime @default(now())
 
-  sale Sale @relation(fields: [saleId], references: [id])
+  sale      Sale     @relation(fields: [saleId], references: [id])
 }
