@@ -9,4 +9,14 @@ export class DashboardController {
   getSummary(@Query('tenantId') tenantId: string) {
     return this.dashboardService.getSummary(tenantId);
   }
+
+  @Get('top-products')
+  getTopProducts(@Query('tenantId') tenantId: string) {
+    return this.dashboardService.getTopProducts(tenantId);
+  }
+
+  @Get('today-sales')
+  getTodaySales(@Query('tenantId') tenantId: string) {
+    return this.dashboardService.getTodaySales(tenantId);
+  }
 }
