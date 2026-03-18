@@ -105,3 +105,40 @@ model Payment {
 
   sale         Sale     @relation(fields: [saleId], references: [id])
 }
+model SaleReturn {
+  id           String   @id @default(uuid())
+  saleId       String
+  tenantId     String
+  totalRefund  Float
+  reason       String?
+  status       String   @default("completed")
+  createdAt    DateTime @default(now())
+
+  sale         Sale     @relation(fields: [saleId], references: [id])
+  items        SaleReturnItem[]
+  refunds      Refund[]
+}
+
+model SaleReturnItem {
+  id            String   @id @default(uuid())
+  saleReturnId  String
+  productId     String
+  quantity      Int
+  unitPrice     Float
+  lineTotal     Float
+  restock       Boolean  @default(true)
+
+  saleReturn    SaleReturn @relation(fields: [saleReturnId], references: [id])
+}
+
+model Refund {
+  id           String   @id @default(uuid())
+  saleReturnId String
+  method       String
+  amount       Float
+  status       String   @default("paid")
+  reference    String?
+  createdAt    DateTime @default(now())
+
+  saleReturn   SaleReturn @relation(fields: [saleReturnId], references: [id])
+}
