@@ -12,18 +12,23 @@ import { SalesService } from './sales/sales.service';
 import { PaymentsController } from './payments/payments.controller';
 import { PaymentsService } from './payments/payments.service';
 
+import { DashboardController } from './dashboard/dashboard.controller';
+import { DashboardService } from './dashboard/dashboard.service';
+
 @Module({
   controllers: [
     CategoriesController,
     ProductsController,
     SalesController,
     PaymentsController,
+    DashboardController,
   ],
   providers: [
     CategoriesService,
     ProductsService,
     SalesService,
     PaymentsService,
+    DashboardService,
   ],
 })
 export class CommerceModule {}
