@@ -14,7 +14,9 @@ export class MobileMoneyService {
     const provider = String(data.provider).trim().toLowerCase();
 
     if (!['wave', 'orange_money'].includes(provider)) {
-      throw new BadRequestException('Provider invalide. Valeurs autorisées: wave, orange_money');
+      throw new BadRequestException(
+        'Provider invalide. Valeurs autorisées: wave, orange_money',
+      );
     }
 
     if (!data.phoneNumber) {
@@ -79,7 +81,7 @@ export class MobileMoneyService {
       throw new NotFoundException(`Payment ${paymentId} introuvable`);
     }
 
-    const updatedPayment = await this.prisma.payment.update({
+    const updated = await this.prisma.payment.update({
       where: { id: paymentId },
       data: {
         status: 'paid',
@@ -87,9 +89,9 @@ export class MobileMoneyService {
       },
     });
 
-    await this.syncSaleStatus(updatedPayment.saleId);
+    await this.syncSaleStatus(updated.saleId);
 
-    return updatedPayment;
+    return updated;
   }
 
   async failByPaymentId(paymentId: string, providerRef?: string) {
@@ -101,7 +103,7 @@ export class MobileMoneyService {
       throw new NotFoundException(`Payment ${paymentId} introuvable`);
     }
 
-    const updatedPayment = await this.prisma.payment.update({
+    const updated = await this.prisma.payment.update({
       where: { id: paymentId },
       data: {
         status: 'failed',
@@ -109,9 +111,29 @@ export class MobileMoneyService {
       },
     });
 
-    await this.syncSaleStatus(updatedPayment.saleId);
+    await this.syncSaleStatus(updated.saleId);
 
-    return updatedPayment;
+    return updated;
+  }
+
+  async handleWebhook(data: {
+    paymentId: string;
+    providerRef?: string;
+    status: 'paid' | 'failed';
+  }) {
+    if (!data.paymentId) {
+      throw new BadRequestException('paymentId obligatoire');
+    }
+
+    if (!['paid', 'failed'].includes(data.status)) {
+      throw new BadRequestException('status invalide. Valeurs autorisées: paid, failed');
+    }
+
+    if (data.status === 'paid') {
+      return this.confirmByPaymentId(data.paymentId, data.providerRef);
+    }
+
+    return this.failByPaymentId(data.paymentId, data.providerRef);
   }
 
   private async syncSaleStatus(saleId: string) {
