@@ -71,14 +71,17 @@ model Product {
 }
 
 model Sale {
-  id        String     @id @default(uuid())
+  id        String   @id @default(uuid())
   tenantId  String
   total     Float
-  status    String     @default("unpaid")
-  createdAt DateTime   @default(now())
+  status    String   @default("unpaid")
+  createdAt DateTime @default(now())
 
   items     SaleItem[]
   payments  Payment[]
+
+  // ✅ AJOUT CORRECT
+  returns   SaleReturn[]
 }
 
 model SaleItem {
@@ -91,6 +94,7 @@ model SaleItem {
   sale      Sale     @relation(fields: [saleId], references: [id])
   product   Product  @relation(fields: [productId], references: [id])
 }
+
 model Payment {
   id           String   @id @default(uuid())
   saleId       String
@@ -105,6 +109,7 @@ model Payment {
 
   sale         Sale     @relation(fields: [saleId], references: [id])
 }
+
 model SaleReturn {
   id           String   @id @default(uuid())
   saleId       String
@@ -114,7 +119,9 @@ model SaleReturn {
   status       String   @default("completed")
   createdAt    DateTime @default(now())
 
+  // ✅ relation vers Sale
   sale         Sale     @relation(fields: [saleId], references: [id])
+
   items        SaleReturnItem[]
   refunds      Refund[]
 }
