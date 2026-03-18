@@ -1,3 +1,12 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 model Tenant {
   id         String     @id @default(uuid())
   name       String
@@ -56,6 +65,7 @@ model Product {
 
   tenant     Tenant    @relation(fields: [tenantId], references: [id])
   category   Category? @relation(fields: [categoryId], references: [id])
+  items      SaleItem[]
 
   @@unique([tenantId, name])
 }
@@ -78,6 +88,7 @@ model SaleItem {
   price     Float
 
   sale      Sale     @relation(fields: [saleId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
 }
 
 model Payment {
