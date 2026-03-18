@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 
 @Controller('commerce/payments')
@@ -28,5 +28,15 @@ export class PaymentsController {
   @Get('methods/list')
   getMethods() {
     return this.paymentsService.getMethods();
+  }
+
+  @Patch(':paymentId/confirm')
+  confirm(@Param('paymentId') paymentId: string) {
+    return this.paymentsService.confirmPayment(paymentId);
+  }
+
+  @Patch(':paymentId/fail')
+  fail(@Param('paymentId') paymentId: string) {
+    return this.paymentsService.failPayment(paymentId);
   }
 }
