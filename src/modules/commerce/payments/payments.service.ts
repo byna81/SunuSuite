@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
@@ -17,25 +17,22 @@ export class PaymentsService {
     });
 
     if (!sale) {
-      throw new Error(`Sale ${data.saleId} introuvable`);
+      throw new NotFoundException(`Sale ${data.saleId} introuvable`);
     }
 
-    if (!data.amount || data.amount <= 0) {
-      throw new Error('Montant invalide');
+    if (!data.amount || Number(data.amount) <= 0) {
+      throw new BadRequestException('Montant invalide');
     }
 
-    // sécurisation
-    const payments = sale.payments || [];
-
-    const alreadyPaid = payments.reduce(
+    const alreadyPaid = (sale.payments ?? []).reduce(
       (sum, p) => sum + Number(p.amount),
       0,
     );
 
     const remaining = Number(sale.total) - alreadyPaid;
 
-    if (data.amount > remaining) {
-      throw new Error(`Montant trop élevé. Reste: ${remaining}`);
+    if (Number(data.amount) > remaining) {
+      throw new BadRequestException(`Montant trop élevé. Reste: ${remaining}`);
     }
 
     const payment = await this.prisma.payment.create({
@@ -50,7 +47,6 @@ export class PaymentsService {
     const newTotal = alreadyPaid + Number(data.amount);
 
     let status = 'unpaid';
-
     if (newTotal > 0 && newTotal < Number(sale.total)) {
       status = 'partial';
     } else if (newTotal === Number(sale.total)) {
