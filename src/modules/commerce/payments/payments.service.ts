@@ -11,52 +11,58 @@ export class PaymentsService {
     amount: number;
     status?: string;
   }) {
-    return this.prisma.$transaction(async (tx) => {
-      const sale = await tx.sale.findUnique({
-        where: { id: data.saleId },
-        include: { payments: true },
-      });
-
-      if (!sale) {
-        throw new Error(`Sale avec id ${data.saleId} introuvable`);
-      }
-
-      if (data.amount <= 0) {
-        throw new Error('Le montant doit être supérieur à 0');
-      }
-
-      const alreadyPaid = sale.payments.reduce((sum, payment) => sum + payment.amount, 0);
-      const remaining = sale.total - alreadyPaid;
-
-      if (data.amount > remaining) {
-        throw new Error(`Montant trop élevé. Reste à payer: ${remaining}`);
-      }
-
-      const payment = await tx.payment.create({
-        data: {
-          saleId: data.saleId,
-          method: data.method,
-          amount: Number(data.amount),
-          status: data.status ?? 'paid',
-        },
-      });
-
-      const newPaidTotal = alreadyPaid + Number(data.amount);
-
-      let saleStatus = 'unpaid';
-      if (newPaidTotal > 0 && newPaidTotal < sale.total) {
-        saleStatus = 'partial';
-      } else if (newPaidTotal === sale.total) {
-        saleStatus = 'paid';
-      }
-
-      await tx.sale.update({
-        where: { id: data.saleId },
-        data: { status: saleStatus },
-      });
-
-      return payment;
+    const sale = await this.prisma.sale.findUnique({
+      where: { id: data.saleId },
+      include: { payments: true },
     });
+
+    if (!sale) {
+      throw new Error(`Sale ${data.saleId} introuvable`);
+    }
+
+    if (!data.amount || data.amount <= 0) {
+      throw new Error('Montant invalide');
+    }
+
+    // sécurisation
+    const payments = sale.payments || [];
+
+    const alreadyPaid = payments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+
+    const remaining = Number(sale.total) - alreadyPaid;
+
+    if (data.amount > remaining) {
+      throw new Error(`Montant trop élevé. Reste: ${remaining}`);
+    }
+
+    const payment = await this.prisma.payment.create({
+      data: {
+        saleId: data.saleId,
+        method: data.method,
+        amount: Number(data.amount),
+        status: data.status ?? 'paid',
+      },
+    });
+
+    const newTotal = alreadyPaid + Number(data.amount);
+
+    let status = 'unpaid';
+
+    if (newTotal > 0 && newTotal < Number(sale.total)) {
+      status = 'partial';
+    } else if (newTotal === Number(sale.total)) {
+      status = 'paid';
+    }
+
+    await this.prisma.sale.update({
+      where: { id: data.saleId },
+      data: { status },
+    });
+
+    return payment;
   }
 
   async findBySale(saleId: string) {
