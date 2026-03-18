@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { SalesService } from './sales.service';
 
 @Controller('commerce/sales')
@@ -18,5 +18,10 @@ export class SalesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.salesService.findOne(id);
+  }
+
+  @Patch(':id/sync-status')
+  syncStatus(@Param('id') id: string) {
+    return this.salesService.syncStatus(id);
   }
 }
