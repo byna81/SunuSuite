@@ -10,18 +10,16 @@ export class SalesService {
     items: { productId: string; quantity: number }[];
   }) {
     return this.prisma.$transaction(async (tx) => {
-      // 1. Récupérer les produits
       const products = await tx.product.findMany({
         where: {
-          id: { in: data.items.map(i => i.productId) },
+          id: { in: data.items.map((i) => i.productId) },
         },
       });
 
       let total = 0;
 
-      // 2. Préparer les lignes + vérifications
-      const itemsData = data.items.map(item => {
-        const product = products.find(p => p.id === item.productId);
+      const itemsData = data.items.map((item) => {
+        const product = products.find((p) => p.id === item.productId);
 
         if (!product) {
           throw new Error('Produit introuvable');
@@ -41,21 +39,17 @@ export class SalesService {
         };
       });
 
-      // 3. Décrémenter le stock
-      await Promise.all(
-        data.items.map(item =>
-          tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                decrement: item.quantity,
-              },
+      for (const item of data.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              decrement: item.quantity,
             },
-          })
-        )
-      );
+          },
+        });
+      }
 
-      // 4. Créer la vente
       const sale = await tx.sale.create({
         data: {
           tenantId: data.tenantId,
@@ -66,10 +60,40 @@ export class SalesService {
         },
         include: {
           items: true,
+          payments: true,
         },
       });
 
       return sale;
+    });
+  }
+
+  async findAll(tenantId: string) {
+    return this.prisma.sale.findMany({
+      where: { tenantId },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        payments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOne(id: string) {
+    return this.prisma.sale.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
+        },
+        payments: true,
+      },
     });
   }
 }
