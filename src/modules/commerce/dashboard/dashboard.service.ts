@@ -1,27 +1,73 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getSummary(tenantId: string) {
+  private buildDateFilter(startDate?: string, endDate?: string) {
+    if (!startDate && !endDate) {
+      return undefined;
+    }
+
+    const filter: { gte?: Date; lte?: Date } = {};
+
+    if (startDate) {
+      const start = new Date(startDate);
+      if (isNaN(start.getTime())) {
+        throw new BadRequestException('startDate invalide');
+      }
+      start.setHours(0, 0, 0, 0);
+      filter.gte = start;
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      if (isNaN(end.getTime())) {
+        throw new BadRequestException('endDate invalide');
+      }
+      end.setHours(23, 59, 59, 999);
+      filter.lte = end;
+    }
+
+    return filter;
+  }
+
+  async getSummary(tenantId: string, startDate?: string, endDate?: string) {
+    const dateFilter = this.buildDateFilter(startDate, endDate);
+
     const sales = await this.prisma.sale.findMany({
-      where: { tenantId },
+      where: {
+        tenantId,
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      },
       include: { payments: true },
+    });
+
+    const refunds = await this.prisma.refund.findMany({
+      where: {
+        saleReturn: {
+          tenantId,
+        },
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      },
     });
 
     const productsCount = await this.prisma.product.count({
       where: { tenantId },
     });
 
-    const totalRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0);
+    const grossRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0);
+    const refundsTotal = refunds.reduce((sum, refund) => sum + Number(refund.amount), 0);
+    const netRevenue = grossRevenue - refundsTotal;
     const salesCount = sales.length;
 
     const paymentsByMethodMap: Record<string, number> = {};
 
     for (const sale of sales) {
       for (const payment of sale.payments) {
+        if (payment.status !== 'paid') continue;
+
         const method = payment.method;
         paymentsByMethodMap[method] =
           (paymentsByMethodMap[method] || 0) + Number(payment.amount);
@@ -37,18 +83,27 @@ export class DashboardService {
 
     return {
       tenantId,
-      totalRevenue,
+      period: {
+        startDate: startDate ?? null,
+        endDate: endDate ?? null,
+      },
+      grossRevenue,
+      refundsTotal,
+      netRevenue,
       salesCount,
       productsCount,
       paymentsByMethod,
     };
   }
 
-  async getTopProducts(tenantId: string) {
+  async getTopProducts(tenantId: string, startDate?: string, endDate?: string) {
+    const dateFilter = this.buildDateFilter(startDate, endDate);
+
     const items = await this.prisma.saleItem.findMany({
       where: {
         sale: {
           tenantId,
+          ...(dateFilter ? { createdAt: dateFilter } : {}),
         },
       },
       include: {
@@ -80,21 +135,13 @@ export class DashboardService {
     return Object.values(map).sort((a, b) => b.quantitySold - a.quantitySold);
   }
 
-  async getTodaySales(tenantId: string) {
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(now);
-    end.setHours(23, 59, 59, 999);
+  async getSales(tenantId: string, startDate?: string, endDate?: string) {
+    const dateFilter = this.buildDateFilter(startDate, endDate);
 
     return this.prisma.sale.findMany({
       where: {
         tenantId,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
+        ...(dateFilter ? { createdAt: dateFilter } : {}),
       },
       include: {
         items: {
