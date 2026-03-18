@@ -67,3 +67,22 @@ model Product {
 
   @@unique([tenantId, name])
 }
+
+model Sale {
+  id        String     @id @default(uuid())
+  tenantId  String
+  total     Float
+  createdAt DateTime   @default(now())
+
+  items     SaleItem[]
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  productId String
+  quantity  Int
+  price     Float
+
+  sale      Sale    @relation(fields: [saleId], references: [id])
+}
