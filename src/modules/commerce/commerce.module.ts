@@ -12,16 +12,22 @@ import { ProductsService } from './products/products.service';
 import { SalesController } from './sales/sales.controller';
 import { SalesService } from './sales/sales.service';
 
+// Payments
+import { PaymentsController } from './payments/payments.controller';
+import { PaymentsService } from './payments/payments.service';
+
 @Module({
   controllers: [
     CategoriesController,
     ProductsController,
     SalesController,
+    PaymentsController,
   ],
   providers: [
     CategoriesService,
     ProductsService,
     SalesService,
+    PaymentsService,
   ],
 })
 export class CommerceModule {}
