@@ -9,38 +9,67 @@ export class SalesService {
     tenantId: string;
     items: { productId: string; quantity: number }[];
   }) {
-    const products = await this.prisma.product.findMany({
-      where: {
-        id: { in: data.items.map(i => i.productId) }
-      }
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Récupérer les produits
+      const products = await tx.product.findMany({
+        where: {
+          id: { in: data.items.map(i => i.productId) },
+        },
+      });
 
-    let total = 0;
+      let total = 0;
 
-    const itemsData = data.items.map(item => {
-      const product = products.find(p => p.id === item.productId);
-      const price = product.price;
+      // 2. Préparer les lignes + vérifications
+      const itemsData = data.items.map(item => {
+        const product = products.find(p => p.id === item.productId);
 
-      total += price * item.quantity;
-
-      return {
-        productId: item.productId,
-        quantity: item.quantity,
-        price
-      };
-    });
-
-    return this.prisma.sale.create({
-      data: {
-        tenantId: data.tenantId,
-        total,
-        items: {
-          create: itemsData
+        if (!product) {
+          throw new Error('Produit introuvable');
         }
-      },
-      include: {
-        items: true
-      }
+
+        if (product.stock < item.quantity) {
+          throw new Error(`Stock insuffisant pour ${product.name}`);
+        }
+
+        const price = product.price;
+        total += price * item.quantity;
+
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          price,
+        };
+      });
+
+      // 3. Décrémenter le stock
+      await Promise.all(
+        data.items.map(item =>
+          tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: {
+                decrement: item.quantity,
+              },
+            },
+          })
+        )
+      );
+
+      // 4. Créer la vente
+      const sale = await tx.sale.create({
+        data: {
+          tenantId: data.tenantId,
+          total,
+          items: {
+            create: itemsData,
+          },
+        },
+        include: {
+          items: true,
+        },
+      });
+
+      return sale;
     });
   }
 }
