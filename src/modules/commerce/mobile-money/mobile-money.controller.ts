@@ -1,4 +1,4 @@
-import { Body, Controller, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Param, Patch, Post } from '@nestjs/common';
 import { MobileMoneyService } from './mobile-money.service';
 
 @Controller('commerce/mobile-money')
@@ -20,9 +20,23 @@ export class MobileMoneyController {
 
   @Patch(':paymentId/confirm')
   confirm(
+    @Param('paymentId') paymentId: string,
     @Body() body: { providerRef?: string },
-    @Body('paymentId') _unused: string,
   ) {
-    return null;
+    return this.mobileMoneyService.confirmByPaymentId(
+      paymentId,
+      body?.providerRef,
+    );
+  }
+
+  @Patch(':paymentId/fail')
+  fail(
+    @Param('paymentId') paymentId: string,
+    @Body() body: { providerRef?: string },
+  ) {
+    return this.mobileMoneyService.failByPaymentId(
+      paymentId,
+      body?.providerRef,
+    );
   }
 }
