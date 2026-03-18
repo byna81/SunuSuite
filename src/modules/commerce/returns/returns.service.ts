@@ -27,13 +27,16 @@ export class ReturnsService {
       }
 
       let totalRefund = 0;
-
-      const returnItemsData = [];
+      const returnItemsData: {
+        productId: string;
+        quantity: number;
+        unitPrice: number;
+        lineTotal: number;
+        restock: boolean;
+      }[] = [];
 
       for (const item of data.items) {
-        const saleItem = sale.items.find(
-          (i) => i.productId === item.productId,
-        );
+        const saleItem = sale.items.find((i) => i.productId === item.productId);
 
         if (!saleItem) {
           throw new BadRequestException('Produit non trouvé dans la vente');
@@ -43,10 +46,9 @@ export class ReturnsService {
           throw new BadRequestException('Quantité invalide');
         }
 
-        const lineTotal = saleItem.price * item.quantity;
+        const lineTotal = Number(saleItem.price) * item.quantity;
         totalRefund += lineTotal;
 
-        // remise en stock
         if (item.restock !== false) {
           await tx.product.update({
             where: { id: item.productId },
@@ -61,7 +63,7 @@ export class ReturnsService {
         returnItemsData.push({
           productId: item.productId,
           quantity: item.quantity,
-          unitPrice: saleItem.price,
+          unitPrice: Number(saleItem.price),
           lineTotal,
           restock: item.restock ?? true,
         });
