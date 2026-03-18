@@ -86,3 +86,13 @@ model SaleItem {
 
   sale      Sale    @relation(fields: [saleId], references: [id])
 }
+
+model Payment {
+  id        String   @id @default(uuid())
+  saleId    String
+  method    String   // cash, wave, orange
+  amount    Float
+  createdAt DateTime @default(now())
+
+  sale Sale @relation(fields: [saleId], references: [id])
+}
