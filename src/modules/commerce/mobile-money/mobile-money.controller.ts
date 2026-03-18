@@ -39,4 +39,16 @@ export class MobileMoneyController {
       body?.providerRef,
     );
   }
+
+  @Post('webhook')
+  webhook(
+    @Body()
+    body: {
+      paymentId: string;
+      providerRef?: string;
+      status: 'paid' | 'failed';
+    },
+  ) {
+    return this.mobileMoneyService.handleWebhook(body);
+  }
 }
