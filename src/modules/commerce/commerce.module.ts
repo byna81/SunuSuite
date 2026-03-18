@@ -43,7 +43,7 @@ import { ReturnsService } from './returns/returns.service';
     DashboardService,
     ReceiptService,
     MobileMoneyService,
-    ReturnsController,
+    ReturnsService,
   ],
 })
 export class CommerceModule {}
