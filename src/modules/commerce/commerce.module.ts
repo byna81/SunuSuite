@@ -15,6 +15,9 @@ import { PaymentsService } from './payments/payments.service';
 import { DashboardController } from './dashboard/dashboard.controller';
 import { DashboardService } from './dashboard/dashboard.service';
 
+import { ReceiptController } from './receipt/receipt.controller';
+import { ReceiptService } from './receipt/receipt.service';
+
 @Module({
   controllers: [
     CategoriesController,
@@ -22,6 +25,7 @@ import { DashboardService } from './dashboard/dashboard.service';
     SalesController,
     PaymentsController,
     DashboardController,
+    ReceiptController,
   ],
   providers: [
     CategoriesService,
@@ -29,6 +33,7 @@ import { DashboardService } from './dashboard/dashboard.service';
     SalesService,
     PaymentsService,
     DashboardService,
+    ReceiptService,
   ],
 })
 export class CommerceModule {}
