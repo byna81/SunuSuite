@@ -13,6 +13,8 @@ export class PaymentsController {
       method: string;
       amount: number;
       status?: string;
+      reference?: string;
+      phoneNumber?: string;
     },
   ) {
     return this.paymentsService.create(body);
@@ -21,5 +23,10 @@ export class PaymentsController {
   @Get()
   findBySale(@Query('saleId') saleId: string) {
     return this.paymentsService.findBySale(saleId);
+  }
+
+  @Get('methods/list')
+  getMethods() {
+    return this.paymentsService.getMethods();
   }
 }
