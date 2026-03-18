@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
@@ -50,21 +50,22 @@ export class SalesService {
         });
       }
 
-      const sale = await tx.sale.create({
+      return tx.sale.create({
         data: {
           tenantId: data.tenantId,
           total,
+          status: 'unpaid',
           items: {
             create: itemsData,
           },
         },
         include: {
-          items: true,
+          items: {
+            include: { product: true },
+          },
           payments: true,
         },
       });
-
-      return sale;
     });
   }
 
@@ -94,6 +95,32 @@ export class SalesService {
         },
         payments: true,
       },
+    });
+  }
+
+  async syncStatus(id: string) {
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { payments: true },
+    });
+
+    if (!sale) {
+      throw new NotFoundException(`Sale ${id} introuvable`);
+    }
+
+    const paid = (sale.payments ?? []).reduce((sum, p) => sum + Number(p.amount), 0);
+
+    let status = 'unpaid';
+    if (paid > 0 && paid < Number(sale.total)) {
+      status = 'partial';
+    } else if (paid >= Number(sale.total)) {
+      status = 'paid';
+    }
+
+    return this.prisma.sale.update({
+      where: { id },
+      data: { status },
+      include: { payments: true, items: true },
     });
   }
 }
