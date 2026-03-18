@@ -18,6 +18,9 @@ import { DashboardService } from './dashboard/dashboard.service';
 import { ReceiptController } from './receipt/receipt.controller';
 import { ReceiptService } from './receipt/receipt.service';
 
+import { MobileMoneyController } from './mobile-money/mobile-money.controller';
+import { MobileMoneyService } from './mobile-money/mobile-money.service';
+
 @Module({
   controllers: [
     CategoriesController,
@@ -26,6 +29,7 @@ import { ReceiptService } from './receipt/receipt.service';
     PaymentsController,
     DashboardController,
     ReceiptController,
+    MobileMoneyController,
   ],
   providers: [
     CategoriesService,
@@ -34,6 +38,7 @@ import { ReceiptService } from './receipt/receipt.service';
     PaymentsService,
     DashboardService,
     ReceiptService,
+    MobileMoneyService,
   ],
 })
 export class CommerceModule {}
