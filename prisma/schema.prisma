@@ -101,3 +101,14 @@ model Payment {
 
   sale      Sale     @relation(fields: [saleId], references: [id])
 }
+
+model Sale {
+  id        String     @id @default(uuid())
+  tenantId  String
+  total     Float
+  status    String     @default("unpaid")
+  createdAt DateTime   @default(now())
+
+  items     SaleItem[]
+  payments  Payment[]
+}
