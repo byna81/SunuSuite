@@ -85,16 +85,15 @@ model StockMovement {
 }
 
 model Sale {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   tenantId  String
   total     Float
-  status    String   @default("unpaid")
-  createdAt DateTime @default(now())
+  status    String     @default("unpaid")
+  createdAt DateTime   @default(now())
 
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
   items     SaleItem[]
   payments  Payment[]
-
-  // ✅ AJOUT CORRECT
   returns   SaleReturn[]
 }
 
