@@ -32,10 +32,14 @@ type CartItem = {
   barcode?: string | null;
 };
 
+type CashierScreenProps = {
+  navigation: any;
+};
+
 const API_BASE = 'https://sunusuite-production.up.railway.app/api/v1';
 const TENANT_ID = 'b1a2c3d4-e5f6-7890-abcd-123456789000';
 
-export default function CashierScreen() {
+export default function CashierScreen({ navigation }: CashierScreenProps) {
   const [barcode, setBarcode] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loadingScan, setLoadingScan] = useState(false);
@@ -54,14 +58,10 @@ export default function CashierScreen() {
       `${API_BASE}/commerce/products/barcode/${encodeURIComponent(value.trim())}`
     );
 
-    if (!response.ok) {
-      throw new Error('Produit non trouvé');
-    }
-
     const data = await response.json();
 
-    if (!data || !data.id) {
-      throw new Error('Produit non trouvé');
+    if (!response.ok || !data?.id) {
+      throw new Error(data?.message ?? 'Produit non trouvé');
     }
 
     if (data.tenantId !== TENANT_ID) {
@@ -159,6 +159,7 @@ export default function CashierScreen() {
 
   const clearCart = () => {
     if (cart.length === 0) return;
+
     Alert.alert('Vider le panier', 'Supprimer tous les articles ?', [
       { text: 'Annuler', style: 'cancel' },
       { text: 'Vider', style: 'destructive', onPress: () => setCart([]) },
@@ -196,16 +197,13 @@ export default function CashierScreen() {
         throw new Error(data?.message ?? 'Erreur lors de la vente');
       }
 
-      Alert.alert(
-        'Vente créée',
-        `Vente enregistrée.\nTotal: ${data.total} FCFA`,
-        [
-          {
-            text: 'OK',
-            onPress: () => setCart([]),
-          },
-        ]
-      );
+      setCart([]);
+
+      navigation.navigate('Payment', {
+        saleId: data.id,
+        total: Number(data.total),
+        alreadyPaid: 0,
+      });
     } catch (error: any) {
       Alert.alert('Encaissement impossible', error?.message ?? 'Erreur inconnue');
     } finally {
@@ -457,6 +455,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
   },
   cartMain: {
     flex: 1,
