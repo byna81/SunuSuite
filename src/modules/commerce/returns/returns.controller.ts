@@ -6,7 +6,7 @@ export class ReturnsController {
   constructor(private readonly returnsService: ReturnsService) {}
 
   @Post()
-  createReturn(
+  create(
     @Body()
     body: {
       saleId: string;
@@ -16,8 +16,8 @@ export class ReturnsController {
         quantity: number;
         restock?: boolean;
       }[];
-      reason?: string;
       refundMethod: string;
+      reason?: string;
     },
   ) {
     return this.returnsService.createReturn(body);
