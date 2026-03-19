@@ -1,96 +1,63 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
 export class ReturnsService {
   constructor(private prisma: PrismaService) {}
 
-  async createReturn(data: {
+  async create(data: {
     saleId: string;
-    tenantId: string;
-    items: {
-      productId: string;
-      quantity: number;
-      restock?: boolean;
-    }[];
-    reason?: string;
-    refundMethod: string;
+    productId: string;
+    quantity: number;
   }) {
+    if (!data.quantity || data.quantity <= 0) {
+      throw new BadRequestException('Quantité invalide');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const sale = await tx.sale.findUnique({
         where: { id: data.saleId },
-        include: { items: true },
       });
 
-      if (!sale) {
-        throw new NotFoundException('Sale introuvable');
-      }
+      if (!sale) throw new NotFoundException('Vente introuvable');
 
-      let totalRefund = 0;
-      const returnItemsData: {
-        productId: string;
-        quantity: number;
-        unitPrice: number;
-        lineTotal: number;
-        restock: boolean;
-      }[] = [];
-
-      for (const item of data.items) {
-        const saleItem = sale.items.find((i) => i.productId === item.productId);
-
-        if (!saleItem) {
-          throw new BadRequestException('Produit non trouvé dans la vente');
-        }
-
-        if (item.quantity > saleItem.quantity) {
-          throw new BadRequestException('Quantité invalide');
-        }
-
-        const lineTotal = Number(saleItem.price) * item.quantity;
-        totalRefund += lineTotal;
-
-        if (item.restock !== false) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: {
-                increment: item.quantity,
-              },
-            },
-          });
-        }
-
-        returnItemsData.push({
-          productId: item.productId,
-          quantity: item.quantity,
-          unitPrice: Number(saleItem.price),
-          lineTotal,
-          restock: item.restock ?? true,
-        });
-      }
-
-      const saleReturn = await tx.saleReturn.create({
-        data: {
+      const item = await tx.saleItem.findFirst({
+        where: {
           saleId: data.saleId,
-          tenantId: data.tenantId,
-          totalRefund,
-          reason: data.reason,
-          items: {
-            create: returnItemsData,
-          },
+          productId: data.productId,
         },
-        include: { items: true },
       });
 
-      await tx.refund.create({
+      if (!item) throw new NotFoundException('Produit non trouvé dans la vente');
+
+      if (data.quantity > item.quantity) {
+        throw new BadRequestException('Quantité supérieure à la vente');
+      }
+
+      // 🔥 RESTOCK
+      await tx.product.update({
+        where: { id: data.productId },
         data: {
-          saleReturnId: saleReturn.id,
-          method: data.refundMethod,
-          amount: totalRefund,
+          stock: { increment: data.quantity },
         },
       });
 
-      return saleReturn;
+      // 🔥 MOUVEMENT
+      await tx.stockMovement.create({
+        data: {
+          productId: data.productId,
+          type: 'RETURN',
+          quantity: data.quantity,
+        },
+      });
+
+      return {
+        message: 'Retour effectué',
+      };
     });
   }
 }
