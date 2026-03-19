@@ -1,20 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { SalesService } from './sales.service';
 
 @Controller('commerce/sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
-  /**
-   * 🔥 Créer une vente (caisse)
-   */
   @Post()
   create(
     @Body()
@@ -29,17 +19,11 @@ export class SalesController {
     return this.salesService.create(body);
   }
 
-  /**
-   * 🔥 Historique des ventes (caissière / manager)
-   */
   @Get()
   findAll(@Query('tenantId') tenantId: string) {
     return this.salesService.findAll(tenantId);
   }
 
-  /**
-   * 🔥 Détail d'une vente
-   */
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.salesService.findOne(id);
