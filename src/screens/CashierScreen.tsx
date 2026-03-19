@@ -34,14 +34,21 @@ type CartItem = {
 
 type CashierScreenProps = {
   navigation: any;
+  route?: {
+    params?: {
+      restoredCart?: CartItem[];
+    };
+  };
 };
 
 const API_BASE = 'https://sunusuite-production.up.railway.app/api/v1';
 const TENANT_ID = 'b1a2c3d4-e5f6-7890-abcd-123456789000';
 
-export default function CashierScreen({ navigation }: CashierScreenProps) {
+export default function CashierScreen({ navigation, route }: CashierScreenProps) {
   const [barcode, setBarcode] = useState('');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(
+    route?.params?.restoredCart ?? []
+  );
   const [loadingScan, setLoadingScan] = useState(false);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
 
@@ -292,6 +299,19 @@ export default function CashierScreen({ navigation }: CashierScreenProps) {
             )}
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={styles.cameraBtn}
+          onPress={() =>
+            navigation.navigate('CameraScanner', {
+              cart,
+              tenantId: TENANT_ID,
+              apiBase: API_BASE,
+            })
+          }
+        >
+          <Text style={styles.cameraBtnText}>Ouvrir la caméra</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.listHeader}>
@@ -402,6 +422,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+  cameraBtn: {
+    marginTop: 10,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
   listHeader: {
     marginTop: 14,
     marginBottom: 8,
@@ -421,9 +454,7 @@ const styles = StyleSheet.create({
     color: '#b42318',
   },
   listContent: {
-    paddingHorizontal: 16,
     paddingBottom: 120,
-    gap: 10,
   },
   emptyListContainer: {
     flexGrow: 1,
@@ -436,6 +467,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
+    marginHorizontal: 16,
   },
   emptyTitle: {
     fontSize: 18,
