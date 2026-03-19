@@ -16,6 +16,7 @@ model Tenant {
   vehicles   Vehicle[]
   categories Category[]
   products   Product[]
+  sales      Sale[]
 }
 
 model User {
@@ -54,20 +55,22 @@ model Category {
 }
 
 model Product {
-  id         String    @id @default(uuid())
+  id         String           @id @default(uuid())
   tenantId   String
   categoryId String?
   name       String
   price      Float
-  stock      Int       @default(0)
-  isActive   Boolean   @default(true)
+  stock      Int              @default(0)
+  isActive   Boolean          @default(true)
   barcode    String?
-  createdAt  DateTime  @default(now())
+  createdAt  DateTime         @default(now())
 
-  category   Category? @relation(fields: [categoryId], references: [id])
+  tenant     Tenant           @relation(fields: [tenantId], references: [id])
+  category   Category?        @relation(fields: [categoryId], references: [id])
   items      SaleItem[]
   movements  StockMovement[]
 
+  @@unique([tenantId, name])
   @@unique([tenantId, barcode])
 }
 
