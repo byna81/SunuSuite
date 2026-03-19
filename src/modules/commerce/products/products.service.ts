@@ -12,6 +12,7 @@ export class ProductsService {
     price: number;
     stock?: number;
     isActive?: boolean;
+    barcode?: string;
   }) {
     return this.prisma.product.create({
       data: {
@@ -21,6 +22,7 @@ export class ProductsService {
         price: Number(data.price),
         stock: data.stock ?? 0,
         isActive: data.isActive ?? true,
+        barcode: data.barcode ?? null,
       },
     });
   }
@@ -30,6 +32,13 @@ export class ProductsService {
       where: { tenantId },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findByBarcode(barcode: string) {
+    return this.prisma.product.findFirst({
+      where: { barcode },
+      include: { category: true },
     });
   }
 }
