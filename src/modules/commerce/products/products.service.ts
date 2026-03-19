@@ -15,37 +15,25 @@ export class ProductsService {
     name: string;
     price: number;
     stock?: number;
-    isActive?: boolean;
     barcode?: string;
   }) {
-    if (!data.tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
-    if (!data.name?.trim()) {
-      throw new BadRequestException('Nom du produit obligatoire');
-    }
-
-    if (!data.price || Number(data.price) <= 0) {
+    if (!data.tenantId) throw new BadRequestException('tenantId obligatoire');
+    if (!data.name?.trim()) throw new BadRequestException('Nom obligatoire');
+    if (!data.price || data.price <= 0)
       throw new BadRequestException('Prix invalide');
-    }
-
-    if (data.stock !== undefined && Number(data.stock) < 0) {
-      throw new BadRequestException('Stock invalide');
-    }
 
     const barcode = data.barcode?.trim() || null;
 
     if (barcode) {
-      const existingBarcode = await this.prisma.product.findFirst({
+      const exists = await this.prisma.product.findFirst({
         where: {
           tenantId: data.tenantId,
           barcode,
         },
       });
 
-      if (existingBarcode) {
-        throw new BadRequestException('Ce code-barres existe déjà pour ce commerce');
+      if (exists) {
+        throw new BadRequestException('Barcode déjà utilisé');
       }
     }
 
@@ -56,20 +44,12 @@ export class ProductsService {
         name: data.name.trim(),
         price: Number(data.price),
         stock: data.stock ?? 0,
-        isActive: data.isActive ?? true,
         barcode,
-      },
-      include: {
-        category: true,
       },
     });
   }
 
   async findAll(tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
     return this.prisma.product.findMany({
       where: { tenantId },
       include: { category: true },
@@ -83,76 +63,34 @@ export class ProductsService {
       include: { category: true },
     });
 
-    if (!product) {
-      throw new NotFoundException('Produit introuvable');
-    }
+    if (!product) throw new NotFoundException('Produit introuvable');
 
     return product;
   }
 
   async findByBarcode(barcode: string, tenantId?: string) {
-    if (!barcode?.trim()) {
-      throw new BadRequestException('barcode obligatoire');
-    }
-
     const product = await this.prisma.product.findFirst({
       where: {
-        barcode: barcode.trim(),
+        barcode,
         isActive: true,
         ...(tenantId ? { tenantId } : {}),
       },
-      select: {
-        id: true,
-        tenantId: true,
-        categoryId: true,
-        name: true,
-        price: true,
-        stock: true,
-        barcode: true,
-        isActive: true,
-      },
     });
 
-    if (!product) {
-      throw new NotFoundException('Produit non trouvé');
-    }
+    if (!product) throw new NotFoundException('Produit non trouvé');
 
     return product;
   }
 
   async search(tenantId: string, q: string) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
-    if (!q?.trim()) {
-      throw new BadRequestException('Paramètre q obligatoire');
-    }
-
     return this.prisma.product.findMany({
       where: {
         tenantId,
         isActive: true,
         OR: [
-          {
-            name: {
-              contains: q.trim(),
-              mode: 'insensitive',
-            },
-          },
-          {
-            barcode: {
-              contains: q.trim(),
-              mode: 'insensitive',
-            },
-          },
+          { name: { contains: q, mode: 'insensitive' } },
+          { barcode: { contains: q } },
         ],
-      },
-      include: {
-        category: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
       },
       take: 20,
     });
@@ -164,8 +102,8 @@ export class ProductsService {
       name?: string;
       price?: number;
       stock?: number;
-      categoryId?: string | null;
-      barcode?: string | null;
+      categoryId?: string;
+      barcode?: string;
       isActive?: boolean;
     },
   ) {
@@ -173,64 +111,27 @@ export class ProductsService {
       where: { id },
     });
 
-    if (!product) {
-      throw new NotFoundException('Produit introuvable');
-    }
+    if (!product) throw new NotFoundException('Produit introuvable');
 
-    if (data.price !== undefined && Number(data.price) <= 0) {
-      throw new BadRequestException('Prix invalide');
-    }
-
-    if (data.stock !== undefined && Number(data.stock) < 0) {
-      throw new BadRequestException('Stock invalide');
-    }
-
-    const barcode =
-      data.barcode === undefined
-        ? undefined
-        : data.barcode === null
-        ? null
-        : data.barcode.trim();
-
-    if (barcode) {
-      const existingBarcode = await this.prisma.product.findFirst({
+    if (data.barcode) {
+      const exists = await this.prisma.product.findFirst({
         where: {
           tenantId: product.tenantId,
-          barcode,
+          barcode: data.barcode,
           id: { not: id },
         },
       });
 
-      if (existingBarcode) {
-        throw new BadRequestException('Ce code-barres existe déjà pour ce commerce');
-      }
+      if (exists) throw new BadRequestException('Barcode déjà utilisé');
     }
 
     return this.prisma.product.update({
       where: { id },
-      data: {
-        ...(data.name !== undefined ? { name: data.name.trim() } : {}),
-        ...(data.price !== undefined ? { price: Number(data.price) } : {}),
-        ...(data.stock !== undefined ? { stock: Number(data.stock) } : {}),
-        ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
-        ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
-        ...(barcode !== undefined ? { barcode } : {}),
-      },
-      include: {
-        category: true,
-      },
+      data,
     });
   }
 
   async deactivate(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException('Produit introuvable');
-    }
-
     return this.prisma.product.update({
       where: { id },
       data: { isActive: false },
@@ -238,17 +139,34 @@ export class ProductsService {
   }
 
   async activate(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!product) {
-      throw new NotFoundException('Produit introuvable');
-    }
-
     return this.prisma.product.update({
       where: { id },
       data: { isActive: true },
+    });
+  }
+
+  // 🔥 AJOUT STOCK (entrée marchandise)
+  async addStock(productId: string, quantity: number) {
+    if (!quantity || quantity <= 0)
+      throw new BadRequestException('Quantité invalide');
+
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id: productId },
+        data: {
+          stock: { increment: quantity },
+        },
+      });
+
+      await tx.stockMovement.create({
+        data: {
+          productId,
+          type: 'IN',
+          quantity,
+        },
+      });
+
+      return product;
     });
   }
 }
