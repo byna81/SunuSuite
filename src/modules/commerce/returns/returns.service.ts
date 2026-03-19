@@ -24,6 +24,14 @@ export class ReturnsService {
       throw new BadRequestException('saleId et tenantId obligatoires');
     }
 
+    if (!data.items || data.items.length === 0) {
+      throw new BadRequestException('Au moins un article est obligatoire');
+    }
+
+    if (!data.refundMethod?.trim()) {
+      throw new BadRequestException('refundMethod obligatoire');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       let totalRefund = 0;
 
@@ -42,10 +50,33 @@ export class ReturnsService {
           tenantId: data.tenantId,
           totalRefund: 0,
           reason: data.reason,
+          status: 'completed',
         },
       });
 
       for (const item of data.items) {
+        if (!item.productId) {
+          throw new BadRequestException('productId obligatoire');
+        }
+
+        if (!item.quantity || item.quantity <= 0) {
+          throw new BadRequestException('Quantité invalide');
+        }
+
+        const saleItem = sale.items.find(
+          (saleItemRow) => saleItemRow.productId === item.productId,
+        );
+
+        if (!saleItem) {
+          throw new NotFoundException('Produit non trouvé dans la vente');
+        }
+
+        if (item.quantity > saleItem.quantity) {
+          throw new BadRequestException(
+            'Quantité supérieure à la quantité vendue',
+          );
+        }
+
         const product = await tx.product.findUnique({
           where: { id: item.productId },
         });
@@ -54,7 +85,7 @@ export class ReturnsService {
           throw new NotFoundException('Produit introuvable');
         }
 
-        const lineTotal = product.price * item.quantity;
+        const lineTotal = Number(saleItem.price) * item.quantity;
         totalRefund += lineTotal;
 
         await tx.saleReturnItem.create({
@@ -62,7 +93,7 @@ export class ReturnsService {
             saleReturnId: saleReturn.id,
             productId: product.id,
             quantity: item.quantity,
-            unitPrice: product.price,
+            unitPrice: Number(saleItem.price),
             lineTotal,
             restock: item.restock ?? true,
           },
@@ -91,8 +122,9 @@ export class ReturnsService {
       await tx.refund.create({
         data: {
           saleReturnId: saleReturn.id,
-          method: data.refundMethod,
+          method: data.refundMethod.trim(),
           amount: totalRefund,
+          status: 'paid',
         },
       });
 
