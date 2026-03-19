@@ -37,8 +37,20 @@ export class ProductsService {
 
   findByBarcode(barcode: string) {
     return this.prisma.product.findFirst({
-      where: { barcode },
-      include: { category: true },
+      where: {
+        barcode,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        categoryId: true,
+        name: true,
+        price: true,
+        stock: true,
+        barcode: true,
+        isActive: true,
+      },
     });
   }
 }
