@@ -61,7 +61,7 @@ model Product {
   price      Float
   stock      Int       @default(0)
   isActive   Boolean   @default(true)
-  barcode    String?   @unique
+  barcode    String?
   createdAt  DateTime  @default(now())
 
   tenant     Tenant    @relation(fields: [tenantId], references: [id])
@@ -69,6 +69,7 @@ model Product {
   items      SaleItem[]
 
   @@unique([tenantId, name])
+  @@unique([tenantId, barcode])
 }
 
 model Sale {
