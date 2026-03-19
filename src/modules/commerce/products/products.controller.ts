@@ -11,32 +11,24 @@ import { ProductsService } from './products.service';
 
 @Controller('commerce/products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(private readonly service: ProductsService) {}
 
   @Post()
-  create(
-    @Body()
-    body: {
-      tenantId: string;
-      categoryId?: string;
-      name: string;
-      price: number;
-      stock?: number;
-      isActive?: boolean;
-      barcode?: string;
-    },
-  ) {
-    return this.productsService.create(body);
+  create(@Body() body: any) {
+    return this.service.create(body);
   }
 
   @Get()
   findAll(@Query('tenantId') tenantId: string) {
-    return this.productsService.findAll(tenantId);
+    return this.service.findAll(tenantId);
   }
 
   @Get('search')
-  search(@Query('tenantId') tenantId: string, @Query('q') q: string) {
-    return this.productsService.search(tenantId, q);
+  search(
+    @Query('tenantId') tenantId: string,
+    @Query('q') q: string,
+  ) {
+    return this.service.search(tenantId, q);
   }
 
   @Get('barcode/:barcode')
@@ -44,37 +36,35 @@ export class ProductsController {
     @Param('barcode') barcode: string,
     @Query('tenantId') tenantId?: string,
   ) {
-    return this.productsService.findByBarcode(barcode, tenantId);
+    return this.service.findByBarcode(barcode, tenantId);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+    return this.service.findOne(id);
   }
 
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body()
-    body: {
-      name?: string;
-      price?: number;
-      stock?: number;
-      categoryId?: string | null;
-      barcode?: string | null;
-      isActive?: boolean;
-    },
-  ) {
-    return this.productsService.update(id, body);
+  update(@Param('id') id: string, @Body() body: any) {
+    return this.service.update(id, body);
   }
 
   @Patch(':id/deactivate')
   deactivate(@Param('id') id: string) {
-    return this.productsService.deactivate(id);
+    return this.service.deactivate(id);
   }
 
   @Patch(':id/activate')
   activate(@Param('id') id: string) {
-    return this.productsService.activate(id);
+    return this.service.activate(id);
+  }
+
+  // 🔥 AJOUT STOCK
+  @Post(':id/stock/add')
+  addStock(
+    @Param('id') id: string,
+    @Body() body: { quantity: number },
+  ) {
+    return this.service.addStock(id, body.quantity);
   }
 }
