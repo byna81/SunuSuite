@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  FlatList,
+  Keyboard,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -8,335 +10,332 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 
-type PaymentMethod = 'cash' | 'wave' | 'orange_money' | 'card';
+type ProductLookup = {
+  id: string;
+  tenantId: string;
+  categoryId?: string | null;
+  name: string;
+  price: number;
+  stock: number;
+  barcode?: string | null;
+  isActive: boolean;
+};
 
-type PaymentScreenProps = {
-  saleId: string;
-  total: number;
-  alreadyPaid?: number;
-  onDone?: () => void;
+type CartItem = {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  stock: number;
+  barcode?: string | null;
+};
+
+type CashierScreenProps = {
+  navigation: any;
 };
 
 const API_BASE = 'https://sunusuite-production.up.railway.app/api/v1';
+const TENANT_ID = 'b1a2c3d4-e5f6-7890-abcd-123456789000';
 
-export default function PaymentScreen({
-  saleId,
-  total,
-  alreadyPaid = 0,
-  onDone,
-}: PaymentScreenProps) {
-  const [method, setMethod] = useState<PaymentMethod>('cash');
-  const [amount, setAmount] = useState(String(Math.max(total - alreadyPaid, 0)));
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [reference, setReference] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [lastPaymentId, setLastPaymentId] = useState<string | null>(null);
-  const [paidSoFar, setPaidSoFar] = useState(alreadyPaid);
+export default function CashierScreen({ navigation }: CashierScreenProps) {
+  const [barcode, setBarcode] = useState('');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [loadingScan, setLoadingScan] = useState(false);
+  const [loadingCheckout, setLoadingCheckout] = useState(false);
 
-  const balance = useMemo(() => {
-    return Math.max(total - paidSoFar, 0);
-  }, [total, paidSoFar]);
+  const total = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  }, [cart]);
 
-  const parsedAmount = useMemo(() => {
-    const n = Number(amount);
-    return Number.isFinite(n) ? n : 0;
-  }, [amount]);
+  const totalItems = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.quantity, 0);
+  }, [cart]);
 
-  const isMobileMoney = method === 'wave' || method === 'orange_money';
-
-  const resetFieldsAfterPayment = () => {
-    setReference('');
-    if (!isMobileMoney) {
-      setPhoneNumber('');
-    }
-  };
-
-  const createCashOrCardPayment = async () => {
-    const response = await fetch(`${API_BASE}/commerce/payments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        saleId,
-        method,
-        amount: parsedAmount,
-        reference: reference || undefined,
-        phoneNumber: phoneNumber || undefined,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.message ?? 'Paiement impossible');
-    }
-
-    return data;
-  };
-
-  const initiateMobileMoney = async () => {
-    const response = await fetch(`${API_BASE}/commerce/mobile-money/initiate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        saleId,
-        provider: method,
-        amount: parsedAmount,
-        phoneNumber,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.message ?? 'Initiation mobile money impossible');
-    }
-
-    return data;
-  };
-
-  const confirmPendingMobileMoney = async (paymentId: string) => {
+  const fetchProductByBarcode = async (value: string): Promise<ProductLookup> => {
     const response = await fetch(
-      `${API_BASE}/commerce/mobile-money/${paymentId}/confirm`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          providerRef: reference || `${method.toUpperCase()}-CONF-${Date.now()}`,
-        }),
-      }
+      `${API_BASE}/commerce/products/barcode/${encodeURIComponent(value.trim())}`
     );
 
     const data = await response.json();
 
-    if (!response.ok) {
-      throw new Error(data?.message ?? 'Confirmation impossible');
+    if (!response.ok || !data?.id) {
+      throw new Error(data?.message ?? 'Produit non trouvé');
+    }
+
+    if (data.tenantId !== TENANT_ID) {
+      throw new Error('Produit hors de votre commerce');
     }
 
     return data;
   };
 
-  const handleSubmitPayment = async () => {
-    if (balance <= 0) {
-      Alert.alert('Déjà soldé', 'Cette vente est déjà entièrement payée.');
-      return;
-    }
+  const addProductToCart = (product: ProductLookup) => {
+    setCart((prev) => {
+      const existing = prev.find((item) => item.productId === product.id);
 
-    if (!parsedAmount || parsedAmount <= 0) {
-      Alert.alert('Montant invalide', 'Entre un montant supérieur à 0.');
-      return;
-    }
-
-    if (parsedAmount > balance) {
-      Alert.alert(
-        'Montant trop élevé',
-        `Le reste à payer est de ${balance} FCFA.`
-      );
-      return;
-    }
-
-    if (isMobileMoney && !phoneNumber.trim()) {
-      Alert.alert('Numéro requis', 'Entre le numéro du client.');
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      if (method === 'cash' || method === 'card') {
-        const payment = await createCashOrCardPayment();
-
-        setPaidSoFar((prev) => prev + Number(payment.amount));
-        setLastPaymentId(payment.id ?? null);
-        resetFieldsAfterPayment();
-        setAmount(String(Math.max(balance - Number(payment.amount), 0)));
-
-        Alert.alert(
-          'Paiement enregistré',
-          `${method === 'cash' ? 'Espèces' : 'Carte'} : ${payment.amount} FCFA`
-        );
-
-        if (balance - Number(payment.amount) <= 0 && onDone) {
-          onDone();
+      if (existing) {
+        if (existing.quantity + 1 > existing.stock) {
+          Alert.alert('Stock insuffisant', `Stock disponible : ${existing.stock}`);
+          return prev;
         }
 
-        return;
+        return prev.map((item) =>
+          item.productId === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
       }
 
-      const pendingPayment = await initiateMobileMoney();
+      if (product.stock <= 0) {
+        Alert.alert('Rupture', 'Ce produit est en rupture de stock');
+        return prev;
+      }
 
-      setLastPaymentId(pendingPayment.paymentId ?? null);
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          name: product.name,
+          price: Number(product.price),
+          quantity: 1,
+          stock: Number(product.stock),
+          barcode: product.barcode ?? null,
+        },
+      ];
+    });
+  };
 
-      Alert.alert(
-        'Paiement initié',
-        `${method === 'wave' ? 'Wave' : 'Orange Money'} en attente.\nRéférence: ${pendingPayment.reference}`
-      );
+  const handleScanSubmit = async () => {
+    const value = barcode.trim();
+
+    if (!value) return;
+
+    try {
+      setLoadingScan(true);
+      Keyboard.dismiss();
+
+      const product = await fetchProductByBarcode(value);
+      addProductToCart(product);
+      setBarcode('');
     } catch (error: any) {
-      Alert.alert('Erreur', error?.message ?? 'Paiement impossible');
+      Alert.alert('Scan impossible', error?.message ?? 'Produit non trouvé');
     } finally {
-      setLoading(false);
+      setLoadingScan(false);
     }
   };
 
-  const handleConfirmPending = async () => {
-    if (!lastPaymentId) {
-      Alert.alert('Aucun paiement', 'Aucun paiement pending à confirmer.');
+  const increaseQty = (productId: string) => {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.productId !== productId) return item;
+
+        if (item.quantity + 1 > item.stock) {
+          Alert.alert('Stock insuffisant', `Stock disponible : ${item.stock}`);
+          return item;
+        }
+
+        return { ...item, quantity: item.quantity + 1 };
+      })
+    );
+  };
+
+  const decreaseQty = (productId: string) => {
+    setCart((prev) =>
+      prev
+        .map((item) =>
+          item.productId === productId
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
+    );
+  };
+
+  const removeItem = (productId: string) => {
+    setCart((prev) => prev.filter((item) => item.productId !== productId));
+  };
+
+  const clearCart = () => {
+    if (cart.length === 0) return;
+
+    Alert.alert('Vider le panier', 'Supprimer tous les articles ?', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Vider', style: 'destructive', onPress: () => setCart([]) },
+    ]);
+  };
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) {
+      Alert.alert('Panier vide', 'Ajoute au moins un produit');
       return;
     }
 
     try {
-      setLoading(true);
+      setLoadingCheckout(true);
 
-      const confirmed = await confirmPendingMobileMoney(lastPaymentId);
+      const payload = {
+        tenantId: TENANT_ID,
+        items: cart.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      };
 
-      setPaidSoFar((prev) => prev + Number(confirmed.amount));
-      setAmount(String(Math.max(balance - Number(confirmed.amount), 0)));
-      resetFieldsAfterPayment();
+      const response = await fetch(`${API_BASE}/commerce/sales`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
-      Alert.alert(
-        'Paiement confirmé',
-        `${confirmed.method} confirmé pour ${confirmed.amount} FCFA`
-      );
+      const data = await response.json();
 
-      if (balance - Number(confirmed.amount) <= 0 && onDone) {
-        onDone();
+      if (!response.ok) {
+        throw new Error(data?.message ?? 'Erreur lors de la vente');
       }
+
+      setCart([]);
+
+      navigation.navigate('Payment', {
+        saleId: data.id,
+        total: Number(data.total),
+        alreadyPaid: 0,
+      });
     } catch (error: any) {
-      Alert.alert('Erreur', error?.message ?? 'Confirmation impossible');
+      Alert.alert('Encaissement impossible', error?.message ?? 'Erreur inconnue');
     } finally {
-      setLoading(false);
+      setLoadingCheckout(false);
     }
   };
 
-  const MethodButton = ({
-    value,
-    label,
-  }: {
-    value: PaymentMethod;
-    label: string;
-  }) => {
-    const selected = method === value;
+  const renderItem = ({ item }: { item: CartItem }) => {
+    const lineTotal = item.price * item.quantity;
 
     return (
-      <TouchableOpacity
-        style={[styles.methodBtn, selected && styles.methodBtnSelected]}
-        onPress={() => setMethod(value)}
-      >
-        <Text
-          style={[styles.methodBtnText, selected && styles.methodBtnTextSelected]}
-        >
-          {label}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.cartItem}>
+        <View style={styles.cartMain}>
+          <Text style={styles.itemName}>{item.name}</Text>
+          <Text style={styles.itemMeta}>
+            {item.price} FCFA × {item.quantity}
+          </Text>
+          <Text style={styles.itemStock}>Stock: {item.stock}</Text>
+        </View>
+
+        <View style={styles.cartSide}>
+          <Text style={styles.lineTotal}>{lineTotal} FCFA</Text>
+
+          <View style={styles.qtyRow}>
+            <TouchableOpacity
+              style={styles.qtyBtn}
+              onPress={() => decreaseQty(item.productId)}
+            >
+              <Text style={styles.qtyBtnText}>−</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.qtyValue}>{item.quantity}</Text>
+
+            <TouchableOpacity
+              style={styles.qtyBtn}
+              onPress={() => increaseQty(item.productId)}
+            >
+              <Text style={styles.qtyBtnText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.removeBtn}
+            onPress={() => removeItem(item.productId)}
+          >
+            <Text style={styles.removeBtnText}>Supprimer</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Paiement</Text>
-        <Text style={styles.subtitle}>Choisis le moyen de paiement</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Caisse</Text>
+        <Text style={styles.subtitle}>
+          {totalItems} article(s) • {total} FCFA
+        </Text>
+      </View>
 
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total vente</Text>
-            <Text style={styles.summaryValue}>{total} FCFA</Text>
-          </View>
+      <View style={styles.scanBox}>
+        <Text style={styles.label}>Scanner ou saisir le code-barres</Text>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Déjà payé</Text>
-            <Text style={styles.summaryValue}>{paidSoFar} FCFA</Text>
-          </View>
+        <View style={styles.scanRow}>
+          <TextInput
+            value={barcode}
+            onChangeText={setBarcode}
+            placeholder="Ex: 6151234567890"
+            placeholderTextColor="#7b8190"
+            style={styles.input}
+            keyboardType="number-pad"
+            returnKeyType="done"
+            onSubmitEditing={handleScanSubmit}
+          />
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabelStrong}>Reste à payer</Text>
-            <Text style={styles.summaryValueStrong}>{balance} FCFA</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.scanBtn}
+            onPress={handleScanSubmit}
+            disabled={loadingScan}
+          >
+            {loadingScan ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.scanBtnText}>Ajouter</Text>
+            )}
+          </TouchableOpacity>
         </View>
+      </View>
 
-        <Text style={styles.sectionTitle}>Moyen de paiement</Text>
+      <View style={styles.listHeader}>
+        <Text style={styles.sectionTitle}>Panier</Text>
+        <TouchableOpacity onPress={clearCart}>
+          <Text style={styles.clearText}>Vider</Text>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.methodsGrid}>
-          <MethodButton value="cash" label="Espèces" />
-          <MethodButton value="wave" label="Wave" />
-          <MethodButton value="orange_money" label="Orange Money" />
-          <MethodButton value="card" label="Carte" />
+      <FlatList
+        data={cart}
+        keyExtractor={(item) => item.productId}
+        renderItem={renderItem}
+        contentContainerStyle={
+          cart.length === 0 ? styles.emptyListContainer : styles.listContent
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyBox}>
+            <Text style={styles.emptyTitle}>Aucun article</Text>
+            <Text style={styles.emptyText}>
+              Scanne un produit pour l’ajouter au panier.
+            </Text>
+          </View>
+        }
+      />
+
+      <View style={styles.footer}>
+        <View style={styles.totalBox}>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalValue}>{total} FCFA</Text>
         </View>
-
-        <Text style={styles.sectionTitle}>Montant</Text>
-        <TextInput
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="numeric"
-          style={styles.input}
-          placeholder="Montant"
-          placeholderTextColor="#7b8190"
-        />
-
-        {isMobileMoney && (
-          <>
-            <Text style={styles.sectionTitle}>Numéro client</Text>
-            <TextInput
-              value={phoneNumber}
-              onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
-              style={styles.input}
-              placeholder="Ex: 770000000"
-              placeholderTextColor="#7b8190"
-            />
-          </>
-        )}
-
-        <Text style={styles.sectionTitle}>Référence (optionnel)</Text>
-        <TextInput
-          value={reference}
-          onChangeText={setReference}
-          style={styles.input}
-          placeholder="Ex: TRX-001"
-          placeholderTextColor="#7b8190"
-        />
 
         <TouchableOpacity
-          style={[styles.primaryBtn, loading && styles.btnDisabled]}
-          onPress={handleSubmitPayment}
-          disabled={loading}
+          style={[styles.checkoutBtn, loadingCheckout && styles.checkoutBtnDisabled]}
+          onPress={handleCheckout}
+          disabled={loadingCheckout}
         >
-          {loading ? (
+          {loadingCheckout ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.primaryBtnText}>
-              {isMobileMoney ? 'Initier le paiement' : 'Valider le paiement'}
-            </Text>
+            <Text style={styles.checkoutBtnText}>Encaisser</Text>
           )}
         </TouchableOpacity>
-
-        {isMobileMoney && (
-          <TouchableOpacity
-            style={[styles.secondaryBtn, loading && styles.btnDisabled]}
-            onPress={handleConfirmPending}
-            disabled={loading}
-          >
-            <Text style={styles.secondaryBtnText}>Confirmer le paiement pending</Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>Logique actuelle</Text>
-          <Text style={styles.infoText}>
-            - Cash / Carte : paiement direct{'\n'}
-            - Wave / Orange Money : création en pending puis confirmation{'\n'}
-            - Paiement partiel autorisé tant que le reste à payer est positif
-          </Text>
-        </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -346,141 +345,225 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f7fb',
   },
-  content: {
-    padding: 16,
-    paddingBottom: 36,
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '700',
     color: '#101828',
   },
   subtitle: {
     marginTop: 4,
-    marginBottom: 16,
     fontSize: 14,
     color: '#667085',
   },
-  summaryCard: {
+  scanBox: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    padding: 14,
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 18,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  summaryLabel: {
-    fontSize: 15,
-    color: '#475467',
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#101828',
-  },
-  summaryLabelStrong: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#101828',
-  },
-  summaryValueStrong: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#16a34a',
-  },
-  sectionTitle: {
-    marginTop: 8,
-    marginBottom: 8,
-    fontSize: 15,
-    fontWeight: '700',
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#344054',
+    marginBottom: 10,
   },
-  methodsGrid: {
+  scanRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 8,
-  },
-  methodBtn: {
-    minWidth: '47%',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#d0d5dd',
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  methodBtnSelected: {
-    backgroundColor: '#111827',
-    borderColor: '#111827',
-  },
-  methodBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#101828',
-  },
-  methodBtnTextSelected: {
-    color: '#fff',
   },
   input: {
+    flex: 1,
     height: 52,
     borderWidth: 1,
     borderColor: '#d0d5dd',
     borderRadius: 12,
-    backgroundColor: '#fff',
     paddingHorizontal: 14,
     fontSize: 16,
     color: '#101828',
-    marginBottom: 8,
+    backgroundColor: '#fff',
   },
-  primaryBtn: {
+  scanBtn: {
+    minWidth: 110,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  scanBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  listHeader: {
+    marginTop: 14,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#101828',
+  },
+  clearText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#b42318',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 120,
+    gap: 10,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 120,
+  },
+  emptyBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#101828',
+  },
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#667085',
+    textAlign: 'center',
+  },
+  cartItem: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
+  },
+  cartMain: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#101828',
+  },
+  itemMeta: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#475467',
+  },
+  itemStock: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#667085',
+  },
+  cartSide: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  lineTotal: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#101828',
+  },
+  qtyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 8,
+  },
+  qtyBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#eaecf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyBtnText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#101828',
+    lineHeight: 22,
+  },
+  qtyValue: {
+    minWidth: 18,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#101828',
+  },
+  removeBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: '#fef3f2',
+  },
+  removeBtnText: {
+    color: '#b42318',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#eaecf0',
+  },
+  totalBox: {
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#475467',
+  },
+  totalValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#101828',
+  },
+  checkoutBtn: {
     height: 54,
     borderRadius: 14,
     backgroundColor: '#16a34a',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
   },
-  primaryBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  secondaryBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: '#111827',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  secondaryBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  btnDisabled: {
+  checkoutBtnDisabled: {
     opacity: 0.7,
   },
-  infoBox: {
-    marginTop: 18,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-  },
-  infoTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#101828',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#475467',
+  checkoutBtnText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
   },
 });
