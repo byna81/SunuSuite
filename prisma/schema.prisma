@@ -64,12 +64,21 @@ model Product {
   barcode    String?
   createdAt  DateTime  @default(now())
 
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
   category   Category? @relation(fields: [categoryId], references: [id])
   items      SaleItem[]
+  movements  StockMovement[]
 
-  @@unique([tenantId, name])
   @@unique([tenantId, barcode])
+}
+
+model StockMovement {
+  id         String   @id @default(uuid())
+  productId  String
+  type       String
+  quantity   Int
+  createdAt  DateTime @default(now())
+
+  product    Product  @relation(fields: [productId], references: [id])
 }
 
 model Sale {
