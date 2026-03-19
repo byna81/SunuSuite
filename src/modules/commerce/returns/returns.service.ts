@@ -9,55 +9,101 @@ import { PrismaService } from '../../../prisma/prisma.service';
 export class ReturnsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: {
+  async createReturn(data: {
     saleId: string;
-    productId: string;
-    quantity: number;
+    tenantId: string;
+    items: {
+      productId: string;
+      quantity: number;
+      restock?: boolean;
+    }[];
+    refundMethod: string;
+    reason?: string;
   }) {
-    if (!data.quantity || data.quantity <= 0) {
-      throw new BadRequestException('Quantité invalide');
+    if (!data.saleId || !data.tenantId) {
+      throw new BadRequestException('saleId et tenantId obligatoires');
     }
 
     return this.prisma.$transaction(async (tx) => {
+      let totalRefund = 0;
+
       const sale = await tx.sale.findUnique({
         where: { id: data.saleId },
+        include: { items: true },
       });
 
-      if (!sale) throw new NotFoundException('Vente introuvable');
-
-      const item = await tx.saleItem.findFirst({
-        where: {
-          saleId: data.saleId,
-          productId: data.productId,
-        },
-      });
-
-      if (!item) throw new NotFoundException('Produit non trouvé dans la vente');
-
-      if (data.quantity > item.quantity) {
-        throw new BadRequestException('Quantité supérieure à la vente');
+      if (!sale) {
+        throw new NotFoundException('Vente introuvable');
       }
 
-      // 🔥 RESTOCK
-      await tx.product.update({
-        where: { id: data.productId },
+      const saleReturn = await tx.saleReturn.create({
         data: {
-          stock: { increment: data.quantity },
+          saleId: data.saleId,
+          tenantId: data.tenantId,
+          totalRefund: 0,
+          reason: data.reason,
         },
       });
 
-      // 🔥 MOUVEMENT
-      await tx.stockMovement.create({
+      for (const item of data.items) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        if (!product) {
+          throw new NotFoundException('Produit introuvable');
+        }
+
+        const lineTotal = product.price * item.quantity;
+        totalRefund += lineTotal;
+
+        await tx.saleReturnItem.create({
+          data: {
+            saleReturnId: saleReturn.id,
+            productId: product.id,
+            quantity: item.quantity,
+            unitPrice: product.price,
+            lineTotal,
+            restock: item.restock ?? true,
+          },
+        });
+
+        if (item.restock ?? true) {
+          await tx.product.update({
+            where: { id: product.id },
+            data: {
+              stock: {
+                increment: item.quantity,
+              },
+            },
+          });
+
+          await tx.stockMovement.create({
+            data: {
+              productId: product.id,
+              type: 'RETURN',
+              quantity: item.quantity,
+            },
+          });
+        }
+      }
+
+      await tx.refund.create({
         data: {
-          productId: data.productId,
-          type: 'RETURN',
-          quantity: data.quantity,
+          saleReturnId: saleReturn.id,
+          method: data.refundMethod,
+          amount: totalRefund,
         },
       });
 
-      return {
-        message: 'Retour effectué',
-      };
+      return tx.saleReturn.update({
+        where: { id: saleReturn.id },
+        data: { totalRefund },
+        include: {
+          items: true,
+          refunds: true,
+        },
+      });
     });
   }
 }
