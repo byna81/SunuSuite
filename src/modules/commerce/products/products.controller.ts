@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -11,16 +12,11 @@ import { ProductsService } from './products.service';
 
 @Controller('commerce/products')
 export class ProductsController {
-  constructor(private readonly service: ProductsService) {}
-
-  @Post()
-  create(@Body() body: any) {
-    return this.service.create(body);
-  }
+  constructor(private readonly productsService: ProductsService) {}
 
   @Get()
   findAll(@Query('tenantId') tenantId: string) {
-    return this.service.findAll(tenantId);
+    return this.productsService.findAll(tenantId);
   }
 
   @Get('search')
@@ -28,43 +24,34 @@ export class ProductsController {
     @Query('tenantId') tenantId: string,
     @Query('q') q: string,
   ) {
-    return this.service.search(tenantId, q);
+    return this.productsService.search(tenantId, q);
   }
 
   @Get('barcode/:barcode')
   findByBarcode(
     @Param('barcode') barcode: string,
-    @Query('tenantId') tenantId?: string,
+    @Query('tenantId') tenantId: string,
   ) {
-    return this.service.findByBarcode(barcode, tenantId);
+    return this.productsService.findByBarcode(tenantId, barcode);
   }
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+    return this.productsService.findOne(id);
+  }
+
+  @Post()
+  create(@Body() body: any) {
+    return this.productsService.create(body);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() body: any) {
-    return this.service.update(id, body);
+    return this.productsService.update(id, body);
   }
 
-  @Patch(':id/deactivate')
-  deactivate(@Param('id') id: string) {
-    return this.service.deactivate(id);
-  }
-
-  @Patch(':id/activate')
-  activate(@Param('id') id: string) {
-    return this.service.activate(id);
-  }
-
-  // 🔥 AJOUT STOCK
-  @Post(':id/stock/add')
-  addStock(
-    @Param('id') id: string,
-    @Body() body: { quantity: number },
-  ) {
-    return this.service.addStock(id, body.quantity);
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.productsService.remove(id);
   }
 }
