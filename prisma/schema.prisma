@@ -35,6 +35,11 @@ enum Role {
   cashier
 }
 
+enum Role {
+  manager
+  cashier
+}
+
 model User {
   id                 String    @id @default(uuid())
   email              String?   @unique
