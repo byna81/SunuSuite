@@ -27,8 +27,10 @@ export class AuthService {
       throw new BadRequestException('Champs obligatoires manquants');
     }
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ email }, { login: email }],
+      },
     });
 
     if (existingUser) {
@@ -62,6 +64,7 @@ export class AuthService {
     const payload = {
       sub: result.user.id,
       email: result.user.email,
+      login: result.user.login,
       role: result.user.role,
       tenantId: result.user.tenantId,
       tenantName: result.user.tenant?.name ?? null,
@@ -74,6 +77,7 @@ export class AuthService {
       user: {
         id: result.user.id,
         email: result.user.email,
+        login: result.user.login,
         role: result.user.role,
         tenantId: result.user.tenantId,
         tenantName: result.user.tenant?.name ?? null,
@@ -81,16 +85,21 @@ export class AuthService {
     };
   }
 
-  async login(email: string, password: string) {
-    const normalizedEmail = email?.trim().toLowerCase();
+  async login(identifier: string, password: string) {
+    const normalizedIdentifier = identifier?.trim().toLowerCase();
     const rawPassword = password?.trim();
 
-    if (!normalizedEmail || !rawPassword) {
+    if (!normalizedIdentifier || !rawPassword) {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: normalizedEmail },
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: normalizedIdentifier },
+          { login: normalizedIdentifier },
+        ],
+      },
       include: { tenant: true },
     });
 
@@ -107,6 +116,7 @@ export class AuthService {
     const payload = {
       sub: user.id,
       email: user.email,
+      login: user.login,
       role: user.role,
       tenantId: user.tenantId,
       tenantName: user.tenant?.name ?? null,
@@ -119,6 +129,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        login: user.login,
         role: user.role,
         tenantId: user.tenantId,
         tenantName: user.tenant?.name ?? null,
@@ -128,28 +139,36 @@ export class AuthService {
 
   async registerCashier(
     tenantId: string,
-    body: { email: string; password: string },
+    body: { login: string; password: string },
   ) {
-    const email = body.email?.trim().toLowerCase();
+    const login = body.login?.trim().toLowerCase();
     const password = body.password?.trim();
 
-    if (!email || !password) {
+    if (!login || !password) {
       throw new BadRequestException('Champs obligatoires manquants');
     }
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    if (login.length < 4) {
+      throw new BadRequestException(
+        'L’identifiant doit contenir au moins 4 caractères',
+      );
+    }
+
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        OR: [{ login }, { email: login }],
+      },
     });
 
     if (existingUser) {
-      throw new BadRequestException('Email déjà utilisé');
+      throw new BadRequestException('Identifiant déjà utilisé');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await this.prisma.user.create({
       data: {
-        email,
+        login,
         password: hashedPassword,
         role: 'cashier',
         tenantId,
@@ -163,6 +182,7 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
+        login: user.login,
         role: user.role,
         tenantId: user.tenantId,
         tenantName: user.tenant?.name ?? null,
