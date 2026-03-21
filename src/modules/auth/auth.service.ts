@@ -6,8 +6,6 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import { RegisterManagerDto } from './dto/register-manager.dto';
-import { RegisterCashierDto } from './dto/register-cashier.dto';
 
 @Injectable()
 export class AuthService {
@@ -16,8 +14,18 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async registerManager(body: RegisterManagerDto) {
-    const email = body.email.trim().toLowerCase();
+  async registerManager(body: {
+    boutiqueName: string;
+    email: string;
+    password: string;
+  }) {
+    const boutiqueName = body.boutiqueName?.trim();
+    const email = body.email?.trim().toLowerCase();
+    const password = body.password?.trim();
+
+    if (!boutiqueName || !email || !password) {
+      throw new BadRequestException('Champs obligatoires manquants');
+    }
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -27,12 +35,12 @@ export class AuthService {
       throw new BadRequestException('Email déjà utilisé');
     }
 
-    const hashedPassword = await bcrypt.hash(body.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
-          name: body.boutiqueName.trim(),
+          name: boutiqueName,
         },
       });
 
@@ -42,6 +50,9 @@ export class AuthService {
           password: hashedPassword,
           role: 'manager',
           tenantId: tenant.id,
+        },
+        include: {
+          tenant: true,
         },
       });
 
@@ -53,7 +64,7 @@ export class AuthService {
       email: result.user.email,
       role: result.user.role,
       tenantId: result.user.tenantId,
-      tenantName: result.tenant.name,
+      tenantName: result.user.tenant?.name ?? null,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
@@ -65,13 +76,18 @@ export class AuthService {
         email: result.user.email,
         role: result.user.role,
         tenantId: result.user.tenantId,
-        tenantName: result.tenant.name,
+        tenantName: result.user.tenant?.name ?? null,
       },
     };
   }
 
   async login(email: string, password: string) {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email?.trim().toLowerCase();
+    const rawPassword = password?.trim();
+
+    if (!normalizedEmail || !rawPassword) {
+      throw new UnauthorizedException('Identifiants invalides');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
@@ -82,7 +98,7 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(rawPassword, user.password);
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Identifiants invalides');
@@ -110,8 +126,16 @@ export class AuthService {
     };
   }
 
-  async registerCashier(tenantId: string, body: RegisterCashierDto) {
-    const email = body.email.trim().toLowerCase();
+  async registerCashier(
+    tenantId: string,
+    body: { email: string; password: string },
+  ) {
+    const email = body.email?.trim().toLowerCase();
+    const password = body.password?.trim();
+
+    if (!email || !password) {
+      throw new BadRequestException('Champs obligatoires manquants');
+    }
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
@@ -121,7 +145,7 @@ export class AuthService {
       throw new BadRequestException('Email déjà utilisé');
     }
 
-    const hashedPassword = await bcrypt.hash(body.password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await this.prisma.user.create({
       data: {
@@ -130,7 +154,9 @@ export class AuthService {
         role: 'cashier',
         tenantId,
       },
-      include: { tenant: true },
+      include: {
+        tenant: true,
+      },
     });
 
     return {
