@@ -24,11 +24,11 @@ export class AuthController {
   login(
     @Body()
     body: {
-      email: string;
+      identifier: string;
       password: string;
     },
   ) {
-    return this.authService.login(body.email, body.password);
+    return this.authService.login(body.identifier, body.password);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -38,7 +38,7 @@ export class AuthController {
     @Req() req: any,
     @Body()
     body: {
-      email: string;
+      login: string;
       password: string;
     },
   ) {
