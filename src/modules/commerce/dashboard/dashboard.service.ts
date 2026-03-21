@@ -100,8 +100,11 @@ export class DashboardService {
     });
 
     const productsCount = await this.prisma.product.count({
-      where: { tenantId },
-    });
+  where: {
+    tenantId,
+    isActive: true,
+  },
+});
 
     const grossRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0);
     const refundsTotal = refunds.reduce(
