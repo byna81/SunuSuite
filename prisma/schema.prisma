@@ -49,7 +49,6 @@ model User {
   tenantId           String
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())
-
   resetCode          String?
   resetCodeExpiresAt DateTime?
 
