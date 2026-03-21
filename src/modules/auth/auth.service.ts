@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -52,6 +53,7 @@ export class AuthService {
           password: hashedPassword,
           role: 'manager',
           tenantId: tenant.id,
+          isActive: true,
         },
         include: {
           tenant: true,
@@ -103,7 +105,7 @@ export class AuthService {
       include: { tenant: true },
     });
 
-    if (!user) {
+    if (!user || !user.isActive) {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
@@ -148,6 +150,7 @@ export class AuthService {
       where: {
         email: normalizedEmail,
         role: 'manager',
+        isActive: true,
       },
     });
 
@@ -168,7 +171,7 @@ export class AuthService {
 
     return {
       message: 'Code de réinitialisation généré',
-      code, // version test; à retirer quand l’email sera branché
+      code,
       expiresAt,
     };
   }
@@ -192,6 +195,7 @@ export class AuthService {
       where: {
         email: normalizedEmail,
         role: 'manager',
+        isActive: true,
       },
     });
 
@@ -262,6 +266,7 @@ export class AuthService {
         password: hashedPassword,
         role: 'cashier',
         tenantId,
+        isActive: true,
       },
       include: {
         tenant: true,
@@ -276,7 +281,98 @@ export class AuthService {
         role: user.role,
         tenantId: user.tenantId,
         tenantName: user.tenant?.name ?? null,
+        isActive: user.isActive,
       },
+    };
+  }
+
+  async listCashiers(tenantId: string) {
+    const cashiers = await this.prisma.user.findMany({
+      where: {
+        tenantId,
+        role: 'cashier',
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      select: {
+        id: true,
+        login: true,
+        createdAt: true,
+        isActive: true,
+      },
+    });
+
+    return {
+      items: cashiers,
+    };
+  }
+
+  async resetCashierPassword(
+    tenantId: string,
+    cashierId: string,
+    newPassword: string,
+  ) {
+    const rawPassword = newPassword?.trim();
+
+    if (!cashierId || !rawPassword) {
+      throw new BadRequestException('Champs obligatoires manquants');
+    }
+
+    if (rawPassword.length < 6) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 6 caractères',
+      );
+    }
+
+    const cashier = await this.prisma.user.findFirst({
+      where: {
+        id: cashierId,
+        tenantId,
+        role: 'cashier',
+      },
+    });
+
+    if (!cashier) {
+      throw new NotFoundException('Caisse introuvable');
+    }
+
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: cashier.id },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    return {
+      message: 'Mot de passe de la caisse réinitialisé avec succès',
+    };
+  }
+
+  async deactivateCashier(tenantId: string, cashierId: string) {
+    const cashier = await this.prisma.user.findFirst({
+      where: {
+        id: cashierId,
+        tenantId,
+        role: 'cashier',
+      },
+    });
+
+    if (!cashier) {
+      throw new NotFoundException('Caisse introuvable');
+    }
+
+    await this.prisma.user.update({
+      where: { id: cashier.id },
+      data: {
+        isActive: false,
+      },
+    });
+
+    return {
+      message: 'Caisse désactivée avec succès',
     };
   }
 }
