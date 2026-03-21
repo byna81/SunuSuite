@@ -137,6 +137,96 @@ export class AuthService {
     };
   }
 
+  async forgotPassword(email: string) {
+    const normalizedEmail = email?.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      throw new BadRequestException('Email requis');
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: normalizedEmail,
+        role: 'manager',
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Aucun manager trouvé avec cet email');
+    }
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetCode: code,
+        resetCodeExpiresAt: expiresAt,
+      },
+    });
+
+    return {
+      message: 'Code de réinitialisation généré',
+      code, // version test; à retirer quand l’email sera branché
+      expiresAt,
+    };
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedCode = code?.trim();
+    const rawPassword = newPassword?.trim();
+
+    if (!normalizedEmail || !normalizedCode || !rawPassword) {
+      throw new BadRequestException('Champs obligatoires manquants');
+    }
+
+    if (rawPassword.length < 6) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 6 caractères',
+      );
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: normalizedEmail,
+        role: 'manager',
+      },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Utilisateur introuvable');
+    }
+
+    if (!user.resetCode || !user.resetCodeExpiresAt) {
+      throw new BadRequestException('Aucune demande de réinitialisation active');
+    }
+
+    if (user.resetCode !== normalizedCode) {
+      throw new BadRequestException('Code invalide');
+    }
+
+    if (new Date(user.resetCodeExpiresAt).getTime() < Date.now()) {
+      throw new BadRequestException('Code expiré');
+    }
+
+    const hashedPassword = await bcrypt.hash(rawPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetCode: null,
+        resetCodeExpiresAt: null,
+      },
+    });
+
+    return {
+      message: 'Mot de passe réinitialisé avec succès',
+    };
+  }
+
   async registerCashier(
     tenantId: string,
     body: { login: string; password: string },
