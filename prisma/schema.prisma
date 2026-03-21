@@ -26,14 +26,17 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  role      Role     @default(cashier)
-  tenantId  String
-  createdAt DateTime @default(now())
+  id                 String    @id @default(uuid())
+  email              String?   @unique
+  login              String?   @unique
+  password           String
+  role               Role      @default(cashier)
+  tenantId           String
+  createdAt          DateTime  @default(now())
+  resetCode          String?
+  resetCodeExpiresAt DateTime?
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
 }
 
 model Vehicle {
