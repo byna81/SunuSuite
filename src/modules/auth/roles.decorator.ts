@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { SetMetadata } from '@nestjs/common';
 
-@Injectable()
-export class JwtAuthGuard extends AuthGuard('jwt') {}
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
