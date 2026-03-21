@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -71,9 +80,43 @@ export class AuthController {
     return this.authService.registerCashier(req.user.tenantId, body);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Get('cashiers')
+  listCashiers(@Req() req: any) {
+    return this.authService.listCashiers(req.user.tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Patch('cashiers/:id/reset-password')
+  resetCashierPassword(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      newPassword: string;
+    },
+  ) {
+    return this.authService.resetCashierPassword(
+      req.user.tenantId,
+      id,
+      body.newPassword,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Patch('cashiers/:id/deactivate')
+  deactivateCashier(@Req() req: any, @Param('id') id: string) {
+    return this.authService.deactivateCashier(req.user.tenantId, id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@Req() req: any) {
-    return { user: req.user };
+    return {
+      user: req.user,
+    };
   }
 }
