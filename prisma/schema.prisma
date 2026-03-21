@@ -24,6 +24,7 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
+  role      String   @default("cashier")
   tenantId  String
   createdAt DateTime @default(now())
 
