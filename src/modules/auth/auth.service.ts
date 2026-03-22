@@ -7,6 +7,15 @@ import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 
+function generateSlug(name: string) {
+  return name
+    .toLowerCase()
+    .normalize("NFD") // enlève accents
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+}
+
 @Injectable()
 export class AuthService {
   constructor(
