@@ -31,6 +31,7 @@ model Tenant {
   products    Product[]
   sales       Sale[]
   returns     SaleReturn[]
+  properties  Property[]
 }
 
 model User {
@@ -184,17 +185,18 @@ model Refund {
 }
 
 model Property {
-  id        String   @id @default(uuid())
-  tenantId  String
-  title     String
-  type      String
-  price     Float
-  address   String
-  status    String   @default("available")
-  createdAt DateTime @default(now())
+  id          String           @id @default(uuid())
+  tenantId    String
+  title       String
+  type        String
+  address     String
+  amount      String
+  status      String           @default("disponible")
+  description String?
+  createdAt   DateTime         @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  tenants   TenantProperty[]
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  tenants     TenantProperty[]
 }
 
 model TenantProperty {
