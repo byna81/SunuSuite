@@ -10,10 +10,12 @@ import { JwtService } from '@nestjs/jwt';
 function generateSlug(name: string) {
   return name
     .toLowerCase()
-    .normalize("NFD") // enlève accents
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/[^a-z0-9-]/g, "");
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 @Injectable()
@@ -67,12 +69,21 @@ export class AuthService {
       throw new BadRequestException('Email déjà utilisé');
     }
 
+    const baseSlug = generateSlug(boutiqueName) || 'structure';
+    let slug = baseSlug;
+    let i = 1;
+
+    while (await this.prisma.tenant.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${i++}`;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
           name: boutiqueName,
+          slug,
           logoUrl,
           address,
           phone,
@@ -106,6 +117,7 @@ export class AuthService {
       role: result.user.role,
       tenantId: result.user.tenantId,
       tenantName: result.user.tenant?.name ?? null,
+      tenantSlug: result.user.tenant?.slug ?? null,
       tenantLogoUrl: result.user.tenant?.logoUrl ?? null,
       tenantAddress: result.user.tenant?.address ?? null,
       tenantPhone: result.user.tenant?.phone ?? null,
@@ -125,6 +137,7 @@ export class AuthService {
         role: result.user.role,
         tenantId: result.user.tenantId,
         tenantName: result.user.tenant?.name ?? null,
+        tenantSlug: result.user.tenant?.slug ?? null,
         tenantLogoUrl: result.user.tenant?.logoUrl ?? null,
         tenantAddress: result.user.tenant?.address ?? null,
         tenantPhone: result.user.tenant?.phone ?? null,
@@ -167,6 +180,7 @@ export class AuthService {
       role: user.role,
       tenantId: user.tenantId,
       tenantName: user.tenant?.name ?? null,
+      tenantSlug: user.tenant?.slug ?? null,
       tenantLogoUrl: user.tenant?.logoUrl ?? null,
       tenantAddress: user.tenant?.address ?? null,
       tenantPhone: user.tenant?.phone ?? null,
@@ -186,6 +200,7 @@ export class AuthService {
         role: user.role,
         tenantId: user.tenantId,
         tenantName: user.tenant?.name ?? null,
+        tenantSlug: user.tenant?.slug ?? null,
         tenantLogoUrl: user.tenant?.logoUrl ?? null,
         tenantAddress: user.tenant?.address ?? null,
         tenantPhone: user.tenant?.phone ?? null,
