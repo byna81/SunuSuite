@@ -22,6 +22,7 @@ model Tenant {
   description String?
   currency    String      @default("FCFA")
   createdAt   DateTime    @default(now())
+  sector      String   @default("commerce")
 
   users       User[]
   vehicles    Vehicle[]
