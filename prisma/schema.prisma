@@ -182,3 +182,17 @@ model Refund {
 
   saleReturn   SaleReturn  @relation(fields: [saleReturnId], references: [id])
 }
+
+model Property {
+  id        String   @id @default(uuid())
+  tenantId  String
+  title     String
+  type      String
+  address   String
+  amount    String
+  status    String   @default("disponible")
+  description String?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
