@@ -13,16 +13,19 @@ enum Role {
 }
 
 model Tenant {
-  id          String      @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
+  slug        String   @unique   // 🔥 NOUVEAU
+  sector      String   @default("commerce")
+
   logoUrl     String?
   address     String?
   phone       String?
   email       String?
   description String?
-  currency    String      @default("FCFA")
-  createdAt   DateTime    @default(now())
-  sector      String   @default("commerce")
+  currency    String   @default("FCFA")
+
+  createdAt   DateTime @default(now())
 
   users       User[]
   vehicles    Vehicle[]
