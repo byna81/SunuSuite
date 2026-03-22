@@ -5,7 +5,17 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class PropertyService {
   constructor(private prisma: PrismaService) {}
 
-  create(tenantId: string, data: any) {
+  create(
+    tenantId: string,
+    data: {
+      title: string;
+      type: string;
+      address: string;
+      amount: string;
+      status?: string;
+      description?: string;
+    },
+  ) {
     return this.prisma.property.create({
       data: {
         tenantId,
@@ -13,8 +23,8 @@ export class PropertyService {
         type: data.type,
         address: data.address,
         amount: data.amount,
-        status: data.status,
-        description: data.description,
+        status: data.status || 'disponible',
+        description: data.description || null,
       },
     });
   }
