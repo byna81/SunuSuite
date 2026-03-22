@@ -8,16 +8,17 @@ datasource db {
 }
 
 model Tenant {
-  id          String       @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  createdAt   DateTime     @default(now())
+  logoUrl     String?
+  address     String?
+  phone       String?
+  email       String?
+  description String?
+  currency    String?  @default("FCFA")
+  createdAt   DateTime @default(now())
 
   users       User[]
-  vehicles    Vehicle[]
-  categories  Category[]
-  products    Product[]
-  sales       Sale[]
-  saleReturns SaleReturn[]
 }
 
 enum Role {
