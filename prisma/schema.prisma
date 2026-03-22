@@ -188,11 +188,23 @@ model Property {
   tenantId  String
   title     String
   type      String
+  price     Float
   address   String
-  amount    String
-  status    String   @default("disponible")
-  description String?
+  status    String   @default("available")
   createdAt DateTime @default(now())
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenants   TenantProperty[]
+}
+
+model TenantProperty {
+  id          String   @id @default(uuid())
+  propertyId  String
+  name        String
+  phone       String
+  rent        Float
+  startDate   DateTime
+  createdAt   DateTime @default(now())
+
+  property    Property @relation(fields: [propertyId], references: [id])
 }
