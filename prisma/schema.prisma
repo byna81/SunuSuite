@@ -7,39 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Tenant {
-  id        String   @id @default(cuid())
-  name      String
-  logoUrl   String?   // OK
-  address   String?   // OK
-  phone     String?   // OK
-
-  users     User[]
-  products  Product[]
-  sales     Sale[]
-
-  createdAt DateTime @default(now())
-}
-
 enum Role {
   manager
   cashier
 }
 
+model Tenant {
+  id          String    @id @default(cuid())
+  name        String
+  logoUrl     String?
+  address     String?
+  phone       String?
+  email       String?
+  description String?
+  currency    String    @default("FCFA")
+  createdAt   DateTime  @default(now())
+
+  users       User[]
+  vehicles    Vehicle[]
+  categories  Category[]
+  products    Product[]
+  sales       Sale[]
+  returns     SaleReturn[]
+}
+
 model User {
-  id         String   @id @default(uuid())
-  email      String?  @unique
-  login      String?  @unique
-  password   String
-  role       String
-  tenantId   String
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  id                 String    @id @default(uuid())
+  email              String?   @unique
+  login              String?   @unique
+  password           String
+  role               Role
+  tenantId           String
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
 
   resetCode          String?
   resetCodeExpiresAt DateTime?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant             Tenant    @relation(fields: [tenantId], references: [id])
 }
 
 model Vehicle {
@@ -68,20 +73,20 @@ model Category {
 }
 
 model Product {
-  id         String          @id @default(uuid())
-  tenantId   String
-  categoryId String?
-  name       String
-  price      Float
-  stock      Int             @default(0)
-  isActive   Boolean         @default(true)
-  barcode    String?
-  createdAt  DateTime        @default(now())
+  id          String          @id @default(uuid())
+  tenantId    String
+  categoryId  String?
+  name        String
+  price       Float
+  stock       Int             @default(0)
+  isActive    Boolean         @default(true)
+  barcode     String?
+  createdAt   DateTime        @default(now())
 
-  tenant     Tenant          @relation(fields: [tenantId], references: [id])
-  category   Category?       @relation(fields: [categoryId], references: [id])
-  items      SaleItem[]
-  movements  StockMovement[]
+  tenant      Tenant          @relation(fields: [tenantId], references: [id])
+  category    Category?       @relation(fields: [categoryId], references: [id])
+  items       SaleItem[]
+  movements   StockMovement[]
   returnItems SaleReturnItem[]
 
   @@unique([tenantId, name])
@@ -91,7 +96,7 @@ model Product {
 model StockMovement {
   id         String   @id @default(uuid())
   productId  String
-  type       String   // IN | SALE | RETURN
+  type       String
   quantity   Int
   createdAt  DateTime @default(now())
 
@@ -99,27 +104,27 @@ model StockMovement {
 }
 
 model Sale {
-  id        String      @id @default(uuid())
-  tenantId  String
-  total     Float
-  status    String      @default("unpaid")
-  createdAt DateTime    @default(now())
+  id         String      @id @default(uuid())
+  tenantId   String
+  total      Float
+  status     String      @default("unpaid")
+  createdAt  DateTime    @default(now())
 
-  tenant    Tenant      @relation(fields: [tenantId], references: [id])
-  items     SaleItem[]
-  payments  Payment[]
-  returns   SaleReturn[]
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  items      SaleItem[]
+  payments   Payment[]
+  returns    SaleReturn[]
 }
 
 model SaleItem {
-  id        String   @id @default(uuid())
-  saleId    String
-  productId String
-  quantity  Int
-  price     Float
+  id         String   @id @default(uuid())
+  saleId     String
+  productId  String
+  quantity   Int
+  price      Float
 
-  sale      Sale     @relation(fields: [saleId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  sale       Sale     @relation(fields: [saleId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
 }
 
 model Payment {
@@ -166,13 +171,13 @@ model SaleReturnItem {
 }
 
 model Refund {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   saleReturnId String
   method       String
   amount       Float
-  status       String   @default("paid")
+  status       String      @default("paid")
   reference    String?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime    @default(now())
 
-  saleReturn   SaleReturn @relation(fields: [saleReturnId], references: [id])
+  saleReturn   SaleReturn  @relation(fields: [saleReturnId], references: [id])
 }
