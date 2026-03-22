@@ -57,47 +57,35 @@ export class AuthController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Post('register-cashier')
-  registerCashier(
-    @Req() req: any,
-    @Body()
-    body: {
-      login: string;
-      password: string;
-    },
-  ) {
-    return this.authService.registerCashier(req.user.tenantId, body);
+  registerCashier(@Req() req: any) {
+    return this.authService.registerCashier(req.user.tenantId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Get('cashiers')
-  listCashiers(@Req() req: any) {
-    return this.authService.listCashiers(req.user.tenantId);
+  getCashiers(@Req() req: any) {
+    return this.authService.getCashiers(req.user.tenantId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Patch('cashiers/:id/reset-password')
   resetCashierPassword(
-    @Req() req: any,
     @Param('id') id: string,
     @Body()
     body: {
       newPassword: string;
     },
   ) {
-    return this.authService.resetCashierPassword(
-      req.user.tenantId,
-      id,
-      body.newPassword,
-    );
+    return this.authService.resetCashierPassword(id, body.newPassword);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Patch('cashiers/:id/deactivate')
-  deactivateCashier(@Req() req: any, @Param('id') id: string) {
-    return this.authService.deactivateCashier(req.user.tenantId, id);
+  deactivateCashier(@Param('id') id: string) {
+    return this.authService.deactivateCashier(id);
   }
 
   @UseGuards(JwtAuthGuard)
