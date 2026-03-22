@@ -36,7 +36,7 @@ model User {
   email              String?   @unique
   login              String?   @unique
   password           String
-  role               Role
+  role               String
   tenantId           String
   isActive           Boolean   @default(true)
   createdAt          DateTime  @default(now())
