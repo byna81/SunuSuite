@@ -15,7 +15,7 @@ model Tenant {
   phone       String?
   email       String?
   description String?
-  currency    String?  @default("FCFA")
+  currency    String   @default("FCFA")
   createdAt   DateTime @default(now())
 
   users       User[]
