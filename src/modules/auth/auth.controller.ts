@@ -1,233 +1,110 @@
 import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
-import * as bcrypt from 'bcryptjs';
-import { JwtService } from '@nestjs/jwt';
+import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
 
-@Injectable()
-export class AuthService {
-  constructor(
-    private prisma: PrismaService,
-    private jwtService: JwtService,
-  ) {}
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
 
-  // =========================
-  // REGISTER MANAGER
-  // =========================
-  async registerManager(body: any) {
-    const {
-      boutiqueName,
-      email,
-      password,
-      logoUrl,
-      address,
-      phone,
-      shopEmail,
-      description,
-      currency,
-    } = body;
+  @Post('register-manager')
+  registerManager(@Body() body: any) {
+    return this.authService.registerManager(body);
+  }
 
-    if (!boutiqueName || !email || !password) {
-      throw new BadRequestException('Champs obligatoires manquants');
-    }
+  @Post('login')
+  login(
+    @Body()
+    body: {
+      identifier: string;
+      password: string;
+    },
+  ) {
+    return this.authService.login(body.identifier, body.password);
+  }
 
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { login: email }],
-      },
-    });
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
 
-    if (existingUser) {
-      throw new BadRequestException('Email déjà utilisé');
-    }
+  @Post('reset-password')
+  resetPassword(
+    @Body()
+    body: {
+      email: string;
+      code: string;
+      newPassword: string;
+    },
+  ) {
+    return this.authService.resetPassword(
+      body.email,
+      body.code,
+      body.newPassword,
+    );
+  }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Post('register-cashier')
+  registerCashier(
+    @Req() req: any,
+    @Body()
+    body: {
+      login: string;
+      password: string;
+    },
+  ) {
+    return this.authService.registerCashier(req.user.tenantId, body);
+  }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.create({
-        data: {
-          name: boutiqueName,
-          logoUrl: logoUrl || null,
-          address: address || null,
-          phone: phone || null,
-          email: shopEmail || null,
-          description: description || null,
-          currency: currency || 'FCFA',
-        },
-      });
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Get('cashiers')
+  listCashiers(@Req() req: any) {
+    return this.authService.listCashiers(req.user.tenantId);
+  }
 
-      const user = await tx.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          role: 'manager',
-          tenantId: tenant.id,
-        },
-        include: { tenant: true },
-      });
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Patch('cashiers/:id/reset-password')
+  resetCashierPassword(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body()
+    body: {
+      newPassword: string;
+    },
+  ) {
+    return this.authService.resetCashierPassword(
+      req.user.tenantId,
+      id,
+      body.newPassword,
+    );
+  }
 
-      return { tenant, user };
-    });
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Patch('cashiers/:id/deactivate')
+  deactivateCashier(@Req() req: any, @Param('id') id: string) {
+    return this.authService.deactivateCashier(req.user.tenantId, id);
+  }
 
-    const payload = {
-      sub: result.user.id,
-      role: result.user.role,
-      tenantId: result.user.tenantId,
-    };
-
-    const accessToken = await this.jwtService.signAsync(payload);
-
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  me(@Req() req: any) {
     return {
-      accessToken,
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        role: result.user.role,
-        tenantId: result.user.tenantId,
-
-        tenantName: result.tenant.name,
-        tenantLogoUrl: result.tenant.logoUrl,
-        tenantAddress: result.tenant.address,
-        tenantPhone: result.tenant.phone,
-        tenantCurrency: result.tenant.currency,
-      },
+      user: req.user,
     };
-  }
-
-  // =========================
-  // LOGIN
-  // =========================
-  async login(identifier: string, password: string) {
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email: identifier }, { login: identifier }],
-      },
-      include: { tenant: true },
-    });
-
-    if (!user) throw new UnauthorizedException();
-
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) throw new UnauthorizedException();
-
-    const accessToken = await this.jwtService.signAsync({
-      sub: user.id,
-      role: user.role,
-      tenantId: user.tenantId,
-    });
-
-    return {
-      accessToken,
-      user: {
-        id: user.id,
-        role: user.role,
-        tenantId: user.tenantId,
-
-        tenantName: user.tenant?.name,
-        tenantLogoUrl: user.tenant?.logoUrl,
-        tenantAddress: user.tenant?.address,
-        tenantPhone: user.tenant?.phone,
-        tenantCurrency: user.tenant?.currency,
-      },
-    };
-  }
-
-  // =========================
-  // FORGOT PASSWORD
-  // =========================
-  async forgotPassword(email: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { email, role: 'manager' },
-    });
-
-    if (!user) throw new BadRequestException('Utilisateur introuvable');
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        resetCode: code,
-        resetCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      },
-    });
-
-    return { code }; // temporaire
-  }
-
-  async resetPassword(email: string, code: string, newPassword: string) {
-    const user = await this.prisma.user.findFirst({
-      where: { email },
-    });
-
-    if (!user || user.resetCode !== code) {
-      throw new BadRequestException('Code invalide');
-    }
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashed,
-        resetCode: null,
-        resetCodeExpiresAt: null,
-      },
-    });
-
-    return { message: 'Mot de passe mis à jour' };
-  }
-
-  // =========================
-  // CASHIERS
-  // =========================
-  async getCashiers(tenantId: string) {
-    const users = await this.prisma.user.findMany({
-      where: { tenantId, role: 'cashier' },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    return { items: users };
-  }
-
-  async registerCashier(tenantId: string) {
-    const login = Math.random().toString(36).substring(2, 8);
-    const password = Math.random().toString(36).substring(2, 8);
-
-    const hashed = await bcrypt.hash(password, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        login,
-        password: hashed,
-        role: 'cashier',
-        tenantId,
-      },
-    });
-
-    return { login, password };
-  }
-
-  async resetCashierPassword(id: string, newPassword: string) {
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await this.prisma.user.update({
-      where: { id },
-      data: { password: hashed },
-    });
-
-    return { message: 'ok' };
-  }
-
-  async deactivateCashier(id: string) {
-    await this.prisma.user.update({
-      where: { id },
-      data: { isActive: false },
-    });
-
-    return { message: 'désactivé' };
   }
 }
