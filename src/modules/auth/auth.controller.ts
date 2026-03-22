@@ -17,6 +17,10 @@ import { Roles } from './roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // =========================
+  // AUTH MANAGER
+  // =========================
+
   @Post('register-manager')
   registerManager(@Body() body: any) {
     return this.authService.registerManager(body);
@@ -32,6 +36,35 @@ export class AuthController {
   ) {
     return this.authService.login(body.identifier, body.password);
   }
+
+  // =========================
+  // RESET PASSWORD (MANAGER)
+  // =========================
+
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Post('reset-password')
+  resetPassword(
+    @Body()
+    body: {
+      email: string;
+      code: string;
+      newPassword: string;
+    },
+  ) {
+    return this.authService.resetPassword(
+      body.email,
+      body.code,
+      body.newPassword,
+    );
+  }
+
+  // =========================
+  // CASHIERS
+  // =========================
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
@@ -82,6 +115,10 @@ export class AuthController {
       id,
     );
   }
+
+  // =========================
+  // CURRENT USER
+  // =========================
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
