@@ -186,17 +186,20 @@ model Refund {
 }
 
 model Property {
-  id          String           @id @default(uuid())
+  id          String   @id @default(uuid())
   tenantId    String
+  ownerId     String?   // 👈 NOUVEAU
   title       String
   type        String
   address     String
   amount      String
-  status      String           @default("disponible")
+  status      String   @default("disponible")
   description String?
-  createdAt   DateTime         @default(now())
+  createdAt   DateTime @default(now())
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  owner       Owner?   @relation(fields: [ownerId], references: [id])
+
   tenants     TenantProperty[]
   contracts   LeaseContract[]
 }
@@ -241,3 +244,33 @@ model LeaseContract {
   tenantProperty    TenantProperty @relation(fields: [tenantPropertyId], references: [id])
 }
 
+model Owner {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  properties Property[]
+}
+
+model OwnerPayment {
+  id            String   @id @default(uuid())
+  tenantId      String
+  propertyId    String
+  ownerId       String
+
+  amount        Float
+  paymentMethod String   // cash / wave / orange_money / cheque / other
+  otherMethod   String?
+
+  paidBy        String   // userId
+  createdAt     DateTime @default(now())
+
+  property      Property @relation(fields: [propertyId], references: [id])
+  owner         Owner    @relation(fields: [ownerId], references: [id])
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+}
