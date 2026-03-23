@@ -73,59 +73,56 @@ export class ContractService {
   }
 
   async create(
-    tenantId: string,
-    data: {
-      propertyId: string;
-      tenantPropertyId: string;
-      startDate: string;
-      endDate?: string;
-      rentAmount: number;
-      depositAmount?: number;
-      paymentFrequency?: string;
-      status?: string;
-      notes?: string;
-      inventoryInNotes?: string;
-      inventoryOutNotes?: string;
-    },
-  ) {
-    const tenant = await this.prisma.tenantProperty.findFirst({
-      where: {
-        id: data.tenantPropertyId,
-        status: 'actif',
-        property: {
-          tenantId,
-        },
-      },
-      include: {
-        property: true,
-      },
-    });
-
-    if (!tenant) {
-      throw new Error('Locataire actif introuvable');
-    }
-
-    if (tenant.propertyId !== data.propertyId) {
-      throw new Error('Le locataire ne correspond pas à ce bien');
-    }
-
-    return this.prisma.leaseContract.create({
-      data: {
+  tenantId: string,
+  data: {
+    propertyId: string;
+    tenantPropertyId: string;
+    startDate: string;
+    endDate?: string;
+    rentAmount: number;
+    depositAmount?: number;
+    paymentFrequency?: string;
+    status?: string;
+    notes?: string;
+    inventoryInNotes?: string;
+    inventoryOutNotes?: string;
+  },
+) {
+  const tenant = await this.prisma.tenantProperty.findFirst({
+    where: {
+      id: data.tenantPropertyId,
+      status: 'actif',
+      property: {
         tenantId,
-        propertyId: data.propertyId,
-        tenantPropertyId: data.tenantPropertyId,
-        startDate: new Date(data.startDate),
-        endDate: data.endDate ? new Date(data.endDate) : null,
-        rentAmount: data.rentAmount,
-        depositAmount: data.depositAmount ?? 0,
-        paymentFrequency: data.paymentFrequency || 'mensuel',
-        status: data.status || 'brouillon',
-        notes: data.notes || null,
-        inventoryInNotes: data.inventoryInNotes || null,
-        inventoryOutNotes: data.inventoryOutNotes || null,
       },
-    });
+    },
+  });
+
+  if (!tenant) {
+    throw new Error('Locataire actif introuvable');
   }
+
+  return this.prisma.leaseContract.create({
+    data: {
+      tenantId,
+      propertyId: data.propertyId,
+      tenantPropertyId: data.tenantPropertyId,
+
+      startDate: new Date(data.startDate),
+      endDate: data.endDate ? new Date(data.endDate) : null,
+
+      rentAmount: Number(data.rentAmount),
+      depositAmount: Number(data.depositAmount || 0),
+
+      paymentFrequency: data.paymentFrequency || 'mensuel',
+      status: data.status || 'brouillon',
+
+      notes: data.notes || null,
+      inventoryInNotes: data.inventoryInNotes || null,
+      inventoryOutNotes: data.inventoryOutNotes || null,
+    },
+  });
+}
 
   async update(
     tenantId: string,
