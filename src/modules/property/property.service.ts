@@ -77,17 +77,20 @@ export class PropertyService {
     });
   }
 
-  findPropertiesForSelect(tenantId: string) {
-    return this.prisma.property.findMany({
-      where: { tenantId },
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        address: true,
-        status: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+findPropertiesForSelect(tenantId: string) {
+  return this.prisma.property.findMany({
+    where: {
+      tenantId,
+      status: 'disponible',
+    },
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      address: true,
+      status: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 }
