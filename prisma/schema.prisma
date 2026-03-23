@@ -186,20 +186,18 @@ model Refund {
 }
 
 model Property {
-  id          String   @id @default(uuid())
+  id          String           @id @default(uuid())
   tenantId    String
-  ownerId     String?   // 👈 NOUVEAU
   title       String
   type        String
   address     String
   amount      String
-  status      String   @default("disponible")
+  status      String           @default("disponible")
   description String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  owner       Owner?   @relation(fields: [ownerId], references: [id])
-
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
   tenants     TenantProperty[]
   contracts   LeaseContract[]
 }
@@ -216,6 +214,7 @@ model TenantProperty {
   endDate     DateTime?
   status      String           @default("actif")
   createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
 
   property    Property         @relation(fields: [propertyId], references: [id])
   contracts   LeaseContract[]
