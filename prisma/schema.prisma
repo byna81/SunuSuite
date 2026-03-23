@@ -13,26 +13,28 @@ enum Role {
 }
 
 model Tenant {
-  id          String          @id @default(cuid())
-  name        String
-  slug        String?         @unique
-  logoUrl     String?
-  address     String?
-  phone       String?
-  email       String?
-  description String?
-  currency    String          @default("FCFA")
-  createdAt   DateTime        @default(now())
-  sector      String          @default("commerce")
+  id            String          @id @default(cuid())
+  name          String
+  slug          String?         @unique
+  logoUrl       String?
+  address       String?
+  phone         String?
+  email         String?
+  description   String?
+  currency      String          @default("FCFA")
+  createdAt     DateTime        @default(now())
+  sector        String          @default("commerce")
 
-  users       User[]
-  vehicles    Vehicle[]
-  categories  Category[]
-  products    Product[]
-  sales       Sale[]
-  returns     SaleReturn[]
-  properties  Property[]
-  contracts   LeaseContract[]
+  users         User[]
+  vehicles      Vehicle[]
+  categories    Category[]
+  products      Product[]
+  sales         Sale[]
+  returns       SaleReturn[]
+  properties    Property[]
+  contracts     LeaseContract[]
+  owners        Owner[]
+  ownerPayments OwnerPayment[]
 }
 
 model User {
@@ -186,20 +188,23 @@ model Refund {
 }
 
 model Property {
-  id          String           @id @default(uuid())
-  tenantId    String
-  title       String
-  type        String
-  address     String
-  amount      String
-  status      String           @default("disponible")
-  description String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @default(now()) @updatedAt
+  id            String           @id @default(uuid())
+  tenantId      String
+  ownerId       String?
+  title         String
+  type          String
+  address       String
+  amount        String
+  status        String           @default("disponible")
+  description   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @default(now()) @updatedAt
 
-  tenant      Tenant           @relation(fields: [tenantId], references: [id])
-  tenants     TenantProperty[]
-  contracts   LeaseContract[]
+  tenant        Tenant           @relation(fields: [tenantId], references: [id])
+  owner         Owner?           @relation(fields: [ownerId], references: [id])
+  tenants       TenantProperty[]
+  contracts     LeaseContract[]
+  ownerPayments OwnerPayment[]
 }
 
 model TenantProperty {
@@ -244,32 +249,31 @@ model LeaseContract {
 }
 
 model Owner {
-  id        String   @id @default(uuid())
-  tenantId  String
-  name      String
-  phone     String?
-  email     String?
-  address   String?
-  createdAt DateTime @default(now())
+  id         String         @id @default(uuid())
+  tenantId   String
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  createdAt  DateTime       @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  tenant     Tenant         @relation(fields: [tenantId], references: [id])
   properties Property[]
+  payments   OwnerPayment[]
 }
 
 model OwnerPayment {
-  id            String   @id @default(uuid())
+  id            String    @id @default(uuid())
   tenantId      String
   propertyId    String
   ownerId       String
-
   amount        Float
-  paymentMethod String   // cash / wave / orange_money / cheque / other
+  paymentMethod String
   otherMethod   String?
+  paidBy        String
+  createdAt     DateTime  @default(now())
 
-  paidBy        String   // userId
-  createdAt     DateTime @default(now())
-
-  property      Property @relation(fields: [propertyId], references: [id])
-  owner         Owner    @relation(fields: [ownerId], references: [id])
-  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  property      Property  @relation(fields: [propertyId], references: [id])
+  owner         Owner     @relation(fields: [ownerId], references: [id])
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
 }
