@@ -271,6 +271,9 @@ model OwnerPayment {
   paymentMethod String
   otherMethod   String?
   paidBy        String
+  rentMonth     Int?
+  rentYear      Int?
+  note          String?
   createdAt     DateTime  @default(now())
 
   property      Property  @relation(fields: [propertyId], references: [id])
