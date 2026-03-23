@@ -45,7 +45,6 @@ export class PropertyController {
     return this.service.createTenant(req.user.tenantId, body);
   }
 
-  // 🔥 NOUVELLE ROUTE
   @UseGuards(JwtAuthGuard)
   @Patch('tenants/:id/checkout')
   checkoutTenant(@Req() req: any, @Param('id') id: string) {
