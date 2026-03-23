@@ -24,4 +24,22 @@ export class PropertyController {
   findAll(@Req() req: any) {
     return this.service.findAll(req.user.tenantId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('select')
+  findPropertiesForSelect(@Req() req: any) {
+    return this.service.findPropertiesForSelect(req.user.tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('tenants')
+  findAllTenants(@Req() req: any) {
+    return this.service.findAllTenants(req.user.tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('tenants')
+  createTenant(@Req() req: any, @Body() body: any) {
+    return this.service.createTenant(req.user.tenantId, body);
+  }
 }
