@@ -204,8 +204,11 @@ model TenantProperty {
   propertyId  String
   name        String
   phone       String
-  rent        Float
+  email       String?
+  address     String?
+  rent        Float    @default(0)
   startDate   DateTime
+  status      String   @default("actif")
   createdAt   DateTime @default(now())
 
   property    Property @relation(fields: [propertyId], references: [id])
