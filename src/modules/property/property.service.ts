@@ -230,4 +230,110 @@ export class PropertyService {
 
     return updatedTenant;
   }
+  async findOwnerPaymentsSelect(tenantId: string) {
+  return this.prisma.property.findMany({
+    where: {
+      tenantId,
+      ownerId: {
+        not: null,
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      address: true,
+      amount: true,
+      ownerId: true,
+      owner: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+async findAllOwnerPayments(tenantId: string) {
+  return this.prisma.ownerPayment.findMany({
+    where: { tenantId },
+    include: {
+      owner: true,
+      property: true,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+async createOwnerPayment(
+  tenantId: string,
+  paidBy: string,
+  body: {
+    propertyId: string;
+    ownerId: string;
+    amount: number;
+    paymentMethod: string;
+    otherMethod?: string;
+  },
+) {
+  const property = await this.prisma.property.findFirst({
+    where: {
+      id: body.propertyId,
+      tenantId,
+    },
+    include: {
+      owner: true,
+    },
+  });
+
+  if (!property) {
+    throw new Error('Bien introuvable');
+  }
+
+  if (!property.ownerId) {
+    throw new Error("Ce bien n'a pas de propriétaire externe");
+  }
+
+  if (property.ownerId !== body.ownerId) {
+    throw new Error('Le propriétaire ne correspond pas au bien sélectionné');
+  }
+
+  if (!body.amount || Number(body.amount) <= 0) {
+    throw new Error('Le montant doit être supérieur à 0');
+  }
+
+  if (!body.paymentMethod?.trim()) {
+    throw new Error('Le moyen de paiement est obligatoire');
+  }
+
+  if (body.paymentMethod === 'other' && !body.otherMethod?.trim()) {
+    throw new Error('Veuillez renseigner le champ autre moyen');
+  }
+
+  return this.prisma.ownerPayment.create({
+    data: {
+      tenantId,
+      propertyId: body.propertyId,
+      ownerId: body.ownerId,
+      amount: Number(body.amount),
+      paymentMethod: body.paymentMethod,
+      otherMethod: body.paymentMethod === 'other'
+        ? body.otherMethod?.trim() || null
+        : null,
+      paidBy,
+    },
+    include: {
+      owner: true,
+      property: true,
+      tenant: true,
+    },
+  });
+}
 }
