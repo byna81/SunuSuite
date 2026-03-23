@@ -64,12 +64,6 @@ export class PropertyController {
   }
 
   @UseGuards(JwtAuthGuard)
- @Get(':id/owner-payments')
- findOwnerPaymentsByProperty(@Req() req: any, @Param('id') id: string) {
-  return this.service.findOwnerPaymentsByProperty(req.user.tenantId, id);
- }
-
-  @UseGuards(JwtAuthGuard)
   @Post('owner-payments')
   createOwnerPayment(@Req() req: any, @Body() body: any) {
     return this.service.createOwnerPayment(
@@ -77,5 +71,11 @@ export class PropertyController {
       req.user.login || req.user.email || 'Utilisateur',
       body,
     );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/owner-payments')
+  findOwnerPaymentsByProperty(@Req() req: any, @Param('id') id: string) {
+    return this.service.findOwnerPaymentsByProperty(req.user.tenantId, id);
   }
 }
