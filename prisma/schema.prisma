@@ -13,17 +13,17 @@ enum Role {
 }
 
 model Tenant {
-  id          String      @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
-  slug        String?     @unique
+  slug        String?         @unique
   logoUrl     String?
   address     String?
   phone       String?
   email       String?
   description String?
-  currency    String      @default("FCFA")
-  createdAt   DateTime    @default(now())
-  sector      String      @default("commerce")
+  currency    String          @default("FCFA")
+  createdAt   DateTime        @default(now())
+  sector      String          @default("commerce")
 
   users       User[]
   vehicles    Vehicle[]
@@ -32,6 +32,7 @@ model Tenant {
   sales       Sale[]
   returns     SaleReturn[]
   properties  Property[]
+  contracts   LeaseContract[]
 }
 
 model User {
@@ -197,22 +198,24 @@ model Property {
 
   tenant      Tenant           @relation(fields: [tenantId], references: [id])
   tenants     TenantProperty[]
+  contracts   LeaseContract[]
 }
 
 model TenantProperty {
-  id          String    @id @default(uuid())
+  id          String           @id @default(uuid())
   propertyId  String
   name        String
   phone       String
   email       String?
   address     String?
-  rent        Float     @default(0)
+  rent        Float            @default(0)
   startDate   DateTime
   endDate     DateTime?
-  status      String    @default("actif")
-  createdAt   DateTime  @default(now())
+  status      String           @default("actif")
+  createdAt   DateTime         @default(now())
 
-  property    Property  @relation(fields: [propertyId], references: [id])
+  property    Property         @relation(fields: [propertyId], references: [id])
+  contracts   LeaseContract[]
 }
 
 model LeaseContract {
