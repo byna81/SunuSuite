@@ -117,4 +117,42 @@ export class PropertyService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  async checkoutTenant(tenantId: string, tenantPropertyId: string) {
+    const tenant = await this.prisma.tenantProperty.findFirst({
+      where: {
+        id: tenantPropertyId,
+        property: { tenantId },
+      },
+      include: {
+        property: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new Error('Locataire introuvable');
+    }
+
+    if (tenant.status === 'quitté') {
+      throw new Error('Ce locataire est déjà clôturé');
+    }
+
+    await this.prisma.tenantProperty.update({
+      where: { id: tenantPropertyId },
+      data: {
+        status: 'quitté',
+      },
+    });
+
+    await this.prisma.property.update({
+      where: { id: tenant.propertyId },
+      data: {
+        status: 'disponible',
+      },
+    });
+
+    return {
+      message: 'Locataire clôturé et bien libéré',
+    };
+  }
 }
