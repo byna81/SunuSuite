@@ -35,4 +35,59 @@ export class PropertyService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  createTenant(
+    tenantId: string,
+    data: {
+      propertyId: string;
+      name: string;
+      phone: string;
+      email?: string;
+      address?: string;
+      rent?: number;
+      startDate: string;
+      status?: string;
+    },
+  ) {
+    return this.prisma.tenantProperty.create({
+      data: {
+        propertyId: data.propertyId,
+        name: data.name,
+        phone: data.phone,
+        email: data.email || null,
+        address: data.address || null,
+        rent: data.rent ?? 0,
+        startDate: new Date(data.startDate),
+        status: data.status || 'actif',
+      },
+    });
+  }
+
+  findAllTenants(tenantId: string) {
+    return this.prisma.tenantProperty.findMany({
+      where: {
+        property: {
+          tenantId,
+        },
+      },
+      include: {
+        property: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  findPropertiesForSelect(tenantId: string) {
+    return this.prisma.property.findMany({
+      where: { tenantId },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        address: true,
+        status: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
