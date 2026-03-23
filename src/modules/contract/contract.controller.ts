@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -26,8 +29,38 @@ export class ContractController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get(':id')
+  findOne(@Req() req: any, @Param('id') id: string) {
+    return this.contractService.findOne(req.user.tenantId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Req() req: any, @Body() body: any) {
     return this.contractService.create(req.user.tenantId, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.contractService.update(req.user.tenantId, id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/activate')
+  activate(@Req() req: any, @Param('id') id: string) {
+    return this.contractService.activate(req.user.tenantId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/terminate')
+  terminate(@Req() req: any, @Param('id') id: string) {
+    return this.contractService.terminate(req.user.tenantId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  remove(@Req() req: any, @Param('id') id: string) {
+    return this.contractService.remove(req.user.tenantId, id);
   }
 }
