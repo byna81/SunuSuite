@@ -50,4 +50,26 @@ export class PropertyController {
   checkoutTenant(@Req() req: any, @Param('id') id: string) {
     return this.service.checkoutTenant(req.user.tenantId, id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('owner-payments')
+  findAllOwnerPayments(@Req() req: any) {
+    return this.service.findAllOwnerPayments(req.user.tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('owner-payments/select')
+  findOwnerPaymentsSelect(@Req() req: any) {
+    return this.service.findOwnerPaymentsSelect(req.user.tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('owner-payments')
+  createOwnerPayment(@Req() req: any, @Body() body: any) {
+    return this.service.createOwnerPayment(
+      req.user.tenantId,
+      req.user.login || req.user.email || 'Utilisateur',
+      body,
+    );
+  }
 }
