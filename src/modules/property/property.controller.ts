@@ -3,6 +3,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Param,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -41,5 +43,12 @@ export class PropertyController {
   @Post('tenants')
   createTenant(@Req() req: any, @Body() body: any) {
     return this.service.createTenant(req.user.tenantId, body);
+  }
+
+  // 🔥 NOUVELLE ROUTE
+  @UseGuards(JwtAuthGuard)
+  @Patch('tenants/:id/checkout')
+  checkoutTenant(@Req() req: any, @Param('id') id: string) {
+    return this.service.checkoutTenant(req.user.tenantId, id);
   }
 }
