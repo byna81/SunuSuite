@@ -200,16 +200,17 @@ model Property {
 }
 
 model TenantProperty {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   propertyId  String
   name        String
   phone       String
   email       String?
   address     String?
-  rent        Float    @default(0)
+  rent        Float     @default(0)
   startDate   DateTime
-  status      String   @default("actif")
-  createdAt   DateTime @default(now())
+  endDate     DateTime?
+  status      String    @default("actif")
+  createdAt   DateTime  @default(now())
 
-  property    Property @relation(fields: [propertyId], references: [id])
+  property    Property  @relation(fields: [propertyId], references: [id])
 }
