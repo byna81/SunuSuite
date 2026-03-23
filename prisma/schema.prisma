@@ -219,19 +219,22 @@ model TenantProperty {
 }
 
 model LeaseContract {
-  id                String   @id @default(uuid())
-
+  id                String         @id @default(uuid())
   tenantId          String
   propertyId        String
   tenantPropertyId  String
-
   startDate         DateTime
   endDate           DateTime?
-  rent              Float
-  deposit           Float?
-
-  status            String   @default("active") // active / terminated
-  createdAt         DateTime @default(now())
+  rentAmount        Float
+  depositAmount     Float          @default(0)
+  paymentFrequency  String         @default("mensuel")
+  status            String         @default("brouillon")
+  notes             String?
+  inventoryInNotes  String?
+  inventoryOutNotes String?
+  terminatedAt      DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   tenant            Tenant         @relation(fields: [tenantId], references: [id])
   property          Property       @relation(fields: [propertyId], references: [id])
