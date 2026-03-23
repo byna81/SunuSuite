@@ -154,7 +154,12 @@ export class ContractService {
       where: { id },
       data: {
         startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        endDate:
+          data.endDate === ''
+            ? null
+            : data.endDate
+              ? new Date(data.endDate)
+              : undefined,
         rentAmount: data.rentAmount,
         depositAmount: data.depositAmount,
         paymentFrequency: data.paymentFrequency,
