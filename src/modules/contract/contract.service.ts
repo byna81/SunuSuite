@@ -16,6 +16,25 @@ export class ContractService {
     });
   }
 
+  async findOne(tenantId: string, id: string) {
+    const contract = await this.prisma.leaseContract.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+      include: {
+        property: true,
+        tenantProperty: true,
+      },
+    });
+
+    if (!contract) {
+      throw new Error('Contrat introuvable');
+    }
+
+    return contract;
+  }
+
   async getSelectData(tenantId: string) {
     const properties = await this.prisma.property.findMany({
       where: { tenantId },
@@ -65,6 +84,8 @@ export class ContractService {
       paymentFrequency?: string;
       status?: string;
       notes?: string;
+      inventoryInNotes?: string;
+      inventoryOutNotes?: string;
     },
   ) {
     const tenant = await this.prisma.tenantProperty.findFirst({
@@ -98,9 +119,102 @@ export class ContractService {
         rentAmount: data.rentAmount,
         depositAmount: data.depositAmount ?? 0,
         paymentFrequency: data.paymentFrequency || 'mensuel',
-        status: data.status || 'actif',
+        status: data.status || 'brouillon',
         notes: data.notes || null,
+        inventoryInNotes: data.inventoryInNotes || null,
+        inventoryOutNotes: data.inventoryOutNotes || null,
       },
     });
+  }
+
+  async update(
+    tenantId: string,
+    id: string,
+    data: {
+      startDate?: string;
+      endDate?: string;
+      rentAmount?: number;
+      depositAmount?: number;
+      paymentFrequency?: string;
+      notes?: string;
+      inventoryInNotes?: string;
+      inventoryOutNotes?: string;
+      status?: string;
+    },
+  ) {
+    const existing = await this.prisma.leaseContract.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!existing) {
+      throw new Error('Contrat introuvable');
+    }
+
+    return this.prisma.leaseContract.update({
+      where: { id },
+      data: {
+        startDate: data.startDate ? new Date(data.startDate) : undefined,
+        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        rentAmount: data.rentAmount,
+        depositAmount: data.depositAmount,
+        paymentFrequency: data.paymentFrequency,
+        notes: data.notes,
+        inventoryInNotes: data.inventoryInNotes,
+        inventoryOutNotes: data.inventoryOutNotes,
+        status: data.status,
+      },
+    });
+  }
+
+  async activate(tenantId: string, id: string) {
+    const existing = await this.prisma.leaseContract.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!existing) {
+      throw new Error('Contrat introuvable');
+    }
+
+    return this.prisma.leaseContract.update({
+      where: { id },
+      data: {
+        status: 'actif',
+        terminatedAt: null,
+      },
+    });
+  }
+
+  async terminate(tenantId: string, id: string) {
+    const existing = await this.prisma.leaseContract.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!existing) {
+      throw new Error('Contrat introuvable');
+    }
+
+    return this.prisma.leaseContract.update({
+      where: { id },
+      data: {
+        status: 'résilié',
+        terminatedAt: new Date(),
+      },
+    });
+  }
+
+  async remove(tenantId: string, id: string) {
+    const existing = await this.prisma.leaseContract.findFirst({
+      where: { id, tenantId },
+    });
+
+    if (!existing) {
+      throw new Error('Contrat introuvable');
+    }
+
+    await this.prisma.leaseContract.delete({
+      where: { id },
+    });
+
+    return { message: 'Contrat supprimé' };
   }
 }
