@@ -5,38 +5,82 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class PropertyService {
   constructor(private prisma: PrismaService) {}
 
-  create(
+  async create(
     tenantId: string,
-    data: {
+    body: {
       title: string;
       type: string;
       address: string;
       amount: string;
       status?: string;
       description?: string;
+      ownershipType?: 'agency' | 'owner';
+      ownerName?: string;
+      ownerPhone?: string;
+      ownerEmail?: string;
+      ownerAddress?: string;
     },
   ) {
+    const ownershipType = body.ownershipType || 'agency';
+
+    let ownerId: string | null = null;
+
+    if (ownershipType === 'owner') {
+      if (!body.ownerName?.trim()) {
+        throw new Error('Le nom du propriétaire est obligatoire');
+      }
+
+      const createdOwner = await this.prisma.owner.create({
+        data: {
+          tenantId,
+          name: body.ownerName.trim(),
+          phone: body.ownerPhone?.trim() || null,
+          email: body.ownerEmail?.trim() || null,
+          address: body.ownerAddress?.trim() || null,
+        },
+      });
+
+      ownerId = createdOwner.id;
+    }
+
     return this.prisma.property.create({
       data: {
         tenantId,
-        title: data.title,
-        type: data.type,
-        address: data.address,
-        amount: data.amount,
-        status: data.status || 'disponible',
-        description: data.description || null,
+        ownerId,
+        title: body.title.trim(),
+        type: body.type.trim(),
+        address: body.address.trim(),
+        amount: body.amount.trim(),
+        status: body.status || 'disponible',
+        description: body.description?.trim() || null,
+      },
+      include: {
+        owner: true,
       },
     });
   }
 
-  findAll(tenantId: string) {
+  async findAll(tenantId: string) {
     return this.prisma.property.findMany({
       where: { tenantId },
-      orderBy: { createdAt: 'desc' },
+      include: {
+        owner: true,
+        tenants: {
+          where: {
+            status: 'actif',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
-  findPropertiesForSelect(tenantId: string) {
+  async findPropertiesForSelect(tenantId: string) {
     return this.prisma.property.findMany({
       where: {
         tenantId,
@@ -47,16 +91,47 @@ export class PropertyService {
         title: true,
         type: true,
         address: true,
-        status: true,
         amount: true,
+        status: true,
+        ownerId: true,
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async findAllTenants(tenantId: string) {
+    return this.prisma.tenantProperty.findMany({
+      where: {
+        property: {
+          tenantId,
+        },
+      },
+      include: {
+        property: {
+          include: {
+            owner: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
   async createTenant(
     tenantId: string,
-    data: {
+    body: {
       propertyId: string;
       name: string;
       phone: string;
@@ -64,12 +139,11 @@ export class PropertyService {
       address?: string;
       rent?: number;
       startDate: string;
-      status?: string;
     },
   ) {
     const property = await this.prisma.property.findFirst({
       where: {
-        id: data.propertyId,
+        id: body.propertyId,
         tenantId,
       },
     });
@@ -79,36 +153,42 @@ export class PropertyService {
     }
 
     if (property.status !== 'disponible') {
-      throw new Error('Ce bien n’est pas disponible');
+      throw new Error("Ce bien n'est pas disponible");
     }
 
-    const tenantProperty = await this.prisma.tenantProperty.create({
+    const tenant = await this.prisma.tenantProperty.create({
       data: {
-        propertyId: data.propertyId,
-        name: data.name,
-        phone: data.phone,
-        email: data.email || null,
-        address: data.address || null,
-        rent: data.rent ?? 0,
-        startDate: new Date(data.startDate),
-        endDate: null,
-        status: data.status || 'actif',
+        propertyId: body.propertyId,
+        name: body.name.trim(),
+        phone: body.phone.trim(),
+        email: body.email?.trim() || null,
+        address: body.address?.trim() || null,
+        rent:
+          body.rent && !Number.isNaN(Number(body.rent))
+            ? Number(body.rent)
+            : Number(String(property.amount).replace(/[^\d]/g, '')) || 0,
+        startDate: new Date(body.startDate),
+        status: 'actif',
+      },
+      include: {
+        property: true,
       },
     });
 
     await this.prisma.property.update({
-      where: { id: data.propertyId },
+      where: { id: body.propertyId },
       data: {
         status: 'occupé',
       },
     });
 
-    return tenantProperty;
+    return tenant;
   }
 
-  findAllTenants(tenantId: string) {
-    return this.prisma.tenantProperty.findMany({
+  async checkoutTenant(tenantId: string, tenantPropertyId: string) {
+    const tenantProperty = await this.prisma.tenantProperty.findFirst({
       where: {
+        id: tenantPropertyId,
         property: {
           tenantId,
         },
@@ -116,46 +196,38 @@ export class PropertyService {
       include: {
         property: true,
       },
-      orderBy: { createdAt: 'desc' },
     });
-  }
 
-  async checkoutTenant(tenantId: string, tenantPropertyId: string) {
-    const tenant = await this.prisma.tenantProperty.findFirst({
+    if (!tenantProperty) {
+      throw new Error('Locataire introuvable');
+    }
+
+    if (tenantProperty.status !== 'actif') {
+      throw new Error('Ce locataire a déjà quitté le logement');
+    }
+
+    const updatedTenant = await this.prisma.tenantProperty.update({
       where: {
         id: tenantPropertyId,
-        property: { tenantId },
+      },
+      data: {
+        status: 'quitté',
+        endDate: new Date(),
       },
       include: {
         property: true,
       },
     });
 
-    if (!tenant) {
-      throw new Error('Locataire introuvable');
-    }
-
-    if (tenant.status === 'quitté') {
-      throw new Error('Ce locataire est déjà clôturé');
-    }
-
-    await this.prisma.tenantProperty.update({
-      where: { id: tenantPropertyId },
-      data: {
-        status: 'quitté',
-        endDate: new Date(),
-      },
-    });
-
     await this.prisma.property.update({
-      where: { id: tenant.propertyId },
+      where: {
+        id: tenantProperty.propertyId,
+      },
       data: {
         status: 'disponible',
       },
     });
 
-    return {
-      message: 'Locataire clôturé et bien libéré',
-    };
+    return updatedTenant;
   }
 }
