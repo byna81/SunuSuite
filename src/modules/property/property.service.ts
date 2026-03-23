@@ -36,7 +36,24 @@ export class PropertyService {
     });
   }
 
-  createTenant(
+  findPropertiesForSelect(tenantId: string) {
+    return this.prisma.property.findMany({
+      where: {
+        tenantId,
+        status: 'disponible',
+      },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        address: true,
+        status: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createTenant(
     tenantId: string,
     data: {
       propertyId: string;
@@ -49,7 +66,22 @@ export class PropertyService {
       status?: string;
     },
   ) {
-    return this.prisma.tenantProperty.create({
+    const property = await this.prisma.property.findFirst({
+      where: {
+        id: data.propertyId,
+        tenantId,
+      },
+    });
+
+    if (!property) {
+      throw new Error('Bien introuvable');
+    }
+
+    if (property.status !== 'disponible') {
+      throw new Error('Ce bien n’est pas disponible');
+    }
+
+    const tenantProperty = await this.prisma.tenantProperty.create({
       data: {
         propertyId: data.propertyId,
         name: data.name,
@@ -61,6 +93,15 @@ export class PropertyService {
         status: data.status || 'actif',
       },
     });
+
+    await this.prisma.property.update({
+      where: { id: data.propertyId },
+      data: {
+        status: 'occupé',
+      },
+    });
+
+    return tenantProperty;
   }
 
   findAllTenants(tenantId: string) {
@@ -76,21 +117,4 @@ export class PropertyService {
       orderBy: { createdAt: 'desc' },
     });
   }
-
-findPropertiesForSelect(tenantId: string) {
-  return this.prisma.property.findMany({
-    where: {
-      tenantId,
-      status: 'disponible',
-    },
-    select: {
-      id: true,
-      title: true,
-      type: true,
-      address: true,
-      status: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-}
 }
