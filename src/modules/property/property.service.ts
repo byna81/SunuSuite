@@ -37,22 +37,22 @@ export class PropertyService {
   }
 
   findPropertiesForSelect(tenantId: string) {
-  return this.prisma.property.findMany({
-    where: {
-      tenantId,
-      status: 'disponible',
-    },
-    select: {
-      id: true,
-      title: true,
-      type: true,
-      address: true,
-      status: true,
-      amount: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-}
+    return this.prisma.property.findMany({
+      where: {
+        tenantId,
+        status: 'disponible',
+      },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        address: true,
+        status: true,
+        amount: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
   async createTenant(
     tenantId: string,
@@ -91,6 +91,7 @@ export class PropertyService {
         address: data.address || null,
         rent: data.rent ?? 0,
         startDate: new Date(data.startDate),
+        endDate: null,
         status: data.status || 'actif',
       },
     });
@@ -142,6 +143,7 @@ export class PropertyService {
       where: { id: tenantPropertyId },
       data: {
         status: 'quitté',
+        endDate: new Date(),
       },
     });
 
