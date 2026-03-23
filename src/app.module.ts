@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { PropertyModule } from './modules/property/property.module';
 import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
+import { ContractModule } from './modules/contract/contract.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { TenantsService } from './tenants/tenants.service';
     DashboardModule,
     AuthModule,
     PropertyModule,
+    ContractModule,
   ],
   controllers: [
     AppController,
