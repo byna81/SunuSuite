@@ -280,3 +280,46 @@ model OwnerPayment {
   owner         Owner     @relation(fields: [ownerId], references: [id])
   tenant        Tenant    @relation(fields: [tenantId], references: [id])
 }
+
+enum RentStatus {
+  a_payer
+  partiel
+  paye
+  en_retard
+}
+
+model RentPayment {
+  id               String         @id @default(uuid())
+  tenantId         String
+  propertyId       String
+  tenantPropertyId String
+
+  month            Int
+  year             Int
+
+  amountDue        Float
+  amountPaid       Float          @default(0)
+  remainingAmount  Float          @default(0)
+
+  status           RentStatus     @default(a_payer)
+
+  dueDate          DateTime?
+  paymentDate      DateTime?
+  paymentMethod    String?
+  paymentReference String?
+
+  noticeSentAt     DateTime?
+  reminderSentAt   DateTime?
+  receiptSentAt    DateTime?
+
+  note             String?
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
+
+  tenant           Tenant         @relation(fields: [tenantId], references: [id])
+  property         Property       @relation(fields: [propertyId], references: [id])
+  tenantProperty   TenantProperty @relation(fields: [tenantPropertyId], references: [id])
+
+  @@unique([propertyId, tenantPropertyId, month, year])
+}
