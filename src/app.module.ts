@@ -8,6 +8,7 @@ import { PropertyModule } from './modules/property/property.module';
 import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
 import { ContractModule } from './modules/contract/contract.module';
+import { RentModule } from './modules/rent/rent.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { ContractModule } from './modules/contract/contract.module';
     AuthModule,
     PropertyModule,
     ContractModule,
+    RentModule,
   ],
   controllers: [
     AppController,
