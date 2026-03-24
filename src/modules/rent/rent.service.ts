@@ -250,7 +250,7 @@ export class RentService {
     return { doc, buffers };
   }
 
-  private finalize(doc: PDFKit.PDFDocument, buffers: Buffer[]): Promise<Buffer> {
+  private finalize(doc: any, buffers: Buffer[]): Promise<Buffer> {  
     return new Promise((resolve) => {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.end();
