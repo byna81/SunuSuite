@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import * as PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
 
 @Injectable()
 export class RentService {
@@ -13,7 +13,11 @@ export class RentService {
         property: true,
         tenantProperty: true,
       },
-      orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      orderBy: [
+        { year: 'desc' },
+        { month: 'desc' },
+        { createdAt: 'desc' },
+      ],
     });
   }
 
@@ -26,61 +30,235 @@ export class RentService {
       },
     });
 
-    if (!item) throw new Error('Loyer introuvable');
+    if (!item) {
+      throw new Error('Loyer introuvable');
+    }
+
     return item;
   }
 
-  // =========================
-  // PDF GENERATOR PREMIUM
-  // =========================
+  async findActiveTenantsForRent(tenantId: string) {
+    return this.prisma.tenantProperty.findMany({
+      where: {
+        status: 'actif',
+        property: {
+          tenantId,
+        },
+      },
+      include: {
+        property: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async create(
+    tenantId: string,
+    body: {
+      propertyId: string;
+      tenantPropertyId: string;
+      month: number;
+      year: number;
+      amountDue?: number;
+      dueDate?: string;
+      note?: string;
+    },
+  ) {
+    const tenantProperty = await this.prisma.tenantProperty.findFirst({
+      where: {
+        id: body.tenantPropertyId,
+        status: 'actif',
+        property: {
+          id: body.propertyId,
+          tenantId,
+        },
+      },
+      include: {
+        property: true,
+      },
+    });
+
+    if (!tenantProperty) {
+      throw new Error('Locataire actif introuvable pour ce bien');
+    }
+
+    const month = Number(body.month);
+    const year = Number(body.year);
+
+    if (!month || month < 1 || month > 12) {
+      throw new Error('Mois invalide');
+    }
+
+    if (!year || year < 2000) {
+      throw new Error('Année invalide');
+    }
+
+    const existing = await this.prisma.rentPayment.findFirst({
+      where: {
+        propertyId: body.propertyId,
+        tenantPropertyId: body.tenantPropertyId,
+        month,
+        year,
+      },
+    });
+
+    if (existing) {
+      throw new Error('Un loyer existe déjà pour cette période');
+    }
+
+    const amountDue =
+      body.amountDue && Number(body.amountDue) > 0
+        ? Number(body.amountDue)
+        : Number(tenantProperty.rent || 0);
+
+    return this.prisma.rentPayment.create({
+      data: {
+        tenantId,
+        propertyId: body.propertyId,
+        tenantPropertyId: body.tenantPropertyId,
+        month,
+        year,
+        amountDue,
+        amountPaid: 0,
+        remainingAmount: amountDue,
+        status: 'a_payer',
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
+        note: body.note?.trim() || null,
+      },
+      include: {
+        property: true,
+        tenantProperty: true,
+      },
+    });
+  }
+
+  async pay(
+    tenantId: string,
+    id: string,
+    body: {
+      amountPaid: number;
+      paymentMethod?: string;
+      paymentReference?: string;
+      paymentDate?: string;
+      note?: string;
+    },
+  ) {
+    const item = await this.prisma.rentPayment.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+    });
+
+    if (!item) {
+      throw new Error('Loyer introuvable');
+    }
+
+    const incoming = Number(body.amountPaid || 0);
+
+    if (incoming <= 0) {
+      throw new Error('Le montant payé doit être supérieur à 0');
+    }
+
+    const newAmountPaid = Number(item.amountPaid) + incoming;
+    const remainingAmount = Math.max(Number(item.amountDue) - newAmountPaid, 0);
+
+    let status: 'a_payer' | 'partiel' | 'paye' | 'en_retard' = 'a_payer';
+
+    if (newAmountPaid <= 0) {
+      status = 'a_payer';
+    } else if (remainingAmount > 0) {
+      status = 'partiel';
+    } else {
+      status = 'paye';
+    }
+
+    return this.prisma.rentPayment.update({
+      where: { id },
+      data: {
+        amountPaid: newAmountPaid,
+        remainingAmount,
+        status,
+        paymentMethod: body.paymentMethod?.trim() || item.paymentMethod || null,
+        paymentReference:
+          body.paymentReference?.trim() || item.paymentReference || null,
+        paymentDate: body.paymentDate ? new Date(body.paymentDate) : new Date(),
+        note: body.note?.trim() || item.note || null,
+      },
+      include: {
+        property: true,
+        tenantProperty: true,
+      },
+    });
+  }
+
+  async markLate(tenantId: string, id: string) {
+    const item = await this.prisma.rentPayment.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+    });
+
+    if (!item) {
+      throw new Error('Loyer introuvable');
+    }
+
+    if (item.status === 'paye') {
+      return item;
+    }
+
+    return this.prisma.rentPayment.update({
+      where: { id },
+      data: {
+        status: 'en_retard',
+      },
+      include: {
+        property: true,
+        tenantProperty: true,
+      },
+    });
+  }
+
   private createBasePdf(title: string) {
     const doc = new PDFDocument({ margin: 40 });
-    const buffers: any[] = [];
+    const buffers: Buffer[] = [];
 
-    doc.on('data', buffers.push.bind(buffers));
+    doc.on('data', (chunk: Buffer) => buffers.push(chunk));
 
-    const header = () => {
-      doc
-        .fontSize(18)
-        .fillColor('#111827')
-        .text('SUNUSUITE IMMOBILIER', { align: 'left' });
+    doc
+      .fontSize(18)
+      .fillColor('#111827')
+      .text('SUNUSUITE IMMOBILIER', { align: 'left' });
 
-      doc.moveDown(0.5);
+    doc.moveDown(0.5);
 
-      doc
-        .fontSize(10)
-        .fillColor('#6b7280')
-        .text('Gestion immobilière professionnelle');
+    doc
+      .fontSize(10)
+      .fillColor('#6b7280')
+      .text('Gestion immobilière professionnelle');
 
-      doc.moveDown();
-      doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
-      doc.moveDown();
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
 
-      doc
-        .fontSize(20)
-        .fillColor('#111827')
-        .text(title, { align: 'center' });
-
-      doc.moveDown();
-    };
-
-    header();
+    doc.fontSize(20).fillColor('#111827').text(title, { align: 'center' });
+    doc.moveDown();
 
     return { doc, buffers };
   }
 
-  private finalize(doc: PDFKit.PDFDocument, buffers: any[]): Promise<Buffer> {
+  private finalize(doc: PDFKit.PDFDocument, buffers: Buffer[]): Promise<Buffer> {
     return new Promise((resolve) => {
-      doc.on('end', () => {
-        resolve(Buffer.concat(buffers));
-      });
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.end();
     });
   }
 
   async getNoticePdf(tenantId: string, id: string): Promise<Buffer> {
     const item = await this.findOne(tenantId, id);
-
     const { doc, buffers } = this.createBasePdf('AVIS D’ÉCHÉANCE');
 
     doc.fontSize(12).text(`Locataire : ${item.tenantProperty.name}`);
@@ -88,20 +266,24 @@ export class RentService {
     doc.text(`Période : ${item.month}/${item.year}`);
     doc.moveDown();
 
-    doc
-      .rect(40, doc.y, 500, 80)
-      .stroke()
-      .text(`Montant à payer : ${item.amountDue} FCFA`, 50, doc.y + 10)
-      .text(`Reste : ${item.remainingAmount} FCFA`, 50, doc.y + 30);
+    const top = doc.y;
+    doc.rect(40, top, 500, 80).stroke();
+    doc.text(`Montant à payer : ${item.amountDue} FCFA`, 50, top + 12);
+    doc.text(`Reste : ${item.remainingAmount} FCFA`, 50, top + 32);
+    doc.text(
+      `Date d'échéance : ${
+        item.dueDate ? new Date(item.dueDate).toLocaleDateString('fr-FR') : '-'
+      }`,
+      50,
+      top + 52,
+    );
 
     doc.moveDown(6);
-
     doc
       .fillColor('#6b7280')
-      .text(
-        'Merci de régler votre loyer avant la date d’échéance.',
-        { align: 'center' },
-      );
+      .text('Merci de procéder au règlement avant la date d’échéance.', {
+        align: 'center',
+      });
 
     return this.finalize(doc, buffers);
   }
@@ -110,35 +292,32 @@ export class RentService {
     const item = await this.findOne(tenantId, id);
 
     if (item.status !== 'paye') {
-      throw new Error('Quittance disponible uniquement si payé');
+      throw new Error('Quittance disponible uniquement si le loyer est payé');
     }
 
-    const { doc, buffers } = this.createBasePdf(
-      'QUITTANCE DE LOYER',
-    );
+    const { doc, buffers } = this.createBasePdf('QUITTANCE DE LOYER');
 
     doc.fontSize(12).text(`Locataire : ${item.tenantProperty.name}`);
     doc.text(`Bien : ${item.property.title}`);
     doc.text(`Période : ${item.month}/${item.year}`);
     doc.moveDown();
 
-    doc
-      .rect(40, doc.y, 500, 100)
-      .stroke()
-      .text(`Montant payé : ${item.amountPaid} FCFA`, 50, doc.y + 10)
-      .text(
-        `Date : ${
-          item.paymentDate
-            ? new Date(item.paymentDate).toLocaleDateString('fr-FR')
-            : '-'
-        }`,
-        50,
-        doc.y + 30,
-      )
-      .text(`Mode : ${item.paymentMethod || '-'}`, 50, doc.y + 50);
+    const top = doc.y;
+    doc.rect(40, top, 500, 100).stroke();
+    doc.text(`Montant payé : ${item.amountPaid} FCFA`, 50, top + 12);
+    doc.text(
+      `Date : ${
+        item.paymentDate
+          ? new Date(item.paymentDate).toLocaleDateString('fr-FR')
+          : '-'
+      }`,
+      50,
+      top + 34,
+    );
+    doc.text(`Mode : ${item.paymentMethod || '-'}`, 50, top + 56);
+    doc.text(`Référence : ${item.paymentReference || '-'}`, 50, top + 78);
 
-    doc.moveDown(6);
-
+    doc.moveDown(7);
     doc
       .fontSize(14)
       .fillColor('#16a34a')
