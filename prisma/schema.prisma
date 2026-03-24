@@ -35,6 +35,7 @@ model Tenant {
   contracts     LeaseContract[]
   owners        Owner[]
   ownerPayments OwnerPayment[]
+  rentPayments  RentPayment[]
 }
 
 model User {
@@ -205,6 +206,7 @@ model Property {
   tenants       TenantProperty[]
   contracts     LeaseContract[]
   ownerPayments OwnerPayment[]
+  rentPayments  RentPayment[]
 }
 
 model TenantProperty {
@@ -223,6 +225,7 @@ model TenantProperty {
 
   property    Property         @relation(fields: [propertyId], references: [id])
   contracts   LeaseContract[]
+  rentPayments RentPayment[]
 }
 
 model LeaseContract {
