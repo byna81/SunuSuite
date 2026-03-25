@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   manager
   cashier
+  agent
 }
 
 model Tenant {
@@ -38,36 +39,29 @@ model Tenant {
   rentPayments  RentPayment[]
 }
 
-enum Role {
-  manager
-  cashier
-  agent
-}
-
 model User {
-  id                 String      @id @default(uuid())
-  email              String?     @unique
-  login              String?     @unique
-  password           String
-  role               Role
-  tenantId           String
-  isActive           Boolean     @default(true)
-  createdAt          DateTime    @default(now())
-  resetCode          String?
-  resetCodeExpiresAt DateTime?
+  id                     String      @id @default(uuid())
+  email                  String?     @unique
+  login                  String?     @unique
+  password               String
+  role                   Role
+  tenantId               String
+  isActive               Boolean     @default(true)
+  createdAt              DateTime    @default(now())
+  resetCode              String?
+  resetCodeExpiresAt     DateTime?
 
-  fullName           String?
-  phone              String?
-  canManageProperties     Boolean @default(false)
-  canManageTenants        Boolean @default(false)
-  canManageContracts      Boolean @default(false)
-  canManageRents          Boolean @default(false)
-  canManageOwnerPayments  Boolean @default(false)
-  canViewDashboard        Boolean @default(false)
+  fullName               String?
+  phone                  String?
+  canManageProperties    Boolean     @default(false)
+  canManageTenants       Boolean     @default(false)
+  canManageContracts     Boolean     @default(false)
+  canManageRents         Boolean     @default(false)
+  canManageOwnerPayments Boolean     @default(false)
+  canViewDashboard       Boolean     @default(false)
 
-  tenant             Tenant      @relation(fields: [tenantId], references: [id])
+  tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 }
-
 model Vehicle {
   id        String   @id @default(uuid())
   tenantId  String
