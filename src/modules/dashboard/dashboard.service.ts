@@ -19,6 +19,7 @@ export class DashboardService {
         select: {
           id: true,
           status: true,
+          title: true,
         },
       }),
 
@@ -35,7 +36,11 @@ export class DashboardService {
       }),
 
       this.prisma.rentPayment.findMany({
-        where: { tenantId },
+        where: {
+          property: {
+            tenantId,
+          },
+        },
         select: {
           id: true,
           status: true,
@@ -59,11 +64,16 @@ export class DashboardService {
       }),
 
       this.prisma.ownerPayment.findMany({
-        where: { tenantId },
+        where: {
+          property: {
+            tenantId,
+          },
+        },
         select: {
           id: true,
           amount: true,
           paidAt: true,
+          periodLabel: true,
           owner: {
             select: {
               name: true,
@@ -74,12 +84,15 @@ export class DashboardService {
               title: true,
             },
           },
-          periodLabel: true,
         },
       }),
 
       this.prisma.rentPayment.findMany({
-        where: { tenantId },
+        where: {
+          property: {
+            tenantId,
+          },
+        },
         include: {
           property: {
             select: {
@@ -101,7 +114,11 @@ export class DashboardService {
       }),
 
       this.prisma.ownerPayment.findMany({
-        where: { tenantId },
+        where: {
+          property: {
+            tenantId,
+          },
+        },
         include: {
           owner: {
             select: {
