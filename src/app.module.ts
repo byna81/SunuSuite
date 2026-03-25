@@ -9,6 +9,7 @@ import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
 import { ContractModule } from './modules/contract/contract.module';
 import { RentModule } from './modules/rent/rent.module';
+import { OwnerPaymentModule } from './modules/owner-payment/owner-payment.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { RentModule } from './modules/rent/rent.module';
     PropertyModule,
     ContractModule,
     RentModule,
+    OwnerPaymentModule,
   ],
   controllers: [
     AppController,
