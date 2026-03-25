@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import PDFDocument from 'pdfkit';
+import PDFDocument = require('pdfkit');
 
 @Injectable()
 export class RentService {
@@ -222,35 +222,16 @@ export class RentService {
     });
   }
 
-  private createBasePdf(title: string) {
+  private createBasePdf() {
     const doc = new PDFDocument({ margin: 40 });
     const buffers: Buffer[] = [];
 
     doc.on('data', (chunk: Buffer) => buffers.push(chunk));
 
-    doc
-      .fontSize(18)
-      .fillColor('#111827')
-      .text('SUNUSUITE IMMOBILIER', { align: 'left' });
-
-    doc.moveDown(0.5);
-
-    doc
-      .fontSize(10)
-      .fillColor('#6b7280')
-      .text('Gestion immobilière professionnelle');
-
-    doc.moveDown();
-    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown();
-
-    doc.fontSize(20).fillColor('#111827').text(title, { align: 'center' });
-    doc.moveDown();
-
     return { doc, buffers };
   }
 
-  private finalize(doc: any, buffers: Buffer[]): Promise<Buffer> {  
+  private finalize(doc: any, buffers: Buffer[]): Promise<Buffer> {
     return new Promise((resolve) => {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.end();
@@ -259,9 +240,32 @@ export class RentService {
 
   async getNoticePdf(tenantId: string, id: string): Promise<Buffer> {
     const item = await this.findOne(tenantId, id);
-    const { doc, buffers } = this.createBasePdf('AVIS D’ÉCHÉANCE');
 
-    doc.fontSize(12).text(`Locataire : ${item.tenantProperty.name}`);
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    const agencyName = tenant?.name || 'Agence immobilière';
+    const agencySubtitle =
+      tenant?.address || 'Gestion immobilière professionnelle';
+
+    const { doc, buffers } = this.createBasePdf();
+
+    doc.fontSize(18).fillColor('#111827').text(agencyName);
+    doc.fontSize(10).fillColor('#6b7280').text(agencySubtitle);
+
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+
+    doc.fontSize(20).fillColor('#111827').text("AVIS D'ÉCHÉANCE", {
+      align: 'center',
+    });
+
+    doc.moveDown();
+
+    doc.fontSize(12).fillColor('#111827');
+    doc.text(`Locataire : ${item.tenantProperty.name}`);
     doc.text(`Bien : ${item.property.title}`);
     doc.text(`Période : ${item.month}/${item.year}`);
     doc.moveDown();
@@ -295,9 +299,31 @@ export class RentService {
       throw new Error('Quittance disponible uniquement si le loyer est payé');
     }
 
-    const { doc, buffers } = this.createBasePdf('QUITTANCE DE LOYER');
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
 
-    doc.fontSize(12).text(`Locataire : ${item.tenantProperty.name}`);
+    const agencyName = tenant?.name || 'Agence immobilière';
+    const agencySubtitle =
+      tenant?.address || 'Gestion immobilière professionnelle';
+
+    const { doc, buffers } = this.createBasePdf();
+
+    doc.fontSize(18).fillColor('#111827').text(agencyName);
+    doc.fontSize(10).fillColor('#6b7280').text(agencySubtitle);
+
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+
+    doc.fontSize(20).fillColor('#111827').text('QUITTANCE DE LOYER', {
+      align: 'center',
+    });
+
+    doc.moveDown();
+
+    doc.fontSize(12).fillColor('#111827');
+    doc.text(`Locataire : ${item.tenantProperty.name}`);
     doc.text(`Bien : ${item.property.title}`);
     doc.text(`Période : ${item.month}/${item.year}`);
     doc.moveDown();
