@@ -2,8 +2,8 @@ import {
   Body,
   Controller,
   Get,
-  Post,
   Patch,
+  Post,
   Param,
   Req,
   UseGuards,
@@ -34,7 +34,13 @@ export class PropertyController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('tenants')
+  @Get(':id')
+  findOne(@Req() req: any, @Param('id') id: string) {
+    return this.service.findOne(req.user.tenantId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('tenants/all')
   findAllTenants(@Req() req: any) {
     return this.service.findAllTenants(req.user.tenantId);
   }
@@ -52,30 +58,14 @@ export class PropertyController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get('owner-payments')
-  findAllOwnerPayments(@Req() req: any) {
-    return this.service.findAllOwnerPayments(req.user.tenantId);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('owner-payments/select')
-  findOwnerPaymentsSelect(@Req() req: any) {
-    return this.service.findOwnerPaymentsSelect(req.user.tenantId);
-  }
-
-  @UseGuards(JwtAuthGuard)
   @Post('owner-payments')
   createOwnerPayment(@Req() req: any, @Body() body: any) {
-    return this.service.createOwnerPayment(
-      req.user.tenantId,
-      req.user.login || req.user.email || 'Utilisateur',
-      body,
-    );
+    return this.service.createOwnerPayment(req.user.tenantId, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get(':id/owner-payments')
   findOwnerPaymentsByProperty(@Req() req: any, @Param('id') id: string) {
-    return this.service.findOwnerPaymentsByProperty(req.user.tenantId, id);
+    return this.service.findPropertyOwnerPayments(req.user.tenantId, id);
   }
 }
