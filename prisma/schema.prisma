@@ -188,7 +188,6 @@ model Refund {
   saleReturn   SaleReturn  @relation(fields: [saleReturnId], references: [id])
 }
 
-model Property {
   model Property {
   id            String           @id @default(uuid())
   tenantId      String
