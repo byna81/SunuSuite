@@ -2,70 +2,62 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Patch,
   Post,
-  Param,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { PropertyService } from './property.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { PropertyService } from './property.service';
 
 @Controller('properties')
+@UseGuards(JwtAuthGuard)
 export class PropertyController {
-  constructor(private service: PropertyService) {}
+  constructor(private readonly propertyService: PropertyService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Req() req: any, @Body() body: any) {
-    return this.service.create(req.user.tenantId, body);
+    return this.propertyService.create(req.user.tenantId, body);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get()
   findAll(@Req() req: any) {
-    return this.service.findAll(req.user.tenantId);
+    return this.propertyService.findAll(req.user.tenantId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('select')
   findPropertiesForSelect(@Req() req: any) {
-    return this.service.findPropertiesForSelect(req.user.tenantId);
+    return this.propertyService.findPropertiesForSelect(req.user.tenantId);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Get(':id')
-  findOne(@Req() req: any, @Param('id') id: string) {
-    return this.service.findOne(req.user.tenantId, id);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Get('tenants/all')
+  @Get('tenants')
   findAllTenants(@Req() req: any) {
-    return this.service.findAllTenants(req.user.tenantId);
+    return this.propertyService.findAllTenants(req.user.tenantId);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('tenants')
   createTenant(@Req() req: any, @Body() body: any) {
-    return this.service.createTenant(req.user.tenantId, body);
+    return this.propertyService.createTenant(req.user.tenantId, body);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch('tenants/:id/checkout')
   checkoutTenant(@Req() req: any, @Param('id') id: string) {
-    return this.service.checkoutTenant(req.user.tenantId, id);
+    return this.propertyService.checkoutTenant(req.user.tenantId, id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post('owner-payments')
   createOwnerPayment(@Req() req: any, @Body() body: any) {
-    return this.service.createOwnerPayment(req.user.tenantId, body);
+    return this.propertyService.createOwnerPayment(req.user.tenantId, body);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':id/owner-payments')
-  findOwnerPaymentsByProperty(@Req() req: any, @Param('id') id: string) {
-    return this.service.findPropertyOwnerPayments(req.user.tenantId, id);
+  findPropertyOwnerPayments(@Req() req: any, @Param('id') id: string) {
+    return this.propertyService.findPropertyOwnerPayments(req.user.tenantId, id);
+  }
+
+  @Get(':id')
+  findOne(@Req() req: any, @Param('id') id: string) {
+    return this.propertyService.findOne(req.user.tenantId, id);
   }
 }
