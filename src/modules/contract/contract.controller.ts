@@ -40,4 +40,12 @@ export class ContractController {
   terminate(@Req() req: any, @Param('id') id: string) {
     return this.contractService.terminate(req.user.tenantId, id);
   }
+
+  @Get('smart-owner-payment/:propertyId')
+  smartOwnerPayment(@Req() req: any, @Param('propertyId') propertyId: string) {
+    return this.contractService.findSmartOwnerPaymentData(
+      req.user.tenantId,
+      propertyId,
+    );
+  }
 }
