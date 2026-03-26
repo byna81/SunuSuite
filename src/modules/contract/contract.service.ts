@@ -1,23 +1,50 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class ContractService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  findAll(tenantId: string) {
+  private computeCommission(rentAmount: number, agencyPercent: number) {
+    const safeRent = Number(rentAmount || 0);
+    const safePercent = Number(agencyPercent || 0);
+
+    const agencyAmount = Number(((safeRent * safePercent) / 100).toFixed(2));
+    const ownerAmount = Number((safeRent - agencyAmount).toFixed(2));
+
+    return {
+      agencyAmount,
+      ownerAmount,
+    };
+  }
+
+  async findAll(tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     return this.prisma.leaseContract.findMany({
       where: { tenantId },
       include: {
         property: true,
         tenantProperty: true,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
   }
 
   async findOne(tenantId: string, id: string) {
-    const contract = await this.prisma.leaseContract.findFirst({
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    const item = await this.prisma.leaseContract.findFirst({
       where: {
         id,
         tenantId,
@@ -28,171 +55,228 @@ export class ContractService {
       },
     });
 
-    if (!contract) {
-      throw new Error('Contrat introuvable');
+    if (!item) {
+      throw new NotFoundException('Contrat introuvable');
     }
 
-    return contract;
+    return item;
   }
 
-  async getSelectData(tenantId: string) {
-    const properties = await this.prisma.property.findMany({
-      where: { tenantId },
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        address: true,
-        amount: true,
-        status: true,
+  async create(
+    tenantId: string,
+    body: {
+      propertyId: string;
+      tenantPropertyId: string;
+      startDate: string;
+      endDate?: string;
+      rentAmount: number;
+      depositAmount?: number;
+      paymentFrequency?: string;
+      status?: string;
+      agencyPercent?: number;
+      notes?: string;
+      inventoryInNotes?: string;
+      inventoryOutNotes?: string;
+    },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    if (!body.propertyId) {
+      throw new BadRequestException('Le bien est obligatoire');
+    }
+
+    if (!body.tenantPropertyId) {
+      throw new BadRequestException('Le locataire est obligatoire');
+    }
+
+    if (!body.startDate) {
+      throw new BadRequestException('La date de début est obligatoire');
+    }
+
+    const rentAmount = Number(body.rentAmount || 0);
+    const depositAmount = Number(body.depositAmount || 0);
+    const agencyPercent = Number(body.agencyPercent || 0);
+
+    if (rentAmount <= 0) {
+      throw new BadRequestException('Le loyer doit être supérieur à 0');
+    }
+
+    if (agencyPercent < 0 || agencyPercent > 100) {
+      throw new BadRequestException(
+        'Le pourcentage agence doit être compris entre 0 et 100',
+      );
+    }
+
+    const property = await this.prisma.property.findFirst({
+      where: {
+        id: body.propertyId,
+        tenantId,
       },
-      orderBy: { createdAt: 'desc' },
     });
 
-    const tenants = await this.prisma.tenantProperty.findMany({
+    if (!property) {
+      throw new NotFoundException('Bien introuvable');
+    }
+
+    const tenantProperty = await this.prisma.tenantProperty.findFirst({
       where: {
-        status: 'actif',
+        id: body.tenantPropertyId,
         property: {
           tenantId,
         },
       },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            type: true,
-            address: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
     });
 
-    return { properties, tenants };
-  }
+    if (!tenantProperty) {
+      throw new NotFoundException('Locataire introuvable');
+    }
 
-  async create(
-  tenantId: string,
-  data: {
-    propertyId: string;
-    tenantPropertyId: string;
-    startDate: string;
-    endDate?: string;
-    rentAmount: number;
-    depositAmount?: number;
-    paymentFrequency?: string;
-    status?: string;
-    notes?: string;
-    inventoryInNotes?: string;
-    inventoryOutNotes?: string;
-  },
-) {
-  const tenant = await this.prisma.tenantProperty.findFirst({
-    where: {
-      id: data.tenantPropertyId,
-      status: 'actif',
-      property: {
+    if (tenantProperty.propertyId !== property.id) {
+      throw new BadRequestException(
+        'Le locataire sélectionné n’est pas rattaché à ce bien',
+      );
+    }
+
+    const { agencyAmount, ownerAmount } = this.computeCommission(
+      rentAmount,
+      agencyPercent,
+    );
+
+    return this.prisma.leaseContract.create({
+      data: {
         tenantId,
+        propertyId: body.propertyId,
+        tenantPropertyId: body.tenantPropertyId,
+        startDate: new Date(body.startDate),
+        endDate: body.endDate ? new Date(body.endDate) : null,
+        rentAmount,
+        depositAmount,
+        paymentFrequency: body.paymentFrequency?.trim() || 'mensuel',
+        status: body.status?.trim() || 'actif',
+        agencyPercent,
+        agencyAmount,
+        ownerAmount,
+        notes: body.notes?.trim() || null,
+        inventoryInNotes: body.inventoryInNotes?.trim() || null,
+        inventoryOutNotes: body.inventoryOutNotes?.trim() || null,
       },
-    },
-  });
-
-  if (!tenant) {
-    throw new Error('Locataire actif introuvable');
+      include: {
+        property: true,
+        tenantProperty: true,
+      },
+    });
   }
-
-  return this.prisma.leaseContract.create({
-    data: {
-      tenantId,
-      propertyId: data.propertyId,
-      tenantPropertyId: data.tenantPropertyId,
-
-      startDate: new Date(data.startDate),
-      endDate: data.endDate ? new Date(data.endDate) : null,
-
-      rentAmount: Number(data.rentAmount),
-      depositAmount: Number(data.depositAmount || 0),
-
-      paymentFrequency: data.paymentFrequency || 'mensuel',
-      status: data.status || 'brouillon',
-
-      notes: data.notes || null,
-      inventoryInNotes: data.inventoryInNotes || null,
-      inventoryOutNotes: data.inventoryOutNotes || null,
-    },
-  });
-}
 
   async update(
     tenantId: string,
     id: string,
-    data: {
+    body: {
       startDate?: string;
       endDate?: string;
       rentAmount?: number;
       depositAmount?: number;
       paymentFrequency?: string;
+      status?: string;
+      agencyPercent?: number;
       notes?: string;
       inventoryInNotes?: string;
       inventoryOutNotes?: string;
-      status?: string;
     },
   ) {
-    const existing = await this.prisma.leaseContract.findFirst({
-      where: { id, tenantId },
-    });
-
-    if (!existing) {
-      throw new Error('Contrat introuvable');
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
     }
 
-    return this.prisma.leaseContract.update({
-      where: { id },
-      data: {
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate:
-          data.endDate === ''
-            ? null
-            : data.endDate
-              ? new Date(data.endDate)
-              : undefined,
-        rentAmount: data.rentAmount,
-        depositAmount: data.depositAmount,
-        paymentFrequency: data.paymentFrequency,
-        notes: data.notes,
-        inventoryInNotes: data.inventoryInNotes,
-        inventoryOutNotes: data.inventoryOutNotes,
-        status: data.status,
+    const existing = await this.prisma.leaseContract.findFirst({
+      where: {
+        id,
+        tenantId,
       },
     });
-  }
-
-  async activate(tenantId: string, id: string) {
-    const existing = await this.prisma.leaseContract.findFirst({
-      where: { id, tenantId },
-    });
 
     if (!existing) {
-      throw new Error('Contrat introuvable');
+      throw new NotFoundException('Contrat introuvable');
     }
+
+    const rentAmount =
+      body.rentAmount !== undefined
+        ? Number(body.rentAmount)
+        : existing.rentAmount;
+
+    const agencyPercent =
+      body.agencyPercent !== undefined
+        ? Number(body.agencyPercent)
+        : existing.agencyPercent;
+
+    if (rentAmount <= 0) {
+      throw new BadRequestException('Le loyer doit être supérieur à 0');
+    }
+
+    if (agencyPercent < 0 || agencyPercent > 100) {
+      throw new BadRequestException(
+        'Le pourcentage agence doit être compris entre 0 et 100',
+      );
+    }
+
+    const { agencyAmount, ownerAmount } = this.computeCommission(
+      rentAmount,
+      agencyPercent,
+    );
 
     return this.prisma.leaseContract.update({
       where: { id },
       data: {
-        status: 'actif',
-        terminatedAt: null,
+        startDate: body.startDate ? new Date(body.startDate) : existing.startDate,
+        endDate:
+          body.endDate !== undefined
+            ? body.endDate
+              ? new Date(body.endDate)
+              : null
+            : existing.endDate,
+        rentAmount,
+        depositAmount:
+          body.depositAmount !== undefined
+            ? Number(body.depositAmount)
+            : existing.depositAmount,
+        paymentFrequency:
+          body.paymentFrequency?.trim() || existing.paymentFrequency,
+        status: body.status?.trim() || existing.status,
+        agencyPercent,
+        agencyAmount,
+        ownerAmount,
+        notes: body.notes !== undefined ? body.notes?.trim() || null : existing.notes,
+        inventoryInNotes:
+          body.inventoryInNotes !== undefined
+            ? body.inventoryInNotes?.trim() || null
+            : existing.inventoryInNotes,
+        inventoryOutNotes:
+          body.inventoryOutNotes !== undefined
+            ? body.inventoryOutNotes?.trim() || null
+            : existing.inventoryOutNotes,
+      },
+      include: {
+        property: true,
+        tenantProperty: true,
       },
     });
   }
 
   async terminate(tenantId: string, id: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     const existing = await this.prisma.leaseContract.findFirst({
-      where: { id, tenantId },
+      where: {
+        id,
+        tenantId,
+      },
     });
 
     if (!existing) {
-      throw new Error('Contrat introuvable');
+      throw new NotFoundException('Contrat introuvable');
     }
 
     return this.prisma.leaseContract.update({
@@ -201,22 +285,10 @@ export class ContractService {
         status: 'résilié',
         terminatedAt: new Date(),
       },
+      include: {
+        property: true,
+        tenantProperty: true,
+      },
     });
-  }
-
-  async remove(tenantId: string, id: string) {
-    const existing = await this.prisma.leaseContract.findFirst({
-      where: { id, tenantId },
-    });
-
-    if (!existing) {
-      throw new Error('Contrat introuvable');
-    }
-
-    await this.prisma.leaseContract.delete({
-      where: { id },
-    });
-
-    return { message: 'Contrat supprimé' };
   }
 }
