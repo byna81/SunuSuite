@@ -60,4 +60,9 @@ export class PropertyController {
   findOne(@Req() req: any, @Param('id') id: string) {
     return this.propertyService.findOne(req.user.tenantId, id);
   }
+
+  @Patch(':id')
+  update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.propertyService.update(req.user.tenantId, id, body);
+  }
 }
