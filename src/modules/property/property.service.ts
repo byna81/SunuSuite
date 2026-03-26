@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -21,29 +25,32 @@ export class PropertyService {
       ownerAddress?: string;
     },
   ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     if (!body.title?.trim()) {
-      throw new Error('Le titre du bien est obligatoire');
+      throw new BadRequestException('Le titre du bien est obligatoire');
     }
 
     if (!body.type?.trim()) {
-      throw new Error('Le type du bien est obligatoire');
+      throw new BadRequestException('Le type du bien est obligatoire');
     }
 
     if (!body.address?.trim()) {
-      throw new Error("L'adresse du bien est obligatoire");
+      throw new BadRequestException("L'adresse du bien est obligatoire");
     }
 
     if (!body.amount?.trim()) {
-      throw new Error('Le montant du bien est obligatoire');
+      throw new BadRequestException('Le montant du bien est obligatoire');
     }
 
     let ownerId: string | null = null;
-
     const ownerType = body.ownerType || 'agency';
 
     if (ownerType === 'owner') {
       if (!body.ownerName?.trim()) {
-        throw new Error('Le nom du propriétaire est obligatoire');
+        throw new BadRequestException('Le nom du propriétaire est obligatoire');
       }
 
       const owner = await this.prisma.owner.create({
@@ -77,6 +84,10 @@ export class PropertyService {
   }
 
   async findAll(tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     return this.prisma.property.findMany({
       where: { tenantId },
       include: {
@@ -98,6 +109,14 @@ export class PropertyService {
   }
 
   async findOne(tenantId: string, id: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    if (!id) {
+      throw new BadRequestException('Identifiant du bien manquant');
+    }
+
     const item = await this.prisma.property.findFirst({
       where: {
         id,
@@ -137,7 +156,7 @@ export class PropertyService {
     });
 
     if (!item) {
-      throw new Error('Bien introuvable');
+      throw new NotFoundException('Bien introuvable');
     }
 
     const activeTenant =
@@ -150,6 +169,10 @@ export class PropertyService {
   }
 
   async findPropertiesForSelect(tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     return this.prisma.property.findMany({
       where: { tenantId },
       include: {
@@ -162,17 +185,33 @@ export class PropertyService {
   }
 
   async findAllTenants(tenantId: string) {
-    return this.prisma.tenantProperty.findMany({
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    const items = await this.prisma.tenantProperty.findMany({
       where: {
         property: {
           tenantId,
         },
       },
-      include: {
-        property: true,
-        contracts: {
-          orderBy: {
-            createdAt: 'desc',
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        address: true,
+        rent: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        property: {
+          select: {
+            id: true,
+            title: true,
+            type: true,
+            address: true,
+            status: true,
           },
         },
       },
@@ -180,6 +219,8 @@ export class PropertyService {
         createdAt: 'desc',
       },
     });
+
+    return items;
   }
 
   async createTenant(
@@ -196,16 +237,20 @@ export class PropertyService {
       status?: string;
     },
   ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     if (!body.propertyId) {
-      throw new Error('Le bien est obligatoire');
+      throw new BadRequestException('Le bien est obligatoire');
     }
 
     if (!body.name?.trim()) {
-      throw new Error('Le nom du locataire est obligatoire');
+      throw new BadRequestException('Le nom du locataire est obligatoire');
     }
 
     if (!body.phone?.trim()) {
-      throw new Error('Le téléphone du locataire est obligatoire');
+      throw new BadRequestException('Le téléphone du locataire est obligatoire');
     }
 
     const property = await this.prisma.property.findFirst({
@@ -216,7 +261,7 @@ export class PropertyService {
     });
 
     if (!property) {
-      throw new Error('Bien introuvable');
+      throw new NotFoundException('Bien introuvable');
     }
 
     const startDate = body.startDate ? new Date(body.startDate) : new Date();
@@ -240,6 +285,14 @@ export class PropertyService {
   }
 
   async checkoutTenant(tenantId: string, id: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    if (!id) {
+      throw new BadRequestException('Identifiant du locataire manquant');
+    }
+
     const tenantProperty = await this.prisma.tenantProperty.findFirst({
       where: {
         id,
@@ -253,7 +306,7 @@ export class PropertyService {
     });
 
     if (!tenantProperty) {
-      throw new Error('Locataire introuvable');
+      throw new NotFoundException('Locataire introuvable');
     }
 
     return this.prisma.tenantProperty.update({
@@ -261,7 +314,7 @@ export class PropertyService {
         id,
       },
       data: {
-        status: 'sorti',
+        status: 'quitté',
         endDate: new Date(),
       },
       include: {
@@ -285,22 +338,26 @@ export class PropertyService {
       paidAt?: string;
     },
   ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
     if (!body.propertyId) {
-      throw new Error('Le bien est obligatoire');
+      throw new BadRequestException('Le bien est obligatoire');
     }
 
     if (!body.ownerId) {
-      throw new Error('Le propriétaire est obligatoire');
+      throw new BadRequestException('Le propriétaire est obligatoire');
     }
 
     const amount = Number(body.amount || 0);
 
     if (amount <= 0) {
-      throw new Error('Le montant doit être supérieur à 0');
+      throw new BadRequestException('Le montant doit être supérieur à 0');
     }
 
     if (!body.paymentMethod?.trim()) {
-      throw new Error('Le moyen de paiement est obligatoire');
+      throw new BadRequestException('Le moyen de paiement est obligatoire');
     }
 
     const property = await this.prisma.property.findFirst({
@@ -314,7 +371,7 @@ export class PropertyService {
     });
 
     if (!property) {
-      throw new Error('Bien introuvable');
+      throw new NotFoundException('Bien introuvable');
     }
 
     const owner = await this.prisma.owner.findFirst({
@@ -325,11 +382,13 @@ export class PropertyService {
     });
 
     if (!owner) {
-      throw new Error('Propriétaire introuvable');
+      throw new NotFoundException('Propriétaire introuvable');
     }
 
     if (property.ownerId && property.ownerId !== owner.id) {
-      throw new Error("Ce propriétaire n'est pas rattaché à ce bien");
+      throw new BadRequestException(
+        "Ce propriétaire n'est pas rattaché à ce bien",
+      );
     }
 
     return this.prisma.ownerPayment.create({
@@ -355,6 +414,14 @@ export class PropertyService {
   }
 
   async findPropertyOwnerPayments(tenantId: string, propertyId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    if (!propertyId) {
+      throw new BadRequestException('Identifiant du bien manquant');
+    }
+
     const property = await this.prisma.property.findFirst({
       where: {
         id: propertyId,
@@ -363,7 +430,7 @@ export class PropertyService {
     });
 
     if (!property) {
-      throw new Error('Bien introuvable');
+      throw new NotFoundException('Bien introuvable');
     }
 
     return this.prisma.ownerPayment.findMany({
@@ -375,10 +442,7 @@ export class PropertyService {
         owner: true,
         property: true,
       },
-      orderBy: [
-        { paidAt: 'desc' },
-        { createdAt: 'desc' },
-      ],
+      orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
     });
   }
 }
