@@ -242,16 +242,26 @@ model LeaseContract {
   tenantId          String
   propertyId        String
   tenantPropertyId  String
+
   startDate         DateTime
   endDate           DateTime?
+
   rentAmount        Float
   depositAmount     Float          @default(0)
+
   paymentFrequency  String         @default("mensuel")
   status            String         @default("brouillon")
+
+  // Commission agence
+  agencyPercent     Float          @default(0)
+  agencyAmount      Float          @default(0)
+  ownerAmount       Float          @default(0)
+
   notes             String?
   inventoryInNotes  String?
   inventoryOutNotes String?
   terminatedAt      DateTime?
+
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @default(now()) @updatedAt
 
