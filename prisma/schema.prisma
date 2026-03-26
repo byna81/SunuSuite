@@ -248,11 +248,9 @@ model LeaseContract {
 
   rentAmount        Float
   depositAmount     Float          @default(0)
-
   paymentFrequency  String         @default("mensuel")
   status            String         @default("brouillon")
 
-  // Commission agence
   agencyPercent     Float          @default(0)
   agencyAmount      Float          @default(0)
   ownerAmount       Float          @default(0)
@@ -269,7 +267,6 @@ model LeaseContract {
   property          Property       @relation(fields: [propertyId], references: [id])
   tenantProperty    TenantProperty @relation(fields: [tenantPropertyId], references: [id])
 }
-
 model Owner {
   id         String         @id @default(uuid())
   tenantId   String
