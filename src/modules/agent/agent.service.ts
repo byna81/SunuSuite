@@ -1,185 +1,171 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 
+type AllowedRole = 'manager' | 'cashier' | 'agent';
+
 @Injectable()
 export class AgentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  private ensureManager(user: any) {
-    if (!user || user.role !== 'manager') {
-      throw new Error('Accès réservé au gérant');
+  private ensureManager(currentUser: any) {
+    if (!currentUser || currentUser.role !== 'manager') {
+      throw new ForbiddenException('Accès réservé au gérant');
     }
+  }
+
+  private normalizeRole(role?: string): AllowedRole {
+    const normalized = String(role || 'agent').trim().toLowerCase();
+
+    if (
+      normalized !== 'manager' &&
+      normalized !== 'cashier' &&
+      normalized !== 'agent'
+    ) {
+      throw new BadRequestException('Rôle invalide');
+    }
+
+    return normalized as AllowedRole;
+  }
+
+  private mapUser(user: any) {
+    return {
+      id: user.id,
+      fullName: user.fullName ?? null,
+      phone: user.phone ?? null,
+      email: user.email ?? null,
+      login: user.login ?? null,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      canManageProperties: !!user.canManageProperties,
+      canManageTenants: !!user.canManageTenants,
+      canManageContracts: !!user.canManageContracts,
+      canManageRents: !!user.canManageRents,
+      canManageOwnerPayments: !!user.canManageOwnerPayments,
+      canViewDashboard: !!user.canViewDashboard,
+    };
   }
 
   async findAll(currentUser: any) {
     this.ensureManager(currentUser);
 
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         tenantId: currentUser.tenantId,
-      },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        email: true,
-        login: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        canManageProperties: true,
-        canManageTenants: true,
-        canManageContracts: true,
-        canManageRents: true,
-        canManageOwnerPayments: true,
-        canViewDashboard: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
+
+    return {
+      items: users.map((user) => this.mapUser(user)),
+    };
   }
 
   async findOne(currentUser: any, id: string) {
     this.ensureManager(currentUser);
 
-    const item = await this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         id,
         tenantId: currentUser.tenantId,
       },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        email: true,
-        login: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        canManageProperties: true,
-        canManageTenants: true,
-        canManageContracts: true,
-        canManageRents: true,
-        canManageOwnerPayments: true,
-        canViewDashboard: true,
-      },
     });
 
-    if (!item) {
-      throw new Error('Agent introuvable');
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
     }
 
-    return item;
+    return this.mapUser(user);
   }
 
-  async create(
-    currentUser: any,
-    body: {
-      fullName?: string;
-      phone?: string;
-      email?: string;
-      login?: string;
-      password: string;
-      role?: 'manager' | 'agent' | 'cashier';
-      canManageProperties?: boolean;
-      canManageTenants?: boolean;
-      canManageContracts?: boolean;
-      canManageRents?: boolean;
-      canManageOwnerPayments?: boolean;
-      canViewDashboard?: boolean;
-    },
-  ) {
+  async create(currentUser: any, body: any) {
     this.ensureManager(currentUser);
 
-    const email = body.email?.trim() || null;
-    const login = body.login?.trim() || null;
+    const fullName = body?.fullName?.trim() || null;
+    const phone = body?.phone?.trim() || null;
+    const email = body?.email?.trim()?.toLowerCase() || null;
+    const login = body?.login?.trim()?.toLowerCase() || null;
+    const password = body?.password?.trim();
+    const role = this.normalizeRole(body?.role);
 
     if (!email && !login) {
-      throw new Error('Email ou login obligatoire');
+      throw new BadRequestException('Email ou login obligatoire');
     }
 
-    if (!body.password?.trim() || body.password.trim().length < 4) {
-      throw new Error('Mot de passe trop court');
+    if (!password || password.length < 4) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 4 caractères',
+      );
     }
 
     if (email) {
-      const existingEmail = await this.prisma.user.findUnique({
+      const emailExists = await this.prisma.user.findFirst({
         where: { email },
       });
 
-      if (existingEmail) {
-        throw new Error('Email déjà utilisé');
+      if (emailExists) {
+        throw new BadRequestException('Email déjà utilisé');
       }
     }
 
     if (login) {
-      const existingLogin = await this.prisma.user.findUnique({
+      const loginExists = await this.prisma.user.findFirst({
         where: { login },
       });
 
-      if (existingLogin) {
-        throw new Error('Login déjà utilisé');
+      if (loginExists) {
+        throw new BadRequestException('Login déjà utilisé');
       }
     }
 
-    const hashedPassword = await bcrypt.hash(body.password.trim(), 10);
-    const role = body.role || 'agent';
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    return this.prisma.user.create({
+    const canManageProperties =
+      role === 'manager' ? true : !!body?.canManageProperties;
+    const canManageTenants =
+      role === 'manager' ? true : !!body?.canManageTenants;
+    const canManageContracts =
+      role === 'manager' ? true : !!body?.canManageContracts;
+    const canManageRents = role === 'manager' ? true : !!body?.canManageRents;
+    const canManageOwnerPayments =
+      role === 'manager' ? true : !!body?.canManageOwnerPayments;
+    const canViewDashboard =
+      role === 'manager' ? true : !!body?.canViewDashboard;
+
+    const created = await this.prisma.user.create({
       data: {
         tenantId: currentUser.tenantId,
-        fullName: body.fullName?.trim() || null,
-        phone: body.phone?.trim() || null,
+        fullName,
+        phone,
         email,
         login,
         password: hashedPassword,
         role,
         isActive: true,
-        canManageProperties: !!body.canManageProperties,
-        canManageTenants: !!body.canManageTenants,
-        canManageContracts: !!body.canManageContracts,
-        canManageRents: !!body.canManageRents,
-        canManageOwnerPayments: !!body.canManageOwnerPayments,
-        canViewDashboard: !!body.canViewDashboard,
-      },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        email: true,
-        login: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        canManageProperties: true,
-        canManageTenants: true,
-        canManageContracts: true,
-        canManageRents: true,
-        canManageOwnerPayments: true,
-        canViewDashboard: true,
+        canManageProperties,
+        canManageTenants,
+        canManageContracts,
+        canManageRents,
+        canManageOwnerPayments,
+        canViewDashboard,
       },
     });
+
+    return {
+      message: 'Utilisateur créé avec succès',
+      user: this.mapUser(created),
+    };
   }
 
-  async update(
-    currentUser: any,
-    id: string,
-    body: {
-      fullName?: string;
-      phone?: string;
-      email?: string;
-      login?: string;
-      role?: 'manager' | 'agent' | 'cashier';
-      canManageProperties?: boolean;
-      canManageTenants?: boolean;
-      canManageContracts?: boolean;
-      canManageRents?: boolean;
-      canManageOwnerPayments?: boolean;
-      canViewDashboard?: boolean;
-    },
-  ) {
+  async update(currentUser: any, id: string, body: any) {
     this.ensureManager(currentUser);
 
     const existing = await this.prisma.user.findFirst({
@@ -190,82 +176,77 @@ export class AgentService {
     });
 
     if (!existing) {
-      throw new Error('Agent introuvable');
+      throw new NotFoundException('Utilisateur introuvable');
     }
 
-    const email = body.email?.trim() || null;
-    const login = body.login?.trim() || null;
+    const fullName =
+      typeof body?.fullName === 'string' ? body.fullName.trim() || null : existing.fullName;
+    const phone =
+      typeof body?.phone === 'string' ? body.phone.trim() || null : existing.phone;
+    const email =
+      typeof body?.email === 'string'
+        ? body.email.trim().toLowerCase() || null
+        : existing.email;
+    const login =
+      typeof body?.login === 'string'
+        ? body.login.trim().toLowerCase() || null
+        : existing.login;
+
+    const role =
+      typeof body?.role === 'string'
+        ? this.normalizeRole(body.role)
+        : (existing.role as AllowedRole);
+
+    if (!email && !login) {
+      throw new BadRequestException('Email ou login obligatoire');
+    }
 
     if (email && email !== existing.email) {
-      const emailExists = await this.prisma.user.findUnique({
+      const emailExists = await this.prisma.user.findFirst({
         where: { email },
       });
 
       if (emailExists) {
-        throw new Error('Email déjà utilisé');
+        throw new BadRequestException('Email déjà utilisé');
       }
     }
 
     if (login && login !== existing.login) {
-      const loginExists = await this.prisma.user.findUnique({
+      const loginExists = await this.prisma.user.findFirst({
         where: { login },
       });
 
       if (loginExists) {
-        throw new Error('Login déjà utilisé');
+        throw new BadRequestException('Login déjà utilisé');
       }
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
-        fullName: body.fullName?.trim() || null,
-        phone: body.phone?.trim() || null,
+        fullName,
+        phone,
         email,
         login,
-        role: body.role || existing.role,
+        role,
         canManageProperties:
-          typeof body.canManageProperties === 'boolean'
-            ? body.canManageProperties
-            : existing.canManageProperties,
+          role === 'manager' ? true : !!body?.canManageProperties,
         canManageTenants:
-          typeof body.canManageTenants === 'boolean'
-            ? body.canManageTenants
-            : existing.canManageTenants,
+          role === 'manager' ? true : !!body?.canManageTenants,
         canManageContracts:
-          typeof body.canManageContracts === 'boolean'
-            ? body.canManageContracts
-            : existing.canManageContracts,
-        canManageRents:
-          typeof body.canManageRents === 'boolean'
-            ? body.canManageRents
-            : existing.canManageRents,
+          role === 'manager' ? true : !!body?.canManageContracts,
+        canManageRents: role === 'manager' ? true : !!body?.canManageRents,
         canManageOwnerPayments:
-          typeof body.canManageOwnerPayments === 'boolean'
-            ? body.canManageOwnerPayments
-            : existing.canManageOwnerPayments,
+          role === 'manager' ? true : !!body?.canManageOwnerPayments,
         canViewDashboard:
-          typeof body.canViewDashboard === 'boolean'
-            ? body.canViewDashboard
-            : existing.canViewDashboard,
-      },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        email: true,
-        login: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        canManageProperties: true,
-        canManageTenants: true,
-        canManageContracts: true,
-        canManageRents: true,
-        canManageOwnerPayments: true,
-        canViewDashboard: true,
+          role === 'manager' ? true : !!body?.canViewDashboard,
       },
     });
+
+    return {
+      message: 'Utilisateur mis à jour avec succès',
+      user: this.mapUser(updated),
+    };
   }
 
   async toggleActive(currentUser: any, id: string) {
@@ -279,39 +260,34 @@ export class AgentService {
     });
 
     if (!existing) {
-      throw new Error('Agent introuvable');
+      throw new NotFoundException('Utilisateur introuvable');
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id },
       data: {
         isActive: !existing.isActive,
       },
-      select: {
-        id: true,
-        fullName: true,
-        phone: true,
-        email: true,
-        login: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-        canManageProperties: true,
-        canManageTenants: true,
-        canManageContracts: true,
-        canManageRents: true,
-        canManageOwnerPayments: true,
-        canViewDashboard: true,
-      },
     });
+
+    return {
+      message: updated.isActive
+        ? 'Utilisateur activé avec succès'
+        : 'Utilisateur désactivé avec succès',
+      user: this.mapUser(updated),
+    };
   }
 
-  async resetPassword(
-    currentUser: any,
-    id: string,
-    body: { password: string },
-  ) {
+  async resetPassword(currentUser: any, id: string, body: any) {
     this.ensureManager(currentUser);
+
+    const password = body?.password?.trim();
+
+    if (!password || password.length < 4) {
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 4 caractères',
+      );
+    }
 
     const existing = await this.prisma.user.findFirst({
       where: {
@@ -321,23 +297,20 @@ export class AgentService {
     });
 
     if (!existing) {
-      throw new Error('Agent introuvable');
+      throw new NotFoundException('Utilisateur introuvable');
     }
 
-    if (!body.password?.trim() || body.password.trim().length < 4) {
-      throw new Error('Mot de passe trop court');
-    }
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const hashedPassword = await bcrypt.hash(body.password.trim(), 10);
-
-    return this.prisma.user.update({
+    await this.prisma.user.update({
       where: { id },
       data: {
         password: hashedPassword,
       },
-      select: {
-        id: true,
-      },
     });
+
+    return {
+      message: 'Mot de passe réinitialisé avec succès',
+    };
   }
 }
