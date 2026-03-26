@@ -384,6 +384,12 @@ export class PropertyService {
       throw new NotFoundException('Bien introuvable');
     }
 
+    if (!property.ownerId) {
+      throw new BadRequestException(
+        "Ce bien appartient à l'agence. Aucun versement propriétaire n'est possible.",
+      );
+    }
+
     const owner = await this.prisma.owner.findFirst({
       where: {
         id: body.ownerId,
@@ -395,7 +401,7 @@ export class PropertyService {
       throw new NotFoundException('Propriétaire introuvable');
     }
 
-    if (property.ownerId && property.ownerId !== owner.id) {
+    if (property.ownerId !== owner.id) {
       throw new BadRequestException(
         "Ce propriétaire n'est pas rattaché à ce bien",
       );
@@ -466,6 +472,8 @@ export class PropertyService {
       amount?: string;
       status?: string;
       description?: string;
+      ownerType?: 'agency' | 'owner';
+      ownershipType?: 'agency' | 'owner';
       ownerName?: string;
       ownerPhone?: string;
       ownerEmail?: string;
@@ -494,9 +502,55 @@ export class PropertyService {
       throw new NotFoundException('Bien introuvable');
     }
 
+    const incomingOwnerType =
+      body.ownerType === 'owner' || body.ownershipType === 'owner'
+        ? 'owner'
+        : body.ownerType === 'agency' || body.ownershipType === 'agency'
+        ? 'agency'
+        : null;
+
+    let ownerId = existing.ownerId;
+
+    if (incomingOwnerType === 'agency') {
+      ownerId = null;
+    }
+
+    if (incomingOwnerType === 'owner') {
+      if (!body.ownerName?.trim()) {
+        throw new BadRequestException('Le nom du propriétaire est obligatoire');
+      }
+
+      if (existing.ownerId && existing.owner) {
+        await this.prisma.owner.update({
+          where: { id: existing.ownerId },
+          data: {
+            name: body.ownerName.trim(),
+            phone: body.ownerPhone?.trim() || null,
+            email: body.ownerEmail?.trim() || null,
+            address: body.ownerAddress?.trim() || null,
+          },
+        });
+
+        ownerId = existing.ownerId;
+      } else {
+        const newOwner = await this.prisma.owner.create({
+          data: {
+            tenantId,
+            name: body.ownerName.trim(),
+            phone: body.ownerPhone?.trim() || null,
+            email: body.ownerEmail?.trim() || null,
+            address: body.ownerAddress?.trim() || null,
+          },
+        });
+
+        ownerId = newOwner.id;
+      }
+    }
+
     await this.prisma.property.update({
       where: { id },
       data: {
+        ownerId,
         title:
           typeof body.title === 'string'
             ? body.title.trim() || existing.title
@@ -523,30 +577,6 @@ export class PropertyService {
             : existing.description,
       },
     });
-
-    if (existing.ownerId && existing.owner) {
-      await this.prisma.owner.update({
-        where: { id: existing.ownerId },
-        data: {
-          name:
-            typeof body.ownerName === 'string'
-              ? body.ownerName.trim() || existing.owner.name
-              : existing.owner.name,
-          phone:
-            body.ownerPhone !== undefined
-              ? body.ownerPhone?.trim() || null
-              : existing.owner.phone || null,
-          email:
-            body.ownerEmail !== undefined
-              ? body.ownerEmail?.trim() || null
-              : existing.owner.email || null,
-          address:
-            body.ownerAddress !== undefined
-              ? body.ownerAddress?.trim() || null
-              : existing.owner.address || null,
-        },
-      });
-    }
 
     return this.prisma.property.findFirst({
       where: {
