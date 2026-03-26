@@ -186,41 +186,46 @@ export class PropertyService {
 
   async findAllTenants(tenantId: string) {
     if (!tenantId) {
-      throw new BadRequestException('tenantId manquant');
+      return [];
     }
 
-    const items = await this.prisma.tenantProperty.findMany({
-      where: {
-        property: {
-          tenantId,
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        address: true,
-        rent: true,
-        startDate: true,
-        endDate: true,
-        status: true,
-        property: {
-          select: {
-            id: true,
-            title: true,
-            type: true,
-            address: true,
-            status: true,
+    try {
+      const items = await this.prisma.tenantProperty.findMany({
+        where: {
+          property: {
+            tenantId,
           },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          address: true,
+          rent: true,
+          startDate: true,
+          endDate: true,
+          status: true,
+          property: {
+            select: {
+              id: true,
+              title: true,
+              type: true,
+              address: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
 
-    return items;
+      return items || [];
+    } catch (e) {
+      console.error('TENANTS ERROR:', e);
+      return [];
+    }
   }
 
   async createTenant(
