@@ -19,6 +19,7 @@ export class PropertyService {
       status?: string;
       description?: string;
       ownerType?: 'agency' | 'owner';
+      ownershipType?: 'agency' | 'owner';
       ownerName?: string;
       ownerPhone?: string;
       ownerEmail?: string;
@@ -46,7 +47,11 @@ export class PropertyService {
     }
 
     let ownerId: string | null = null;
-    const ownerType = body.ownerType || 'agency';
+
+    const ownerType =
+      body.ownerType === 'owner' || body.ownershipType === 'owner'
+        ? 'owner'
+        : 'agency';
 
     if (ownerType === 'owner') {
       if (!body.ownerName?.trim()) {
@@ -448,6 +453,117 @@ export class PropertyService {
         property: true,
       },
       orderBy: [{ paidAt: 'desc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async update(
+    tenantId: string,
+    id: string,
+    body: {
+      title?: string;
+      type?: string;
+      address?: string;
+      amount?: string;
+      status?: string;
+      description?: string;
+      ownerName?: string;
+      ownerPhone?: string;
+      ownerEmail?: string;
+      ownerAddress?: string;
+    },
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    if (!id) {
+      throw new BadRequestException('Identifiant du bien manquant');
+    }
+
+    const existing = await this.prisma.property.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+      include: {
+        owner: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Bien introuvable');
+    }
+
+    await this.prisma.property.update({
+      where: { id },
+      data: {
+        title:
+          typeof body.title === 'string'
+            ? body.title.trim() || existing.title
+            : existing.title,
+        type:
+          typeof body.type === 'string'
+            ? body.type.trim() || existing.type
+            : existing.type,
+        address:
+          typeof body.address === 'string'
+            ? body.address.trim() || existing.address
+            : existing.address,
+        amount:
+          typeof body.amount === 'string'
+            ? body.amount.trim() || existing.amount
+            : existing.amount,
+        status:
+          typeof body.status === 'string'
+            ? body.status.trim() || existing.status
+            : existing.status,
+        description:
+          body.description !== undefined
+            ? body.description?.trim() || null
+            : existing.description,
+      },
+    });
+
+    if (existing.ownerId && existing.owner) {
+      await this.prisma.owner.update({
+        where: { id: existing.ownerId },
+        data: {
+          name:
+            typeof body.ownerName === 'string'
+              ? body.ownerName.trim() || existing.owner.name
+              : existing.owner.name,
+          phone:
+            body.ownerPhone !== undefined
+              ? body.ownerPhone?.trim() || null
+              : existing.owner.phone || null,
+          email:
+            body.ownerEmail !== undefined
+              ? body.ownerEmail?.trim() || null
+              : existing.owner.email || null,
+          address:
+            body.ownerAddress !== undefined
+              ? body.ownerAddress?.trim() || null
+              : existing.owner.address || null,
+        },
+      });
+    }
+
+    return this.prisma.property.findFirst({
+      where: {
+        id,
+        tenantId,
+      },
+      include: {
+        owner: true,
+        tenants: {
+          where: {
+            status: 'actif',
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+      },
     });
   }
 }
