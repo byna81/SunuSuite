@@ -9,12 +9,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class ContractService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private computeCommission(rentAmount: number, agencyPercent: number) {
-    const safeRent = Number(rentAmount || 0);
-    const safePercent = Number(agencyPercent || 0);
+  private computeAmounts(rentAmount: number, agencyPercent: number) {
+    const rent = Number(rentAmount || 0);
+    const percent = Number(agencyPercent || 0);
 
-    const agencyAmount = Number(((safeRent * safePercent) / 100).toFixed(2));
-    const ownerAmount = Number((safeRent - agencyAmount).toFixed(2));
+    const agencyAmount = Number(((rent * percent) / 100).toFixed(2));
+    const ownerAmount = Number((rent - agencyAmount).toFixed(2));
 
     return {
       agencyAmount,
@@ -50,7 +50,11 @@ export class ContractService {
         tenantId,
       },
       include: {
-        property: true,
+        property: {
+          include: {
+            owner: true,
+          },
+        },
         tenantProperty: true,
       },
     });
@@ -139,7 +143,7 @@ export class ContractService {
       );
     }
 
-    const { agencyAmount, ownerAmount } = this.computeCommission(
+    const { agencyAmount, ownerAmount } = this.computeAmounts(
       rentAmount,
       agencyPercent,
     );
@@ -185,10 +189,6 @@ export class ContractService {
       inventoryOutNotes?: string;
     },
   ) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId manquant');
-    }
-
     const existing = await this.prisma.leaseContract.findFirst({
       where: {
         id,
@@ -220,7 +220,7 @@ export class ContractService {
       );
     }
 
-    const { agencyAmount, ownerAmount } = this.computeCommission(
+    const { agencyAmount, ownerAmount } = this.computeAmounts(
       rentAmount,
       agencyPercent,
     );
@@ -264,10 +264,6 @@ export class ContractService {
   }
 
   async terminate(tenantId: string, id: string) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId manquant');
-    }
-
     const existing = await this.prisma.leaseContract.findFirst({
       where: {
         id,
@@ -290,5 +286,68 @@ export class ContractService {
         tenantProperty: true,
       },
     });
+  }
+
+  async findSmartOwnerPaymentData(tenantId: string, propertyId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId manquant');
+    }
+
+    if (!propertyId) {
+      throw new BadRequestException('Le bien est obligatoire');
+    }
+
+    const property = await this.prisma.property.findFirst({
+      where: {
+        id: propertyId,
+        tenantId,
+      },
+      include: {
+        owner: true,
+      },
+    });
+
+    if (!property) {
+      throw new NotFoundException('Bien introuvable');
+    }
+
+    const contract = await this.prisma.leaseContract.findFirst({
+      where: {
+        tenantId,
+        propertyId,
+        status: {
+          in: ['actif', 'active', 'brouillon'],
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      include: {
+        tenantProperty: true,
+      },
+    });
+
+    return {
+      property: {
+        id: property.id,
+        title: property.title,
+      },
+      owner: property.owner
+        ? {
+            id: property.owner.id,
+            name: property.owner.name,
+          }
+        : null,
+      contract: contract
+        ? {
+            id: contract.id,
+            rentAmount: contract.rentAmount,
+            agencyPercent: contract.agencyPercent,
+            agencyAmount: contract.agencyAmount,
+            ownerAmount: contract.ownerAmount,
+            tenantName: contract.tenantProperty?.name || null,
+          }
+        : null,
+    };
   }
 }
