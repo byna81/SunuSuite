@@ -12,42 +12,37 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AgentService } from './agent.service';
 
 @Controller('agents')
+@UseGuards(JwtAuthGuard)
 export class AgentController {
-  constructor(private readonly service: AgentService) {}
+  constructor(private readonly agentService: AgentService) {}
 
-  @UseGuards(JwtAuthGuard)
   @Get()
   findAll(@Req() req: any) {
-    return this.service.findAll(req.user);
+    return this.agentService.findAll(req.user);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Req() req: any, @Param('id') id: string) {
-    return this.service.findOne(req.user, id);
+    return this.agentService.findOne(req.user, id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Req() req: any, @Body() body: any) {
-    return this.service.create(req.user, body);
+    return this.agentService.create(req.user, body);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.service.update(req.user, id, body);
+    return this.agentService.update(req.user, id, body);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id/toggle-active')
   toggleActive(@Req() req: any, @Param('id') id: string) {
-    return this.service.toggleActive(req.user, id);
+    return this.agentService.toggleActive(req.user, id);
   }
 
-  @UseGuards(JwtAuthGuard)
   @Patch(':id/reset-password')
   resetPassword(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.service.resetPassword(req.user, id, body);
+    return this.agentService.resetPassword(req.user, id, body);
   }
 }
