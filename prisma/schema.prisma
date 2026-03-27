@@ -13,18 +13,46 @@ enum Role {
   agent
 }
 
+enum VehicleStatus {
+  disponible
+  loue
+  vendu
+  maintenance
+  indisponible
+}
+
+enum VehicleUsageType {
+  sale
+  rental
+  mixed
+}
+
+enum VehicleContractStatus {
+  brouillon
+  actif
+  termine
+  annule
+  solde
+  en_retard
+}
+
+enum VehiclePaymentType {
+  sale
+  rental
+}
+
 model Tenant {
-  id            String         @id @default(cuid())
+  id            String                 @id @default(cuid())
   name          String
-  slug          String?        @unique
+  slug          String?                @unique
   logoUrl       String?
   address       String?
   phone         String?
   email         String?
   description   String?
-  currency      String         @default("FCFA")
-  createdAt     DateTime       @default(now())
-  sector        String         @default("commerce")
+  currency      String                 @default("FCFA")
+  createdAt     DateTime               @default(now())
+  sector        String                 @default("commerce")
 
   users         User[]
   vehicles      Vehicle[]
@@ -37,6 +65,12 @@ model Tenant {
   ownerPayments OwnerPayment[]
   owners        Owner[]
   rentPayments  RentPayment[]
+
+  vehicleCustomers       VehicleCustomer[]
+  vehicleSaleContracts   VehicleSaleContract[]
+  vehicleRentalContracts VehicleRentalContract[]
+  vehiclePayments        VehiclePayment[]
+  vehicleExpenses        VehicleExpense[]
 }
 
 model User {
@@ -62,17 +96,173 @@ model User {
 
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 }
-model Vehicle {
-  id        String   @id @default(uuid())
-  tenantId  String
-  brand     String
-  model     String
-  year      Int
-  price     Float
-  usageType String   @default("sale")
-  createdAt DateTime @default(now())
 
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+model Vehicle {
+  id                  String                  @id @default(uuid())
+  tenantId            String
+
+  brand               String
+  model               String
+  year                Int
+  price               Float                   @default(0)
+
+  usageType           VehicleUsageType        @default(sale)
+  status              VehicleStatus           @default(disponible)
+
+  registrationNumber  String?
+  color               String?
+  fuelType            String?
+  transmission        String?
+  mileage             Int                     @default(0)
+
+  salePrice           Float                   @default(0)
+  rentalPriceDay      Float                   @default(0)
+  rentalPriceWeek     Float                   @default(0)
+  rentalPriceMonth    Float                   @default(0)
+
+  insuranceExpiry     DateTime?
+  technicalVisitExpiry DateTime?
+  notes               String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @default(now()) @updatedAt
+
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  saleContracts       VehicleSaleContract[]
+  rentalContracts     VehicleRentalContract[]
+  expenses            VehicleExpense[]
+
+  @@unique([tenantId, registrationNumber])
+}
+
+model VehicleCustomer {
+  id                  String                  @id @default(uuid())
+  tenantId            String
+
+  fullName            String
+  phone               String
+  email               String?
+  address             String?
+  idCardNumber        String?
+  driverLicenseNumber String?
+  notes               String?
+
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @default(now()) @updatedAt
+
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  saleContracts       VehicleSaleContract[]
+  rentalContracts     VehicleRentalContract[]
+
+  @@unique([tenantId, phone])
+}
+
+model VehicleSaleContract {
+  id                  String                  @id @default(uuid())
+  tenantId            String
+  vehicleId           String
+  customerId          String
+
+  saleDate            DateTime                @default(now())
+  salePrice           Float
+  downPayment         Float                   @default(0)
+  amountPaid          Float                   @default(0)
+  remainingAmount     Float                   @default(0)
+
+  status              VehicleContractStatus   @default(brouillon)
+  paymentMethod       String?
+  reference           String?
+  notes               String?
+
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @default(now()) @updatedAt
+
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  vehicle             Vehicle                 @relation(fields: [vehicleId], references: [id])
+  customer            VehicleCustomer         @relation(fields: [customerId], references: [id])
+  payments            VehiclePayment[]
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, customerId])
+}
+
+model VehicleRentalContract {
+  id                  String                  @id @default(uuid())
+  tenantId            String
+  vehicleId           String
+  customerId          String
+
+  startDate           DateTime
+  endDate             DateTime?
+
+  pricingUnit         String                  @default("month")
+  unitPrice           Float                   @default(0)
+  totalAmount         Float                   @default(0)
+
+  depositAmount       Float                   @default(0)
+  amountPaid          Float                   @default(0)
+  remainingAmount     Float                   @default(0)
+
+  status              VehicleContractStatus   @default(brouillon)
+
+  paymentFrequency    String                  @default("mensuel")
+  dueDay              Int?
+  notes               String?
+
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @default(now()) @updatedAt
+
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  vehicle             Vehicle                 @relation(fields: [vehicleId], references: [id])
+  customer            VehicleCustomer         @relation(fields: [customerId], references: [id])
+  payments            VehiclePayment[]
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, customerId])
+}
+
+model VehiclePayment {
+  id                   String                  @id @default(uuid())
+  tenantId             String
+
+  paymentType          VehiclePaymentType
+  saleContractId       String?
+  rentalContractId     String?
+
+  amount               Float
+  paymentMethod        String
+  reference            String?
+  note                 String?
+  paidAt               DateTime                @default(now())
+
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @default(now()) @updatedAt
+
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id])
+  saleContract         VehicleSaleContract?    @relation(fields: [saleContractId], references: [id])
+  rentalContract       VehicleRentalContract?  @relation(fields: [rentalContractId], references: [id])
+
+  @@index([tenantId, paymentType])
+}
+
+model VehicleExpense {
+  id                   String                  @id @default(uuid())
+  tenantId             String
+  vehicleId            String
+
+  label                String
+  amount               Float
+  expenseDate          DateTime                @default(now())
+  category             String?
+  supplier             String?
+  note                 String?
+
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @default(now()) @updatedAt
+
+  tenant               Tenant                  @relation(fields: [tenantId], references: [id])
+  vehicle              Vehicle                 @relation(fields: [vehicleId], references: [id])
+
+  @@index([tenantId, vehicleId])
 }
 
 model Category {
@@ -197,7 +387,7 @@ model Refund {
   saleReturn   SaleReturn  @relation(fields: [saleReturnId], references: [id])
 }
 
-  model Property {
+model Property {
   id            String           @id @default(uuid())
   tenantId      String
   ownerId       String?
@@ -219,21 +409,21 @@ model Refund {
 }
 
 model TenantProperty {
-  id          String           @id @default(uuid())
-  propertyId  String
-  name        String
-  phone       String
-  email       String?
-  address     String?
-  rent        Float            @default(0)
-  startDate   DateTime
-  endDate     DateTime?
-  status      String           @default("actif")
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @default(now()) @updatedAt
+  id           String           @id @default(uuid())
+  propertyId   String
+  name         String
+  phone        String
+  email        String?
+  address      String?
+  rent         Float            @default(0)
+  startDate    DateTime
+  endDate      DateTime?
+  status       String           @default("actif")
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @default(now()) @updatedAt
 
-  property    Property         @relation(fields: [propertyId], references: [id])
-  contracts   LeaseContract[]
+  property     Property         @relation(fields: [propertyId], references: [id])
+  contracts    LeaseContract[]
   rentPayments RentPayment[]
 }
 
@@ -267,6 +457,7 @@ model LeaseContract {
   property          Property       @relation(fields: [propertyId], references: [id])
   tenantProperty    TenantProperty @relation(fields: [tenantPropertyId], references: [id])
 }
+
 model Owner {
   id         String         @id @default(uuid())
   tenantId   String
