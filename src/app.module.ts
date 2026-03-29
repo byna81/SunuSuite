@@ -12,6 +12,7 @@ import { RentModule } from './modules/rent/rent.module';
 import { OwnerPaymentModule } from './modules/owner-payment/owner-payment.module';
 import { DashboardModule as RealEstateDashboardModule } from './modules/dashboard/dashboard.module';
 import { AgentModule } from './modules/agent/agent.module';
+import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AgentModule } from './modules/agent/agent.module';
     OwnerPaymentModule,
     RealEstateDashboardModule,
     AgentModule,
+    VehiclesModule,
   ],
   controllers: [
     AppController,
