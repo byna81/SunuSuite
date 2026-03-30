@@ -115,41 +115,23 @@ model User {
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 }
 
-model Vehicle {
-  id                  String                  @id @default(uuid())
+model VehicleCustomer {
+  id                  String   @id @default(uuid())
   tenantId            String
-
-  brand               String
-  model               String
-  year                Int
-  price               Float                   @default(0)
-
-  usageType           VehicleUsageType        @default(sale)
-  status              VehicleStatus           @default(disponible)
-
-  registrationNumber  String?
-  color               String?
-  fuelType            String?
-  transmission        String?
-  mileage             Int                     @default(0)
-
-  salePrice           Float                   @default(0)
-  rentalPriceDay      Float                   @default(0)
-  rentalPriceWeek     Float                   @default(0)
-  rentalPriceMonth    Float                   @default(0)
-
-  insuranceExpiry     DateTime?
-  technicalVisitExpiry DateTime?
+  fullName            String
+  phone               String
+  email               String?
+  address             String?
+  idCardNumber        String?
+  driverLicenseNumber String?
   notes               String?
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @default(now()) @updatedAt
 
-  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
-  saleContracts       VehicleSaleContract[]
-  rentalContracts     VehicleRentalContract[]
-  expenses            VehicleExpense[]
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  @@unique([tenantId, registrationNumber])
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, phone])
 }
 
 model VehicleCustomer {
