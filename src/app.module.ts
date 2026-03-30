@@ -14,6 +14,7 @@ import { DashboardModule as RealEstateDashboardModule } from './modules/dashboar
 import { AgentModule } from './modules/agent/agent.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 
+
 @Module({
   imports: [
     PrismaModule,
