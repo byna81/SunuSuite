@@ -31,7 +31,6 @@ import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-cust
     VehicleCustomersModule,
   ],
   controllers: [
-    AppController,
     TenantsController,
   ],
   providers: [
