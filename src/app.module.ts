@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { CommerceModule } from './modules/commerce/commerce.module';
 import { DashboardModule as CommerceDashboardModule } from './modules/commerce/dashboard/dashboard.module';
