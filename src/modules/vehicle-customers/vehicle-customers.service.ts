@@ -14,10 +14,7 @@ export class VehicleCustomersService {
 
   async findOne(tenantId: string, id: string) {
     const item = await this.prisma.vehicleCustomer.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
+      where: { id, tenantId },
     });
 
     if (!item) {
@@ -57,9 +54,7 @@ export class VehicleCustomersService {
     });
 
     if (existing) {
-      throw new BadRequestException(
-        'Un client avec ce numéro existe déjà',
-      );
+      throw new BadRequestException('Un client avec ce numéro existe déjà');
     }
 
     return this.prisma.vehicleCustomer.create({
@@ -90,10 +85,7 @@ export class VehicleCustomersService {
     },
   ) {
     const existing = await this.prisma.vehicleCustomer.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
+      where: { id, tenantId },
     });
 
     if (!existing) {
@@ -101,9 +93,7 @@ export class VehicleCustomersService {
     }
 
     const phone =
-      typeof body.phone === 'string'
-        ? body.phone.trim()
-        : existing.phone;
+      typeof body.phone === 'string' ? body.phone.trim() : existing.phone;
 
     if (!phone) {
       throw new BadRequestException('Le téléphone est obligatoire');
@@ -118,9 +108,7 @@ export class VehicleCustomersService {
     });
 
     if (duplicate) {
-      throw new BadRequestException(
-        'Un client avec ce numéro existe déjà',
-      );
+      throw new BadRequestException('Un client avec ce numéro existe déjà');
     }
 
     return this.prisma.vehicleCustomer.update({
