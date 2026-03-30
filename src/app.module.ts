@@ -15,7 +15,6 @@ import { AgentModule } from './modules/agent/agent.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-customers.module';
 
-
 @Module({
   imports: [
     PrismaModule,
@@ -29,6 +28,7 @@ import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-cust
     RealEstateDashboardModule,
     AgentModule,
     VehiclesModule,
+    VehicleCustomersModule,
   ],
   controllers: [
     AppController,
