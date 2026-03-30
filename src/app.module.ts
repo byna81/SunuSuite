@@ -13,6 +13,7 @@ import { DashboardModule as RealEstateDashboardModule } from './modules/dashboar
 import { AgentModule } from './modules/agent/agent.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-customers.module';
+import { VehicleSaleContractsModule } from './modules/vehicle-sale-contracts/vehicle-sale-contracts.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-cust
     AgentModule,
     VehiclesModule,
     VehicleCustomersModule,
+    VehicleSaleContractsModule,
   ],
   controllers: [
     TenantsController,
