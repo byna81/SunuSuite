@@ -14,6 +14,7 @@ import { AgentModule } from './modules/agent/agent.module';
 import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-customers.module';
 import { VehicleSaleContractsModule } from './modules/vehicle-sale-contracts/vehicle-sale-contracts.module';
+import { VehicleRentalContractsModule } from './modules/vehicle-rental-contracts/vehicle-rental-contracts.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { VehicleSaleContractsModule } from './modules/vehicle-sale-contracts/veh
     VehiclesModule,
     VehicleCustomersModule,
     VehicleSaleContractsModule,
+    VehicleRentalContractsModule,
   ],
   controllers: [
     TenantsController,
