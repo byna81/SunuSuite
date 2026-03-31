@@ -674,4 +674,3 @@ model SubscriptionPayment {
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id])
 }
-
