@@ -18,12 +18,60 @@ export class AdminService {
     return endDate;
   }
 
+  async getRequests() {
+    return this.prisma.businessRequest.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getTenants() {
+    return this.prisma.tenant.findMany({
+      include: {
+        users: true,
+        subscriptions: {
+          include: {
+            plan: true,
+            payments: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        modules: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getSubscriptions() {
+    return this.prisma.subscription.findMany({
+      include: {
+        tenant: true,
+        plan: true,
+        payments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getPlans() {
+    return this.prisma.plan.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async approveBusinessRequest(body: {
     businessRequestId: string;
     planId: string;
     managerPassword?: string;
     autoRenew?: boolean;
   }) {
+    if (!body.businessRequestId) {
+      throw new BadRequestException('La demande est obligatoire');
+    }
+
+    if (!body.planId) {
+      throw new BadRequestException('Le plan est obligatoire');
+    }
+
     const request = await this.prisma.businessRequest.findUnique({
       where: { id: body.businessRequestId },
     });
@@ -34,6 +82,10 @@ export class AdminService {
 
     if (request.status === 'approved') {
       throw new BadRequestException('Cette demande est déjà approuvée');
+    }
+
+    if (request.status === 'rejected') {
+      throw new BadRequestException('Cette demande a déjà été rejetée');
     }
 
     const plan = await this.prisma.plan.findUnique({
@@ -117,6 +169,10 @@ export class AdminService {
           endDate,
           autoRenew: Boolean(body.autoRenew),
         },
+        include: {
+          plan: true,
+          payments: true,
+        },
       });
 
       const module = await tx.tenantModule.create({
@@ -147,12 +203,26 @@ export class AdminService {
   }
 
   async rejectBusinessRequest(body: { businessRequestId: string }) {
+    if (!body.businessRequestId) {
+      throw new BadRequestException('La demande est obligatoire');
+    }
+
     const request = await this.prisma.businessRequest.findUnique({
       where: { id: body.businessRequestId },
     });
 
     if (!request) {
       throw new BadRequestException('Demande introuvable');
+    }
+
+    if (request.status === 'approved') {
+      throw new BadRequestException(
+        'Impossible de rejeter une demande déjà approuvée',
+      );
+    }
+
+    if (request.status === 'rejected') {
+      throw new BadRequestException('Cette demande est déjà rejetée');
     }
 
     return this.prisma.businessRequest.update({
@@ -166,25 +236,40 @@ export class AdminService {
       totalRequests,
       pendingRequests,
       approvedRequests,
+      rejectedRequests,
       totalTenants,
+      activeTenants,
       totalSubscriptions,
       activeSubscriptions,
+      expiredSubscriptions,
+      totalPlans,
+      activePlans,
     ] = await Promise.all([
       this.prisma.businessRequest.count(),
       this.prisma.businessRequest.count({ where: { status: 'pending' } }),
       this.prisma.businessRequest.count({ where: { status: 'approved' } }),
+      this.prisma.businessRequest.count({ where: { status: 'rejected' } }),
       this.prisma.tenant.count(),
+      this.prisma.tenant.count({ where: { isActive: true } }),
       this.prisma.subscription.count(),
       this.prisma.subscription.count({ where: { status: 'active' } }),
+      this.prisma.subscription.count({ where: { status: 'expired' } }),
+      this.prisma.plan.count(),
+      this.prisma.plan.count({ where: { isActive: true } }),
     ]);
 
     return {
       totalRequests,
       pendingRequests,
       approvedRequests,
+      rejectedRequests,
       totalTenants,
+      activeTenants,
       totalSubscriptions,
       activeSubscriptions,
+      expiredSubscriptions,
+      totalPlans,
+      activePlans,
     };
   }
 }
