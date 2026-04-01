@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
 import { PrismaModule } from './prisma/prisma.module';
 
 import { CommerceModule } from './modules/commerce/commerce.module';
@@ -28,31 +27,25 @@ import { TenantsService } from './tenants/tenants.service';
 @Module({
   imports: [
     PrismaModule,
-
-    AuthModule,
-
     CommerceModule,
     CommerceDashboardModule,
-
+    AuthModule,
     PropertyModule,
     ContractModule,
     RentModule,
     OwnerPaymentModule,
     RealEstateDashboardModule,
-
     AgentModule,
-
     VehiclesModule,
     VehicleCustomersModule,
     VehicleSaleContractsModule,
     VehicleRentalContractsModule,
-
     BusinessRequestsModule,
     PlansModule,
     SubscriptionsModule,
     AdminModule,
   ],
-  controllers: [AppController, TenantsController],
+  controllers: [TenantsController],
   providers: [TenantsService],
 })
 export class AppModule {}
