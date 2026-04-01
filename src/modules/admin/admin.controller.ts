@@ -3,20 +3,40 @@ import { AdminService } from './admin.service';
 
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly service: AdminService) {}
+  constructor(private readonly adminService: AdminService) {}
 
   @Get('dashboard')
   dashboard() {
-    return this.service.dashboard();
+    return this.adminService.dashboard();
   }
 
-  @Post('business-requests/approve')
-  approveBusinessRequest(@Body() body: any) {
-    return this.service.approveBusinessRequest(body);
+  @Get('requests')
+  getRequests() {
+    return this.adminService.getRequests();
   }
 
-  @Post('business-requests/reject')
-  rejectBusinessRequest(@Body() body: any) {
-    return this.service.rejectBusinessRequest(body);
+  @Post('requests/approve')
+  approve(@Body() body: any) {
+    return this.adminService.approveBusinessRequest(body);
+  }
+
+  @Post('requests/reject')
+  reject(@Body() body: any) {
+    return this.adminService.rejectBusinessRequest(body);
+  }
+
+  @Get('tenants')
+  getTenants() {
+    return this.adminService.getTenants();
+  }
+
+  @Get('subscriptions')
+  getSubscriptions() {
+    return this.adminService.getSubscriptions();
+  }
+
+  @Get('plans')
+  getPlans() {
+    return this.adminService.getPlans();
   }
 }
