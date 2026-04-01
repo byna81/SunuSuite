@@ -27,4 +27,18 @@ export class BusinessRequestsController {
   ) {
     return this.service.updateStatus(id, body.status);
   }
+
+  @Patch(':id/payment-status')
+  updatePaymentStatus(
+    @Param('id') id: string,
+    @Body() body: {
+      paymentStatus: 'pending' | 'received' | 'validated' | 'rejected';
+      paidAmount?: number;
+      paymentReference?: string;
+      paymentMethod?: string;
+      paymentPhoneSentTo?: string;
+    },
+  ) {
+    return this.service.updatePaymentStatus(id, body);
+  }
 }
