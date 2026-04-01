@@ -15,6 +15,10 @@ import { VehiclesModule } from './modules/vehicles/vehicles.module';
 import { VehicleCustomersModule } from './modules/vehicle-customers/vehicle-customers.module';
 import { VehicleSaleContractsModule } from './modules/vehicle-sale-contracts/vehicle-sale-contracts.module';
 import { VehicleRentalContractsModule } from './modules/vehicle-rental-contracts/vehicle-rental-contracts.module';
+import { BusinessRequestsModule } from './modules/business-requests/business-requests.module';
+import { PlansModule } from './modules/plans/plans.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -32,6 +36,10 @@ import { VehicleRentalContractsModule } from './modules/vehicle-rental-contracts
     VehicleCustomersModule,
     VehicleSaleContractsModule,
     VehicleRentalContractsModule,
+    BusinessRequestsModule,
+    PlansModule,
+    SubscriptionsModule,
+    AdminModule,
   ],
   controllers: [
     TenantsController,
