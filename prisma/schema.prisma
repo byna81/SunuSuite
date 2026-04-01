@@ -583,23 +583,26 @@ model Plan {
 }
 
 model BusinessRequest {
-  id            String       @id @default(uuid())
-  businessName  String
-  ownerName     String
-  phone         String
-  email         String
-  sector        Sector
-  billingCycle  BillingCycle
-  status        String       @default("pending")
-  notes         String?
-  createdAt     DateTime     @default(now())
-  paymentMethod       String?
-  paymentPhoneSentTo  String?
-  paymentReference    String?
-  paymentProofUrl     String?
-  paymentStatus       String   @default("pending")
-  paidAmount          Float?
-  paidAt              DateTime?
+  id               String       @id @default(uuid())
+  businessName     String
+  ownerName        String
+  phone            String
+  email            String
+  sector           Sector
+  billingCycle     BillingCycle
+  status           String       @default("pending")
+  notes            String?
+
+  planId           String?
+  paymentMethod    String?
+  paymentReference String?
+  paymentStatus    String       @default("pending")
+  paidAmount       Float?
+  paidAt           DateTime?
+
+  createdAt        DateTime     @default(now())
+
+  plan             Plan?        @relation(fields: [planId], references: [id])
 }
 
 model TenantModule {
@@ -643,6 +646,12 @@ model SubscriptionPayment {
   createdAt       DateTime      @default(now())
 
   subscription    Subscription  @relation(fields: [subscriptionId], references: [id])
+}
+enum ManualPaymentStatus {
+  pending
+  received
+  validated
+  rejected
 }
 model AppSetting {
   id        String   @id @default(uuid())
