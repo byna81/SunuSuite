@@ -567,7 +567,6 @@ model RentPayment {
 
   @@unique([propertyId, tenantPropertyId, month, year])
 }
-
 model Plan {
   id            String   @id @default(uuid())
   code          String   @unique
@@ -579,30 +578,42 @@ model Plan {
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
 
-  subscriptions Subscription[]
+  subscriptions   Subscription[]
+  businessRequests BusinessRequest[]
+}
+
+enum ManualPaymentStatus {
+  pending
+  received
+  validated
+  rejected
 }
 
 model BusinessRequest {
-  id               String       @id @default(uuid())
-  businessName     String
-  ownerName        String
-  phone            String
-  email            String
-  sector           Sector
-  billingCycle     BillingCycle
-  status           String       @default("pending")
-  notes            String?
+  id                  String              @id @default(uuid())
+  businessName        String
+  ownerName           String
+  phone               String
+  email               String
 
-  planId           String?
-  paymentMethod    String?
-  paymentReference String?
-  paymentStatus    String       @default("pending")
-  paidAmount       Float?
-  paidAt           DateTime?
+  sector              Sector
+  billingCycle        BillingCycle
+  status              String              @default("pending")
+  notes               String?
 
-  createdAt        DateTime     @default(now())
+  planId              String?
+  expectedAmount      Float?
+  paymentMethod       String?
+  paymentPhoneSentTo  String?
+  paymentReference    String?
+  paymentProofUrl     String?
+  paymentStatus       ManualPaymentStatus @default(pending)
+  paidAmount          Float?
+  paidAt              DateTime?
 
-  plan             Plan?        @relation(fields: [planId], references: [id])
+  createdAt           DateTime            @default(now())
+
+  plan                Plan?               @relation(fields: [planId], references: [id])
 }
 
 model TenantModule {
@@ -647,12 +658,7 @@ model SubscriptionPayment {
 
   subscription    Subscription  @relation(fields: [subscriptionId], references: [id])
 }
-enum ManualPaymentStatus {
-  pending
-  received
-  validated
-  rejected
-}
+
 model AppSetting {
   id        String   @id @default(uuid())
   key       String   @unique
