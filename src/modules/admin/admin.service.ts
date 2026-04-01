@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AdminService {
@@ -146,9 +146,7 @@ export class AdminService {
     return result;
   }
 
-  async rejectBusinessRequest(body: {
-    businessRequestId: string;
-  }) {
+  async rejectBusinessRequest(body: { businessRequestId: string }) {
     const request = await this.prisma.businessRequest.findUnique({
       where: { id: body.businessRequestId },
     });
