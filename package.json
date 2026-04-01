@@ -11,7 +11,7 @@
     "prisma:generate": "prisma generate"
   },
   "engines": {
-    "node": ">=18"
+    "node": "18.x"
   },
   "dependencies": {
     "@nestjs/common": "10.3.2",
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^18.19.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.3",
     "prisma": "5.22.0",
