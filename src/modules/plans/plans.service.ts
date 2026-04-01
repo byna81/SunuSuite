@@ -5,7 +5,16 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class PlansService {
   constructor(private prisma: PrismaService) {}
 
+  // 🔥 utilisé par le site vitrine
   async findAll() {
+    return this.prisma.plan.findMany({
+      where: { isActive: true },
+      orderBy: { price: 'asc' },
+    });
+  }
+
+  // 🔥 utilisé par l’admin
+  async findAllAdmin() {
     return this.prisma.plan.findMany({
       orderBy: { createdAt: 'desc' },
     });
@@ -31,11 +40,16 @@ export class PlansService {
     price: number;
     currency?: string;
   }) {
-    if (!body.code?.trim()) {
+    const code = body.code?.trim();
+    const name = body.name?.trim();
+    const currency = body.currency?.trim() || 'XOF';
+    const price = Number(body.price);
+
+    if (!code) {
       throw new BadRequestException('Le code est obligatoire');
     }
 
-    if (!body.name?.trim()) {
+    if (!name) {
       throw new BadRequestException('Le nom est obligatoire');
     }
 
@@ -47,12 +61,12 @@ export class PlansService {
       throw new BadRequestException("La période est obligatoire");
     }
 
-    if (Number(body.price || 0) <= 0) {
+    if (!price || price <= 0) {
       throw new BadRequestException('Le prix doit être supérieur à 0');
     }
 
     const existing = await this.prisma.plan.findUnique({
-      where: { code: body.code.trim() },
+      where: { code },
     });
 
     if (existing) {
@@ -61,12 +75,12 @@ export class PlansService {
 
     return this.prisma.plan.create({
       data: {
-        code: body.code.trim(),
-        name: body.name.trim(),
+        code,
+        name,
         sector: body.sector,
         billingCycle: body.billingCycle,
-        price: Number(body.price),
-        currency: body.currency?.trim() || 'XOF',
+        price,
+        currency,
         isActive: true,
       },
     });
@@ -81,19 +95,50 @@ export class PlansService {
       throw new BadRequestException('Plan introuvable');
     }
 
+    let code = existing.code;
+
+    if (typeof body.code === 'string') {
+      const newCode = body.code.trim();
+
+      if (!newCode) {
+        throw new BadRequestException('Le code ne peut pas être vide');
+      }
+
+      if (newCode !== existing.code) {
+        const duplicate = await this.prisma.plan.findUnique({
+          where: { code: newCode },
+        });
+
+        if (duplicate) {
+          throw new BadRequestException('Ce code plan existe déjà');
+        }
+      }
+
+      code = newCode;
+    }
+
     return this.prisma.plan.update({
       where: { id },
       data: {
-        code: typeof body.code === 'string' ? body.code.trim() : existing.code,
-        name: typeof body.name === 'string' ? body.name.trim() : existing.name,
+        code,
+        name:
+          typeof body.name === 'string'
+            ? body.name.trim() || existing.name
+            : existing.name,
+
         sector: body.sector || existing.sector,
         billingCycle: body.billingCycle || existing.billingCycle,
+
         price:
-          typeof body.price === 'number' ? Number(body.price) : existing.price,
+          typeof body.price === 'number'
+            ? Number(body.price)
+            : existing.price,
+
         currency:
           typeof body.currency === 'string'
             ? body.currency.trim() || 'XOF'
             : existing.currency,
+
         isActive:
           typeof body.isActive === 'boolean'
             ? body.isActive
