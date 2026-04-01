@@ -20,6 +20,9 @@ export class AdminService {
 
   async getRequests() {
     return this.prisma.businessRequest.findMany({
+      include: {
+        plan: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -60,7 +63,7 @@ export class AdminService {
 
   async approveBusinessRequest(body: {
     businessRequestId: string;
-    planId: string;
+    planId?: string;
     managerPassword?: string;
     autoRenew?: boolean;
   }) {
@@ -68,12 +71,9 @@ export class AdminService {
       throw new BadRequestException('La demande est obligatoire');
     }
 
-    if (!body.planId) {
-      throw new BadRequestException('Le plan est obligatoire');
-    }
-
     const request = await this.prisma.businessRequest.findUnique({
       where: { id: body.businessRequestId },
+      include: { plan: true },
     });
 
     if (!request) {
@@ -88,8 +88,23 @@ export class AdminService {
       throw new BadRequestException('Cette demande a déjà été rejetée');
     }
 
+    if (
+      request.paymentStatus !== 'received' &&
+      request.paymentStatus !== 'validated'
+    ) {
+      throw new BadRequestException(
+        'Le paiement doit être confirmé avant approbation',
+      );
+    }
+
+    const planId = body.planId || request.planId;
+
+    if (!planId) {
+      throw new BadRequestException('Le plan est obligatoire');
+    }
+
     const plan = await this.prisma.plan.findUnique({
-      where: { id: body.planId },
+      where: { id: planId },
     });
 
     if (!plan) {
@@ -98,18 +113,6 @@ export class AdminService {
 
     if (!plan.isActive) {
       throw new BadRequestException('Ce plan est inactif');
-    }
-
-    if (plan.sector !== request.sector) {
-      throw new BadRequestException(
-        'Le secteur du plan ne correspond pas à la demande',
-      );
-    }
-
-    if (plan.billingCycle !== request.billingCycle) {
-      throw new BadRequestException(
-        "La fréquence du plan ne correspond pas à la demande",
-      );
     }
 
     const existingUser = await this.prisma.user.findFirst({
@@ -128,7 +131,7 @@ export class AdminService {
     const hashedPassword = await bcrypt.hash(rawPassword, 10);
 
     const startDate = new Date();
-    const endDate = this.addPeriod(startDate, request.billingCycle);
+    const endDate = this.addPeriod(startDate, plan.billingCycle);
 
     const result = await this.prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
@@ -137,7 +140,7 @@ export class AdminService {
           phone: request.phone.trim(),
           email: request.email.trim().toLowerCase(),
           isActive: true,
-          sector: request.sector,
+          sector: plan.sector,
         },
       });
 
@@ -178,7 +181,7 @@ export class AdminService {
       const module = await tx.tenantModule.create({
         data: {
           tenantId: tenant.id,
-          sector: request.sector,
+          sector: plan.sector,
           isEnabled: true,
           activatedAt: startDate,
           expiresAt: endDate,
@@ -187,8 +190,28 @@ export class AdminService {
 
       await tx.businessRequest.update({
         where: { id: request.id },
-        data: { status: 'approved' },
+        data: {
+          status: 'approved',
+          paymentStatus: 'validated',
+        },
       });
+
+      if (
+        typeof request.paidAmount === 'number' &&
+        request.paidAmount > 0
+      ) {
+        await tx.subscriptionPayment.create({
+          data: {
+            subscriptionId: subscription.id,
+            amount: Number(request.paidAmount),
+            currency: plan.currency || 'XOF',
+            paymentMethod: request.paymentMethod || 'manual',
+            status: 'paid',
+            transactionRef: request.paymentReference || null,
+            paidAt: request.paidAt || new Date(),
+          },
+        });
+      }
 
       return {
         tenant,
@@ -227,7 +250,13 @@ export class AdminService {
 
     return this.prisma.businessRequest.update({
       where: { id: request.id },
-      data: { status: 'rejected' },
+      data: {
+        status: 'rejected',
+        paymentStatus:
+          request.paymentStatus === 'validated'
+            ? request.paymentStatus
+            : 'rejected',
+      },
     });
   }
 
@@ -244,6 +273,9 @@ export class AdminService {
       expiredSubscriptions,
       totalPlans,
       activePlans,
+      pendingPayments,
+      receivedPayments,
+      validatedPayments,
     ] = await Promise.all([
       this.prisma.businessRequest.count(),
       this.prisma.businessRequest.count({ where: { status: 'pending' } }),
@@ -256,6 +288,15 @@ export class AdminService {
       this.prisma.subscription.count({ where: { status: 'expired' } }),
       this.prisma.plan.count(),
       this.prisma.plan.count({ where: { isActive: true } }),
+      this.prisma.businessRequest.count({
+        where: { paymentStatus: 'pending' },
+      }),
+      this.prisma.businessRequest.count({
+        where: { paymentStatus: 'received' },
+      }),
+      this.prisma.businessRequest.count({
+        where: { paymentStatus: 'validated' },
+      }),
     ]);
 
     return {
@@ -270,6 +311,9 @@ export class AdminService {
       expiredSubscriptions,
       totalPlans,
       activePlans,
+      pendingPayments,
+      receivedPayments,
+      validatedPayments,
     };
   }
 }
