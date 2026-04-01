@@ -24,6 +24,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
 
+import { AppSettingsModule } from './modules/app-settings/app-settings.module';
 @Module({
   imports: [
     PrismaModule,
@@ -44,6 +45,7 @@ import { TenantsService } from './tenants/tenants.service';
     PlansModule,
     SubscriptionsModule,
     AdminModule,
+    AppSettingsModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
