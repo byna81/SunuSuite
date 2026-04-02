@@ -310,11 +310,11 @@ export class AdminService {
       where: {
         tenantId,
         status: {
-          in: ['ACTIVE', 'PAST_DUE'],
+          in: ['active', 'past_due'],
         },
       },
       data: {
-        status: 'SUSPENDED',
+        status: 'suspended',
         suspendedAt: now,
       },
     });
@@ -373,7 +373,7 @@ export class AdminService {
     await this.prisma.subscription.update({
       where: { id: latestSubscription.id },
       data: {
-        status: 'ACTIVE',
+        status: 'active',
         startDate: now,
         endDate: newEndDate,
         lastPaymentAt: now,
@@ -413,7 +413,7 @@ export class AdminService {
 
     const expiredSubscriptions = await this.prisma.subscription.findMany({
       where: {
-        status: 'ACTIVE',
+        status: 'active',
         endDate: {
           lt: now,
         },
@@ -424,7 +424,7 @@ export class AdminService {
       await this.prisma.subscription.update({
         where: { id: subscription.id },
         data: {
-          status: 'PAST_DUE',
+          status: 'past_due',
         },
       });
     }
@@ -439,7 +439,7 @@ export class AdminService {
 
     const subscriptions = await this.prisma.subscription.findMany({
       where: {
-        status: 'PAST_DUE',
+        status: 'past_due',
         endDate: {
           not: null,
         },
@@ -461,7 +461,7 @@ export class AdminService {
         await this.prisma.subscription.update({
           where: { id: subscription.id },
           data: {
-            status: 'SUSPENDED',
+            status: 'suspended',
             suspendedAt: now,
           },
         });
