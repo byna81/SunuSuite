@@ -12,7 +12,22 @@ export class AdminService {
     private readonly subscriptionContractService: SubscriptionContractService,
   ) {}
 
+  private get prismaAny(): any {
+    return this.prisma as any;
+  }
+
+  private getRequestDelegate(): any {
+    return (
+      this.prismaAny.subscriptionRequest ||
+      this.prismaAny.businessRequest ||
+      this.prismaAny.businessRequests ||
+      null
+    );
+  }
+
   async dashboard() {
+    const requestDelegate = this.getRequestDelegate();
+
     const [
       tenantsCount,
       subscriptionsCount,
@@ -24,9 +39,11 @@ export class AdminService {
       this.prisma.subscription.count(),
       this.prisma.plan.count(),
       this.prisma.user.count(),
-      this.prisma.subscriptionRequest.count({
-        where: { status: 'PENDING' as any },
-      }),
+      requestDelegate
+        ? requestDelegate.count({
+            where: { status: 'PENDING' },
+          })
+        : Promise.resolve(0),
     ]);
 
     return {
@@ -39,7 +56,13 @@ export class AdminService {
   }
 
   async getRequests() {
-    return this.prisma.subscriptionRequest.findMany({
+    const requestDelegate = this.getRequestDelegate();
+
+    if (!requestDelegate) {
+      return [];
+    }
+
+    return requestDelegate.findMany({
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -67,7 +90,15 @@ export class AdminService {
   }
 
   async validateRequest(requestId: string) {
-    const request = await this.prisma.subscriptionRequest.findUnique({
+    const requestDelegate = this.getRequestDelegate();
+
+    if (!requestDelegate) {
+      throw new BadRequestException(
+        "Aucun modèle Prisma de demande trouvé (subscriptionRequest / businessRequest).",
+      );
+    }
+
+    const request = await requestDelegate.findUnique({
       where: { id: requestId },
     });
 
@@ -79,16 +110,31 @@ export class AdminService {
       throw new BadRequestException('Cette demande est déjà validée');
     }
 
+    const requestEmail =
+      (request as any).email ||
+      (request as any).ownerEmail ||
+      (request as any).managerEmail ||
+      null;
+
+    if (!requestEmail) {
+      throw new BadRequestException('Aucun email trouvé sur la demande');
+    }
+
     const existingTenant = await this.prisma.tenant.findFirst({
-      where: { email: (request as any).email },
+      where: { email: requestEmail },
     });
 
     if (existingTenant) {
       throw new BadRequestException('Un tenant existe déjà avec cet email');
     }
 
+    const planId = (request as any).planId;
+    if (!planId) {
+      throw new BadRequestException('Aucun planId trouvé sur la demande');
+    }
+
     const plan = await this.prisma.plan.findUnique({
-      where: { id: (request as any).planId },
+      where: { id: planId },
     });
 
     if (!plan) {
@@ -97,80 +143,102 @@ export class AdminService {
 
     const hashedPassword = await bcrypt.hash('SunuSuite1234', 10);
 
-    const tenant = await this.prisma.tenant.create({
+    const companyName =
+      (request as any).companyName ||
+      (request as any).businessName ||
+      (request as any).name ||
+      'Tenant';
+
+    const phone =
+      (request as any).phone ||
+      (request as any).ownerPhone ||
+      (request as any).managerPhone ||
+      null;
+
+    const managerName =
+      `${(request as any).firstName ?? ''} ${(request as any).lastName ?? ''}`.trim() ||
+      (request as any).ownerName ||
+      (request as any).managerName ||
+      companyName;
+
+    const tenant = await (this.prisma.tenant as any).create({
       data: {
-        name: (request as any).companyName ?? (request as any).name ?? 'Tenant',
-        email: (request as any).email,
-        phone: (request as any).phone ?? null,
-        status: 'ACTIVE' as any,
+        name: companyName,
+        email: requestEmail,
+        phone,
       },
     });
 
-    const adminUser = await this.prisma.user.create({
-      data: {
-        firstName: (request as any).firstName ?? 'Manager',
-        lastName: (request as any).lastName ?? '',
-        email: (request as any).email,
-        password: hashedPassword,
-        role: 'manager' as any,
-        tenantId: tenant.id,
-      },
+    const userData: Record<string, any> = {
+      email: requestEmail,
+      password: hashedPassword,
+      tenantId: tenant.id,
+      role: 'manager',
+    };
+
+    if ('name' in ((this.prisma as any)._dmmf?.modelMap?.User?.fields ?? {})) {
+      userData.name = managerName;
+    } else {
+      userData.name = managerName;
+    }
+
+    const adminUser = await (this.prisma.user as any).create({
+      data: userData,
     });
 
     const startsAt = new Date();
     const endsAt = new Date(startsAt);
     endsAt.setMonth(endsAt.getMonth() + 1);
 
-    const subscription = await this.prisma.subscription.create({
+    const subscription = await (this.prisma.subscription as any).create({
       data: {
         tenantId: tenant.id,
         planId: plan.id,
-        status: 'ACTIVE' as any,
-        startedAt: startsAt,
-        endsAt,
+        status: 'ACTIVE',
+        startDate: startsAt,
+        endDate: endsAt,
       },
     });
 
     const modulesToEnable = ['commerce'];
 
     for (const moduleName of modulesToEnable) {
-      await this.prisma.tenantModule.create({
+      await (this.prisma.tenantModule as any).create({
         data: {
           tenantId: tenant.id,
-          sector: moduleName as any,
+          sector: moduleName,
           isEnabled: true,
         },
       });
     }
 
     const pdfBuffer = await this.subscriptionContractService.generateSubscriptionContractPdf({
-      companyName: (request as any).companyName ?? (request as any).name ?? 'Tenant',
-      managerName: `${(request as any).firstName ?? ''} ${(request as any).lastName ?? ''}`.trim(),
-      email: (request as any).email,
-      phone: (request as any).phone ?? '',
+      companyName,
+      managerName,
+      email: requestEmail,
+      phone: phone ?? '',
       planName: (plan as any).name ?? 'Abonnement',
       amount: String((plan as any).price ?? ''),
       startDate: startsAt.toLocaleDateString('fr-FR'),
       endDate: endsAt.toLocaleDateString('fr-FR'),
-      loginEmail: (request as any).email,
+      loginEmail: requestEmail,
       temporaryPassword: 'SunuSuite1234',
     });
 
-    await this.mailService.sendSubscriptionValidationEmail({
-      to: (request as any).email,
-      companyName: (request as any).companyName ?? (request as any).name ?? 'Tenant',
-      loginEmail: (request as any).email,
-      temporaryPassword: 'SunuSuite1234',
+    await this.mailService.sendManagerAccessEmail({
+      to: requestEmail,
+      ownerName: managerName,
+      login: requestEmail,
+      password: 'SunuSuite1234',
       pdfBuffer,
-      pdfFilename: `contrat-abonnement-${tenant.id}.pdf`,
     });
 
-    await this.prisma.subscriptionRequest.update({
+    await requestDelegate.update({
       where: { id: requestId },
       data: {
-        status: 'VALIDATED' as any,
+        status: 'VALIDATED',
         tenantId: tenant.id,
-      } as any,
+      },
     });
 
     return {
