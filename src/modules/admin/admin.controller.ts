@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
@@ -63,6 +63,17 @@ export class AdminController {
   @Get('subscriptions')
   getSubscriptions() {
     return this.adminService.getSubscriptions();
+  }
+
+  @Post('subscriptions')
+  createSubscription(
+    @Body()
+    body: {
+      tenantId: string;
+      planId: string;
+    },
+  ) {
+    return this.adminService.createSubscription(body);
   }
 
   @Patch('subscriptions/:id')
