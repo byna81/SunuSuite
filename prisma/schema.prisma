@@ -54,11 +54,11 @@ enum BillingCycle {
 }
 
 enum SubscriptionStatus {
-  pending
-  active
-  expired
-  cancelled
-  suspended
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
 }
 
 enum PaymentStatus {
@@ -71,6 +71,13 @@ enum Sector {
   immobilier
   transport
   commerce
+}
+
+enum ManualPaymentStatus {
+  pending
+  received
+  validated
+  rejected
 }
 
 model Tenant {
@@ -567,53 +574,47 @@ model RentPayment {
 
   @@unique([propertyId, tenantPropertyId, month, year])
 }
-model Plan {
-  id            String   @id @default(uuid())
-  code          String   @unique
-  name          String
-  sector        Sector
-  billingCycle  BillingCycle
-  price         Float
-  currency      String   @default("XOF")
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
 
-  subscriptions   Subscription[]
+model Plan {
+  id               String            @id @default(uuid())
+  code             String            @unique
+  name             String
+  sector           Sector
+  billingCycle     BillingCycle
+  price            Float
+  currency         String            @default("XOF")
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+
+  subscriptions    Subscription[]
   businessRequests BusinessRequest[]
 }
 
-enum ManualPaymentStatus {
-  pending
-  received
-  validated
-  rejected
-}
-
 model BusinessRequest {
-  id                  String              @id @default(uuid())
-  businessName        String
-  ownerName           String
-  phone               String
-  email               String
+  id                 String              @id @default(uuid())
+  businessName       String
+  ownerName          String
+  phone              String
+  email              String
 
-  sector              Sector
-  billingCycle        BillingCycle
-  status              String              @default("pending")
-  notes               String?
+  sector             Sector
+  billingCycle       BillingCycle
+  status             String              @default("pending")
+  notes              String?
 
-  planId              String?
-  expectedAmount      Float?
-  paymentMethod       String?
-  paymentPhoneSentTo  String?
-  paymentReference    String?
-  paymentProofUrl     String?
-  paymentStatus       ManualPaymentStatus @default(pending)
-  paidAmount          Float?
-  paidAt              DateTime?
+  planId             String?
+  expectedAmount     Float?
+  paymentMethod      String?
+  paymentPhoneSentTo String?
+  paymentReference   String?
+  paymentProofUrl    String?
+  paymentStatus      ManualPaymentStatus @default(pending)
+  paidAmount         Float?
+  paidAt             DateTime?
 
-  createdAt           DateTime            @default(now())
+  createdAt          DateTime            @default(now())
 
-  plan                Plan?               @relation(fields: [planId], references: [id])
+  plan               Plan?               @relation(fields: [planId], references: [id])
 }
 
 model TenantModule {
@@ -630,19 +631,21 @@ model TenantModule {
 }
 
 model Subscription {
-  id         String              @id @default(uuid())
-  tenantId   String
-  planId     String
-  status     SubscriptionStatus  @default(pending)
-  startDate  DateTime?
-  endDate    DateTime?
-  autoRenew  Boolean             @default(false)
-  createdAt  DateTime            @default(now())
+  id            String              @id @default(uuid())
+  tenantId      String
+  planId        String
+  status        SubscriptionStatus  @default(ACTIVE)
+  startDate     DateTime?
+  endDate       DateTime?
+  autoRenew     Boolean             @default(false)
+  lastPaymentAt DateTime?
+  suspendedAt   DateTime?
+  createdAt     DateTime            @default(now())
 
-  tenant     Tenant              @relation(fields: [tenantId], references: [id])
-  plan       Plan                @relation(fields: [planId], references: [id])
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  plan          Plan                @relation(fields: [planId], references: [id])
 
-  payments   SubscriptionPayment[]
+  payments      SubscriptionPayment[]
 }
 
 model SubscriptionPayment {
@@ -665,17 +668,4 @@ model AppSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-}
-enum SubscriptionStatus {
-  ACTIVE
-  PAST_DUE
-  SUSPENDED
-  CANCELLED
-  EXPIRED
-}
-
-enum TenantStatus {
-  ACTIVE
-  SUSPENDED
-  INACTIVE
 }
