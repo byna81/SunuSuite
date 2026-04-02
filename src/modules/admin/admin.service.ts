@@ -217,7 +217,7 @@ export class AdminService {
       data: {
         tenantId: tenant.id,
         planId: plan.id,
-        status: 'ACTIVE',
+        status: 'active',
         startDate: startsAt,
         endDate: endsAt,
         lastPaymentAt: startsAt,
