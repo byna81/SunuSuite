@@ -25,6 +25,13 @@ import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
 
 import { AppSettingsModule } from './modules/app-settings/app-settings.module';
+
+import { Module } from '@nestjs/common';
+
+import { AdminModule } from './modules/admin/admin.module';
+import { MailModule } from './modules/mail/mail.module';
+import { ContractsModule } from './modules/contracts/contracts.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -46,6 +53,9 @@ import { AppSettingsModule } from './modules/app-settings/app-settings.module';
     SubscriptionsModule,
     AdminModule,
     AppSettingsModule,
+    AdminModule,
+    MailModule,
+    ContractsModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
