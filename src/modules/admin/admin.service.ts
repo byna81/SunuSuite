@@ -87,6 +87,14 @@ export class AdminService {
       throw new BadRequestException('Un tenant existe déjà avec cet email');
     }
 
+    const plan = await this.prisma.plan.findUnique({
+      where: { id: (request as any).planId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Plan introuvable');
+    }
+
     const hashedPassword = await bcrypt.hash('SunuSuite1234', 10);
 
     const tenant = await this.prisma.tenant.create({
@@ -109,14 +117,6 @@ export class AdminService {
       },
     });
 
-    const plan = await this.prisma.plan.findUnique({
-      where: { id: (request as any).planId },
-    });
-
-    if (!plan) {
-      throw new NotFoundException('Plan introuvable');
-    }
-
     const startsAt = new Date();
     const endsAt = new Date(startsAt);
     endsAt.setMonth(endsAt.getMonth() + 1);
@@ -131,18 +131,15 @@ export class AdminService {
       },
     });
 
-    // IMPORTANT :
-    // Ici, adapte "name" au vrai champ de ton modèle TenantModule dans schema.prisma.
-    // Si dans ton schéma le champ s'appelle "code", remplace name par code.
-    const modulesToEnable = ['commerce', 'payments', 'dashboard'];
+    const modulesToEnable = ['commerce'];
 
     for (const moduleName of modulesToEnable) {
       await this.prisma.tenantModule.create({
         data: {
           tenantId: tenant.id,
-          name: moduleName as any,
-          isActive: true,
-        } as any,
+          sector: moduleName as any,
+          isEnabled: true,
+        },
       });
     }
 
