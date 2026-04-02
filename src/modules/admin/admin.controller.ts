@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Controller, Get, Param, Patch } from '@nestjs/common';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
@@ -15,14 +15,9 @@ export class AdminController {
     return this.adminService.getRequests();
   }
 
-  @Post('requests/approve')
-  approve(@Body() body: any) {
-    return this.adminService.approveBusinessRequest(body);
-  }
-
-  @Post('requests/reject')
-  reject(@Body() body: any) {
-    return this.adminService.rejectBusinessRequest(body);
+  @Patch('requests/:id/validate')
+  validateRequest(@Param('id') id: string) {
+    return this.adminService.validateRequest(id);
   }
 
   @Get('tenants')
