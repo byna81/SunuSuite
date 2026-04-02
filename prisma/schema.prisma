@@ -54,11 +54,12 @@ enum BillingCycle {
 }
 
 enum SubscriptionStatus {
-  ACTIVE
-  PAST_DUE
-  SUSPENDED
-  CANCELLED
-  EXPIRED
+  pending
+  active
+  past_due
+  suspended
+  cancelled
+  expired
 }
 
 enum PaymentStatus {
@@ -634,7 +635,7 @@ model Subscription {
   id            String              @id @default(uuid())
   tenantId      String
   planId        String
-  status        SubscriptionStatus  @default(ACTIVE)
+  status        SubscriptionStatus  @default(active)
   startDate     DateTime?
   endDate       DateTime?
   autoRenew     Boolean             @default(false)
