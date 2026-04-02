@@ -94,7 +94,7 @@ export class AdminService {
 
     if (!requestDelegate) {
       throw new BadRequestException(
-        "Aucun modèle Prisma de demande trouvé (subscriptionRequest / businessRequest).",
+        'Aucun modèle Prisma de demande trouvé.',
       );
     }
 
@@ -144,8 +144,8 @@ export class AdminService {
     const hashedPassword = await bcrypt.hash('SunuSuite1234', 10);
 
     const companyName =
-      (request as any).companyName ||
       (request as any).businessName ||
+      (request as any).companyName ||
       (request as any).name ||
       'Tenant';
 
@@ -169,21 +169,15 @@ export class AdminService {
       },
     });
 
-    const userData: Record<string, any> = {
-      email: requestEmail,
-      password: hashedPassword,
-      tenantId: tenant.id,
-      role: 'manager',
-    };
-
-    if ('name' in ((this.prisma as any)._dmmf?.modelMap?.User?.fields ?? {})) {
-      userData.name = managerName;
-    } else {
-      userData.name = managerName;
-    }
-
     const adminUser = await (this.prisma.user as any).create({
-      data: userData,
+      data: {
+        email: requestEmail,
+        password: hashedPassword,
+        tenantId: tenant.id,
+        role: 'manager',
+        fullName: managerName,
+        phone,
+      },
     });
 
     const startsAt = new Date();
@@ -200,30 +194,27 @@ export class AdminService {
       },
     });
 
-    const modulesToEnable = ['commerce'];
-
-    for (const moduleName of modulesToEnable) {
-      await (this.prisma.tenantModule as any).create({
-        data: {
-          tenantId: tenant.id,
-          sector: moduleName,
-          isEnabled: true,
-        },
-      });
-    }
-
-    const pdfBuffer = await this.subscriptionContractService.generateSubscriptionContractPdf({
-      companyName,
-      managerName,
-      email: requestEmail,
-      phone: phone ?? '',
-      planName: (plan as any).name ?? 'Abonnement',
-      amount: String((plan as any).price ?? ''),
-      startDate: startsAt.toLocaleDateString('fr-FR'),
-      endDate: endsAt.toLocaleDateString('fr-FR'),
-      loginEmail: requestEmail,
-      temporaryPassword: 'SunuSuite1234',
+    await (this.prisma.tenantModule as any).create({
+      data: {
+        tenantId: tenant.id,
+        sector: 'commerce',
+        isEnabled: true,
+      },
     });
+
+    const pdfBuffer =
+      await this.subscriptionContractService.generateSubscriptionContractPdf({
+        companyName,
+        managerName,
+        email: requestEmail,
+        phone: phone ?? '',
+        planName: (plan as any).name ?? 'Abonnement',
+        amount: String((plan as any).price ?? ''),
+        startDate: startsAt.toLocaleDateString('fr-FR'),
+        endDate: endsAt.toLocaleDateString('fr-FR'),
+        loginEmail: requestEmail,
+        temporaryPassword: 'SunuSuite1234',
+      });
 
     await this.mailService.sendManagerAccessEmail({
       to: requestEmail,
