@@ -295,6 +295,252 @@ export class AdminService {
     };
   }
 
+  async updateTenant(
+    tenantId: string,
+    payload: {
+      name?: string;
+      email?: string;
+      phone?: string;
+      sector?: string;
+      isActive?: boolean;
+    },
+  ) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Client introuvable');
+    }
+
+    if (payload.email && payload.email !== tenant.email) {
+      const existingTenant = await this.prisma.tenant.findFirst({
+        where: {
+          email: payload.email,
+          NOT: { id: tenantId },
+        },
+      });
+
+      if (existingTenant) {
+        throw new BadRequestException('Un autre client utilise déjà cet email');
+      }
+    }
+
+    const updatedTenant = await this.prisma.tenant.update({
+      where: { id: tenantId },
+      data: {
+        ...(payload.name !== undefined ? { name: payload.name } : {}),
+        ...(payload.email !== undefined ? { email: payload.email } : {}),
+        ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+        ...(payload.sector !== undefined ? { sector: payload.sector } : {}),
+        ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
+      },
+      include: {
+        subscriptions: {
+          include: {
+            plan: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        users: true,
+        modules: true,
+      },
+    });
+
+    if (payload.email !== undefined || payload.phone !== undefined || payload.isActive !== undefined) {
+      await this.prisma.user.updateMany({
+        where: { tenantId },
+        data: {
+          ...(payload.email !== undefined ? { email: payload.email } : {}),
+          ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+          ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
+        },
+      });
+    }
+
+    return {
+      message: 'Client modifié avec succès',
+      tenant: updatedTenant,
+    };
+  }
+
+  async deleteTenant(tenantId: string) {
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        subscriptions: true,
+        modules: true,
+        users: true,
+      },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Client introuvable');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const subscriptions = await tx.subscription.findMany({
+        where: { tenantId },
+        select: { id: true },
+      });
+
+      const subscriptionIds = subscriptions.map((s) => s.id);
+
+      if (subscriptionIds.length > 0) {
+        await tx.subscriptionPayment.deleteMany({
+          where: {
+            subscriptionId: {
+              in: subscriptionIds,
+            },
+          },
+        });
+      }
+
+      await tx.subscription.deleteMany({
+        where: { tenantId },
+      });
+
+      await tx.tenantModule.deleteMany({
+        where: { tenantId },
+      });
+
+      await tx.user.deleteMany({
+        where: { tenantId },
+      });
+
+      await tx.tenant.delete({
+        where: { id: tenantId },
+      });
+    });
+
+    return {
+      message: 'Client supprimé avec succès',
+    };
+  }
+
+  async updateSubscription(
+    subscriptionId: string,
+    payload: {
+      planId?: string;
+      status?: 'pending' | 'active' | 'past_due' | 'suspended' | 'cancelled' | 'expired';
+      startDate?: string | Date | null;
+      endDate?: string | Date | null;
+      autoRenew?: boolean;
+    },
+  ) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: {
+        tenant: true,
+        plan: true,
+      },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Abonnement introuvable');
+    }
+
+    if (payload.planId) {
+      const plan = await this.prisma.plan.findUnique({
+        where: { id: payload.planId },
+      });
+
+      if (!plan) {
+        throw new NotFoundException('Plan introuvable');
+      }
+    }
+
+    const updatedSubscription = await this.prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: {
+        ...(payload.planId !== undefined ? { planId: payload.planId } : {}),
+        ...(payload.status !== undefined ? { status: payload.status } : {}),
+        ...(payload.startDate !== undefined
+          ? { startDate: payload.startDate ? new Date(payload.startDate) : null }
+          : {}),
+        ...(payload.endDate !== undefined
+          ? { endDate: payload.endDate ? new Date(payload.endDate) : null }
+          : {}),
+        ...(payload.autoRenew !== undefined ? { autoRenew: payload.autoRenew } : {}),
+        ...(payload.status === 'active' ? { suspendedAt: null } : {}),
+      },
+      include: {
+        tenant: true,
+        plan: true,
+        payments: true,
+      },
+    });
+
+    if (payload.status === 'active') {
+      await this.prisma.tenant.update({
+        where: { id: updatedSubscription.tenantId },
+        data: { isActive: true },
+      });
+
+      await this.prisma.user.updateMany({
+        where: { tenantId: updatedSubscription.tenantId },
+        data: { isActive: true },
+      });
+
+      await this.prisma.tenantModule.updateMany({
+        where: { tenantId: updatedSubscription.tenantId },
+        data: {
+          isEnabled: true,
+          expiresAt: null,
+        },
+      });
+    }
+
+    if (payload.status === 'suspended') {
+      await this.prisma.tenant.update({
+        where: { id: updatedSubscription.tenantId },
+        data: { isActive: false },
+      });
+
+      await this.prisma.user.updateMany({
+        where: { tenantId: updatedSubscription.tenantId },
+        data: { isActive: false },
+      });
+
+      await this.prisma.tenantModule.updateMany({
+        where: { tenantId: updatedSubscription.tenantId },
+        data: {
+          isEnabled: false,
+          expiresAt: new Date(),
+        },
+      });
+    }
+
+    return {
+      message: 'Abonnement modifié avec succès',
+      subscription: updatedSubscription,
+    };
+  }
+
+  async deleteSubscription(subscriptionId: string) {
+    const subscription = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('Abonnement introuvable');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.subscriptionPayment.deleteMany({
+        where: { subscriptionId },
+      });
+
+      await tx.subscription.delete({
+        where: { id: subscriptionId },
+      });
+    });
+
+    return {
+      message: 'Abonnement supprimé avec succès',
+    };
+  }
+
   async suspendTenant(tenantId: string) {
     const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
@@ -330,6 +576,14 @@ export class AdminService {
       where: { tenantId },
       data: {
         isActive: false,
+      },
+    });
+
+    await this.prisma.tenantModule.updateMany({
+      where: { tenantId },
+      data: {
+        isEnabled: false,
+        expiresAt: now,
       },
     });
 
@@ -477,6 +731,14 @@ export class AdminService {
           where: { tenantId: subscription.tenantId },
           data: {
             isActive: false,
+          },
+        });
+
+        await this.prisma.tenantModule.updateMany({
+          where: { tenantId: subscription.tenantId },
+          data: {
+            isEnabled: false,
+            expiresAt: now,
           },
         });
 
