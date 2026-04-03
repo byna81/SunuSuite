@@ -597,6 +597,7 @@ model BusinessRequest {
   ownerName          String
   phone              String
   email              String
+  address            String?
 
   sector             Sector
   billingCycle       BillingCycle
