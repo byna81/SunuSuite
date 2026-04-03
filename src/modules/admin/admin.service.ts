@@ -341,6 +341,7 @@ export class AdminService {
             fullName: managerName,
             phone,
             isActive: true,
+            mustChangePassword: true,
             canManageProperties: true,
             canManageTenants: true,
             canManageContracts: true,
