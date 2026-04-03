@@ -4,7 +4,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import * as bcrypt from 'bcryptjs';
+  import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 
 function generateSlug(name: string) {
@@ -34,6 +34,7 @@ export class AuthService {
       phone: user.phone ?? null,
       role: user.role,
       isActive: user.isActive,
+      mustChangePassword: !!user.mustChangePassword,
       tenantId: user.tenantId,
       tenantName: user.tenant?.name ?? null,
       tenantSlug: user.tenant?.slug ?? null,
@@ -62,6 +63,7 @@ export class AuthService {
       phone: user.phone ?? null,
       role: user.role,
       isActive: user.isActive,
+      mustChangePassword: !!user.mustChangePassword,
       tenantId: user.tenantId,
       tenantName: user.tenant?.name ?? null,
       tenantSlug: user.tenant?.slug ?? null,
@@ -84,6 +86,7 @@ export class AuthService {
 
     return {
       accessToken,
+      mustChangePassword: !!user.mustChangePassword,
       user: this.buildUserResponse(user),
     };
   }
@@ -164,6 +167,7 @@ export class AuthService {
           role: 'manager',
           tenantId: tenant.id,
           isActive: true,
+          mustChangePassword: false,
           canManageProperties: true,
           canManageTenants: true,
           canManageContracts: true,
@@ -192,10 +196,7 @@ export class AuthService {
 
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email: normalizedIdentifier },
-          { login: normalizedIdentifier },
-        ],
+        OR: [{ email: normalizedIdentifier }, { login: normalizedIdentifier }],
       },
       include: { tenant: true },
     });
@@ -293,6 +294,7 @@ export class AuthService {
       where: { id: user.id },
       data: {
         password: hashedPassword,
+        mustChangePassword: false,
         resetCode: null,
         resetCodeExpiresAt: null,
       },
@@ -300,6 +302,65 @@ export class AuthService {
 
     return {
       message: 'Mot de passe réinitialisé avec succès',
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const rawCurrentPassword = currentPassword?.trim();
+    const rawNewPassword = newPassword?.trim();
+
+    if (!rawCurrentPassword || !rawNewPassword) {
+      throw new BadRequestException('Champs obligatoires manquants');
+    }
+
+    if (rawNewPassword.length < 6) {
+      throw new BadRequestException(
+        'Le nouveau mot de passe doit contenir au moins 6 caractères',
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { tenant: true },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Utilisateur introuvable');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      rawCurrentPassword,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new BadRequestException('Mot de passe actuel invalide');
+    }
+
+    const hashedPassword = await bcrypt.hash(rawNewPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        mustChangePassword: false,
+        resetCode: null,
+        resetCodeExpiresAt: null,
+      },
+    });
+
+    const refreshedUser = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: { tenant: true },
+    });
+
+    return {
+      message: 'Mot de passe modifié avec succès',
+      user: this.buildUserResponse(refreshedUser),
     };
   }
 
@@ -346,6 +407,7 @@ export class AuthService {
         role: 'cashier',
         tenantId,
         isActive: true,
+        mustChangePassword: false,
         canManageProperties: false,
         canManageTenants: false,
         canManageContracts: false,
@@ -409,7 +471,10 @@ export class AuthService {
 
     await this.prisma.user.update({
       where: { id },
-      data: { password: hashed },
+      data: {
+        password: hashed,
+        mustChangePassword: false,
+      },
     });
 
     return { message: 'Mot de passe réinitialisé avec succès' };
