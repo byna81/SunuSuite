@@ -291,6 +291,12 @@ export class AdminService {
       (request as any).managerPhone ||
       null;
 
+    const address =
+      (request as any).address ||
+      (request as any).businessAddress ||
+      (request as any).ownerAddress ||
+      null;
+
     const managerName =
       `${(request as any).firstName ?? ''} ${(request as any).lastName ?? ''}`.trim() ||
       (request as any).ownerName ||
@@ -312,6 +318,7 @@ export class AdminService {
             name: companyName,
             email: requestEmail,
             phone,
+            address,
             sector,
             isActive: true,
           },
@@ -390,18 +397,19 @@ export class AdminService {
     }
 
     try {
-      const pdfBuffer = await this.subscriptionContractService.generateSubscriptionContractPdf({
-        companyName,
-        managerName,
-        email: requestEmail,
-        phone: phone ?? '',
-        planName: plan.name ?? 'Abonnement',
-        amount: String(plan.price ?? ''),
-        startDate: startsAt.toLocaleDateString('fr-FR'),
-        endDate: endsAt.toLocaleDateString('fr-FR'),
-        loginEmail: requestEmail,
-        temporaryPassword: 'SunuSuite1234',
-      });
+      const pdfBuffer =
+        await this.subscriptionContractService.generateSubscriptionContractPdf({
+          companyName,
+          managerName,
+          email: requestEmail,
+          phone: phone ?? '',
+          planName: plan.name ?? 'Abonnement',
+          amount: String(plan.price ?? ''),
+          startDate: startsAt.toLocaleDateString('fr-FR'),
+          endDate: endsAt.toLocaleDateString('fr-FR'),
+          loginEmail: requestEmail,
+          temporaryPassword: 'SunuSuite1234',
+        });
 
       await this.mailService.sendManagerAccessEmail({
         to: requestEmail,
