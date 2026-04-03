@@ -1,62 +1,135 @@
-async changePassword(
-  userId: string,
-  currentPassword: string,
-  newPassword: string,
-) {
-  const rawCurrentPassword = currentPassword?.trim();
-  const rawNewPassword = newPassword?.trim();
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RolesGuard } from './roles.guard';
+import { Roles } from './roles.decorator';
 
-  if (!userId) {
-    throw new BadRequestException('Utilisateur introuvable');
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly authService: AuthService) {}
+
+  @Post('register-manager')
+  registerManager(@Body() body: any) {
+    return this.authService.registerManager(body);
   }
 
-  if (!rawCurrentPassword || !rawNewPassword) {
-    throw new BadRequestException('Champs obligatoires manquants');
+  @Post('login')
+  login(
+    @Body()
+    body: {
+      identifier: string;
+      password: string;
+    },
+  ) {
+    return this.authService.login(body.identifier, body.password);
   }
 
-  if (rawNewPassword.length < 6) {
-    throw new BadRequestException(
-      'Le nouveau mot de passe doit contenir au moins 6 caractères',
+  @Post('forgot-password')
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Post('reset-password')
+  resetPassword(
+    @Body()
+    body: {
+      email: string;
+      code: string;
+      newPassword: string;
+    },
+  ) {
+    return this.authService.resetPassword(
+      body.email,
+      body.code,
+      body.newPassword,
     );
   }
 
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    include: { tenant: true },
-  });
-
-  if (!user) {
-    throw new BadRequestException('Utilisateur introuvable');
-  }
-
-  const isPasswordValid = await bcrypt.compare(
-    rawCurrentPassword,
-    user.password,
-  );
-
-  if (!isPasswordValid) {
-    throw new BadRequestException('Mot de passe actuel invalide');
-  }
-
-  const hashedPassword = await bcrypt.hash(rawNewPassword, 10);
-
-  await this.prisma.user.update({
-    where: { id: user.id },
-    data: {
-      password: hashedPassword,
-      mustChangePassword: false,
-      resetCode: null,
-      resetCodeExpiresAt: null,
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  changePassword(
+    @Req() req: any,
+    @Body()
+    body: {
+      currentPassword: string;
+      newPassword: string;
     },
-  });
+  ) {
+    const userId = req.user?.sub || req.user?.id || null;
 
-  const refreshedUser = await this.prisma.user.findUnique({
-    where: { id: user.id },
-    include: { tenant: true },
-  });
+    if (!userId) {
+      throw new BadRequestException('Utilisateur non authentifié');
+    }
 
-  return {
-    message: 'Mot de passe modifié avec succès',
-    user: this.buildUserResponse(refreshedUser),
-  };
+    return this.authService.changePassword(
+      userId,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Post('register-cashier')
+  registerCashier(
+    @Req() req: any,
+    @Body()
+    body: {
+      login: string;
+      password: string;
+    },
+  ) {
+    return this.authService.registerCashier(
+      req.user.tenantId,
+      body.login,
+      body.password,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Get('cashiers')
+  getCashiers(@Req() req: any) {
+    return this.authService.getCashiers(req.user.tenantId);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Patch('cashiers/:id/reset-password')
+  resetCashierPassword(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: { newPassword: string },
+  ) {
+    return this.authService.resetCashierPassword(
+      req.user.tenantId,
+      id,
+      body.newPassword,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Patch('cashiers/:id/deactivate')
+  deactivateCashier(@Req() req: any, @Param('id') id: string) {
+    return this.authService.deactivateCashier(req.user.tenantId, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('me')
+  me(@Req() req: any) {
+    return {
+      user: req.user,
+    };
+  }
 }
