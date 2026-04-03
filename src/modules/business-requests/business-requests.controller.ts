@@ -16,7 +16,24 @@ export class BusinessRequestsController {
   }
 
   @Post()
-  create(@Body() body: any) {
+  create(
+    @Body()
+    body: {
+      businessName: string;
+      ownerName: string;
+      phone: string;
+      email: string;
+      address?: string;
+      notes?: string;
+      planId?: string;
+      sector?: 'commerce' | 'transport' | 'immobilier';
+      billingCycle?: 'monthly' | 'yearly';
+      paymentMethod?: 'wave' | 'orange_money' | string;
+      paymentReference?: string;
+      paymentPhoneSentTo?: string;
+      paidAmount?: number;
+    },
+  ) {
     return this.service.create(body);
   }
 
@@ -31,7 +48,8 @@ export class BusinessRequestsController {
   @Patch(':id/payment-status')
   updatePaymentStatus(
     @Param('id') id: string,
-    @Body() body: {
+    @Body()
+    body: {
       paymentStatus: 'pending' | 'received' | 'validated' | 'rejected';
       paidAmount?: number;
       paymentReference?: string;
