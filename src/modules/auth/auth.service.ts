@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service';
 
 function generateSlug(name: string) {
   return name
@@ -23,6 +24,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   private buildUserResponse(user: any) {
@@ -230,6 +232,7 @@ export class AuthService {
         email: normalizedEmail,
         role: 'manager',
       },
+      include: { tenant: true },
     });
 
     if (!user) {
@@ -247,10 +250,21 @@ export class AuthService {
       },
     });
 
+    try {
+      await this.mailService.sendPasswordResetEmail({
+        to: normalizedEmail,
+        ownerName: user.fullName || user.tenant?.name || 'Manager',
+        code,
+      });
+    } catch (error) {
+      console.error('Erreur envoi mail reset password:', error);
+      throw new BadRequestException(
+        "Impossible d'envoyer l'email de réinitialisation pour le moment",
+      );
+    }
+
     return {
-      message: 'Code de réinitialisation généré',
-      code,
-      expiresAt,
+      message: 'Un email de réinitialisation a été envoyé',
     };
   }
 
