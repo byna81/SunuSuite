@@ -129,6 +129,7 @@ model User {
   createdAt              DateTime    @default(now())
   resetCode              String?
   resetCodeExpiresAt     DateTime?
+  mustChangePassword     Boolean     @default(false)
 
   fullName               String?
   phone                  String?
