@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,7 +8,6 @@ import {
   Post,
   Req,
   UseGuards,
-  BadRequestException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -65,7 +65,11 @@ export class AuthController {
       newPassword: string;
     },
   ) {
-    const userId = req.user?.sub || req.user?.id || null;
+    const userId =
+      req.user?.sub ||
+      req.user?.id ||
+      req.user?.userId ||
+      null;
 
     if (!userId) {
       throw new BadRequestException('Utilisateur non authentifié');
