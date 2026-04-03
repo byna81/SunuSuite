@@ -264,6 +264,14 @@ export class AdminService {
       throw new BadRequestException('Un tenant existe déjà avec cet email');
     }
 
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: requestEmail },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Un utilisateur existe déjà avec cet email');
+    }
+
     const planId = (request as any).planId;
     if (!planId) {
       throw new BadRequestException('Aucun planId trouvé sur la demande');
