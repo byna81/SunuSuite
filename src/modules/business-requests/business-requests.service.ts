@@ -34,6 +34,7 @@ export class BusinessRequestsService {
     ownerName: string;
     phone: string;
     email: string;
+    address?: string;
     notes?: string;
     planId?: string;
     paymentMethod?: string;
@@ -46,6 +47,7 @@ export class BusinessRequestsService {
     const ownerName = body.ownerName?.trim();
     const phone = body.phone?.trim();
     const email = body.email?.trim().toLowerCase();
+    const address = body.address?.trim() || null;
     const notes = body.notes?.trim() || null;
     const paymentMethod = body.paymentMethod?.trim() || null;
     const paymentReference = body.paymentReference?.trim() || null;
@@ -103,6 +105,7 @@ export class BusinessRequestsService {
         ownerName,
         phone,
         email,
+        address,
         sector: plan.sector,
         billingCycle: plan.billingCycle,
         notes,
