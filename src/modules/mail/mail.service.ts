@@ -11,22 +11,7 @@ export class MailService {
     password: string;
     pdfBuffer: Buffer;
   }) {
-    const apiKey = process.env.BREVO_API_KEY;
-    const fromEmail = process.env.MAIL_FROM;
-    const fromName = process.env.MAIL_FROM_NAME || 'SunuSuite';
     const loginUrl = process.env.APP_LOGIN_URL || '#';
-
-    if (!apiKey) {
-      throw new InternalServerErrorException(
-        'BREVO_API_KEY est manquante dans les variables d’environnement',
-      );
-    }
-
-    if (!fromEmail) {
-      throw new InternalServerErrorException(
-        'MAIL_FROM est manquante dans les variables d’environnement',
-      );
-    }
 
     const html = `
       <html>
@@ -50,17 +35,13 @@ export class MailService {
     `;
 
     const payload = {
-      sender: {
-        name: fromName,
-        email: fromEmail,
-      },
+      subject: 'SunuSuite - Vos accès et contrat',
       to: [
         {
           email: data.to,
           name: data.ownerName || undefined,
         },
       ],
-      subject: 'SunuSuite - Vos accès et contrat',
       htmlContent: html,
       attachment: [
         {
@@ -70,14 +51,96 @@ export class MailService {
       ],
     };
 
+    const responseBody = await this.sendViaBrevo(payload);
+
+    console.log('Email envoyé avec succès via Brevo API:', responseBody);
+
+    return responseBody;
+  }
+
+  async sendPasswordResetEmail(data: {
+    to: string;
+    ownerName: string;
+    code: string;
+  }) {
+    const html = `
+      <html>
+        <body style="font-family: Arial, sans-serif; color: #111827;">
+          <h2>Réinitialisation de mot de passe SunuSuite</h2>
+          <p>Bonjour ${this.escapeHtml(data.ownerName)},</p>
+          <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+          <p>
+            <strong>Code de réinitialisation :</strong>
+            ${this.escapeHtml(data.code)}
+          </p>
+          <p>Ce code est valable pendant 10 minutes.</p>
+          <p>Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet email.</p>
+        </body>
+      </html>
+    `;
+
+    const payload = {
+      subject: 'SunuSuite - Réinitialisation de mot de passe',
+      to: [
+        {
+          email: data.to,
+          name: data.ownerName || undefined,
+        },
+      ],
+      htmlContent: html,
+    };
+
+    const responseBody = await this.sendViaBrevo(payload);
+
+    console.log(
+      'Email reset password envoyé avec succès via Brevo API:',
+      responseBody,
+    );
+
+    return responseBody;
+  }
+
+  private async sendViaBrevo(payload: {
+    subject: string;
+    to: Array<{ email: string; name?: string }>;
+    htmlContent: string;
+    attachment?: Array<{ name: string; content: string }>;
+  }) {
+    const apiKey = process.env.BREVO_API_KEY;
+    const fromEmail = process.env.MAIL_FROM;
+    const fromName = process.env.MAIL_FROM_NAME || 'SunuSuite';
+
+    if (!apiKey) {
+      throw new InternalServerErrorException(
+        'BREVO_API_KEY est manquante dans les variables d’environnement',
+      );
+    }
+
+    if (!fromEmail) {
+      throw new InternalServerErrorException(
+        'MAIL_FROM est manquante dans les variables d’environnement',
+      );
+    }
+
+    const body = {
+      sender: {
+        name: fromName,
+        email: fromEmail,
+      },
+      to: payload.to,
+      subject: payload.subject,
+      htmlContent: payload.htmlContent,
+      ...(payload.attachment ? { attachment: payload.attachment } : {}),
+    };
+
     const response = await fetch(this.apiUrl, {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        accept: 'application/json',
         'content-type': 'application/json',
         'api-key': apiKey,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
 
     const rawText = await response.text();
@@ -101,8 +164,6 @@ export class MailService {
           : 'Erreur lors de l’envoi du mail via Brevo API',
       );
     }
-
-    console.log('Email envoyé avec succès via Brevo API:', responseBody);
 
     return responseBody;
   }
