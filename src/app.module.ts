@@ -26,6 +26,7 @@ import { AppSettingsModule } from './modules/app-settings/app-settings.module';
 
 import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
+import { CommerceAccountingModule } from './modules/commerce-accounting/commerce-accounting.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { TenantsService } from './tenants/tenants.service';
     MailModule,
     ContractsModule,
     AppSettingsModule,
+    CommerceAccountingModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
