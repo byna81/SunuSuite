@@ -116,6 +116,8 @@ model Tenant {
 
   subscriptions          Subscription[]
   modules                TenantModule[]
+  commerceExpenses       CommerceExpense[]
+  commerceClosings       CommerceClosing[]
 }
 
 model User {
