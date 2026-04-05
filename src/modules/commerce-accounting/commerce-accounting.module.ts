@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../../prisma/prisma.module';
-import { CommerceAccountingController } from './commerce-accounting.controller';
-import { CommerceAccountingService } from './commerce-accounting.service';
+import { RealEstateAccountingController } from './real-estate-accounting.controller';
+import { RealEstateAccountingService } from './real-estate-accounting.service';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [CommerceAccountingController],
-  providers: [CommerceAccountingService],
-  exports: [CommerceAccountingService],
+  controllers: [RealEstateAccountingController],
+  providers: [RealEstateAccountingService],
+  exports: [RealEstateAccountingService],
 })
-export class CommerceAccountingModule {}
+export class RealEstateAccountingModule {}
