@@ -218,8 +218,11 @@ export class CommerceAccountingService {
     };
   }
 
+  // ✅ Correction ici : plus de toLocaleString pour éviter les "/" dans le PDF
   private formatAmount(value: number) {
-    return `${Number(value || 0).toLocaleString('fr-FR')} FCFA`;
+    const num = Math.round(Number(value || 0));
+    const formatted = String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return `${formatted} FCFA`;
   }
 
   private async getTenantName(tenantId: string) {
