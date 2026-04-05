@@ -4,7 +4,7 @@ import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
 
 @Injectable()
-export class CommerceAccountingService {
+export class RealEstateAccountingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async createExpense(body: {
@@ -41,7 +41,7 @@ export class CommerceAccountingService {
       throw new BadRequestException('Le montant doit être supérieur à 0');
     }
 
-    return this.prisma.commerceExpense.create({
+    return this.prisma.realEstateExpense.create({
       data: {
         tenantId,
         label,
@@ -89,14 +89,14 @@ export class CommerceAccountingService {
       };
     }
 
-    return this.prisma.commerceExpense.findMany({
+    return this.prisma.realEstateExpense.findMany({
       where,
       orderBy: { expenseDate: 'desc' },
     });
   }
 
   async deleteExpense(id: string, tenantId: string) {
-    const expense = await this.prisma.commerceExpense.findFirst({
+    const expense = await this.prisma.realEstateExpense.findFirst({
       where: {
         id,
         tenantId,
@@ -107,7 +107,7 @@ export class CommerceAccountingService {
       throw new BadRequestException('Dépense introuvable');
     }
 
-    await this.prisma.commerceExpense.delete({
+    await this.prisma.realEstateExpense.delete({
       where: { id },
     });
 
@@ -141,25 +141,41 @@ export class CommerceAccountingService {
     const start = new Date(year, month - 1, 1, 0, 0, 0, 0);
     const end = new Date(year, month, 1, 0, 0, 0, 0);
 
-    const sales = await this.prisma.sale.findMany({
+    const rentPayments = await this.prisma.rentPayment.findMany({
       where: {
         tenantId,
-        createdAt: {
+        paymentDate: {
           gte: start,
           lt: end,
         },
       },
       include: {
-        payments: true,
-        returns: {
-          include: {
-            refunds: true,
-          },
-        },
+        property: true,
+        tenantProperty: true,
+      },
+      orderBy: {
+        paymentDate: 'desc',
       },
     });
 
-    const expenses = await this.prisma.commerceExpense.findMany({
+    const ownerPayments = await this.prisma.ownerPayment.findMany({
+      where: {
+        tenantId,
+        paidAt: {
+          gte: start,
+          lt: end,
+        },
+      },
+      include: {
+        property: true,
+        owner: true,
+      },
+      orderBy: {
+        paidAt: 'desc',
+      },
+    });
+
+    const expenses = await this.prisma.realEstateExpense.findMany({
       where: {
         tenantId,
         expenseDate: {
@@ -172,53 +188,39 @@ export class CommerceAccountingService {
       },
     });
 
-    const grossSales = sales.reduce(
-      (sum, sale) => sum + Number(sale.total || 0),
+    const totalRentCollected = rentPayments.reduce(
+      (sum, payment) => sum + Number(payment.amountPaid || 0),
       0,
     );
 
-    const totalPayments = sales.reduce((sum, sale) => {
-      const paymentsTotal = sale.payments.reduce(
-        (pSum, payment) => pSum + Number(payment.amount || 0),
-        0,
-      );
-      return sum + paymentsTotal;
-    }, 0);
-
-    const totalRefunds = sales.reduce((sum, sale) => {
-      const refundsTotal = sale.returns.reduce((rSum, saleReturn) => {
-        const saleRefunds = saleReturn.refunds.reduce(
-          (fSum, refund) => fSum + Number(refund.amount || 0),
-          0,
-        );
-        return rSum + saleRefunds;
-      }, 0);
-
-      return sum + refundsTotal;
-    }, 0);
+    const totalOwnerPaid = ownerPayments.reduce(
+      (sum, payment) => sum + Number(payment.amount || 0),
+      0,
+    );
 
     const totalExpenses = expenses.reduce(
       (sum, expense) => sum + Number(expense.amount || 0),
       0,
     );
 
-    const netResult = totalPayments - totalRefunds - totalExpenses;
+    const netResult = totalRentCollected - totalOwnerPaid - totalExpenses;
 
     return {
       month,
       year,
-      grossSales,
-      totalPayments,
-      totalRefunds,
+      totalRentCollected,
+      totalOwnerPaid,
       totalExpenses,
       netResult,
+      rentsCount: rentPayments.length,
+      ownerPaymentsCount: ownerPayments.length,
       expensesCount: expenses.length,
-      salesCount: sales.length,
       expenses,
+      ownerPayments,
+      rentPayments,
     };
   }
 
-  // ✅ Correction ici : plus de toLocaleString pour éviter les "/" dans le PDF
   private formatAmount(value: number) {
     const num = Math.round(Number(value || 0));
     const formatted = String(num).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -231,7 +233,7 @@ export class CommerceAccountingService {
       select: { name: true },
     });
 
-    return tenant?.name || 'Boutique';
+    return tenant?.name || 'Agence immobilière';
   }
 
   async exportPdf(query: {
@@ -247,18 +249,22 @@ export class CommerceAccountingService {
 
     doc.on('data', (chunk) => chunks.push(chunk));
 
-    doc.fontSize(20).text('Rapport de comptabilité commerce', { align: 'center' });
+    doc.fontSize(20).text('Rapport de comptabilité immobilière', {
+      align: 'center',
+    });
     doc.moveDown();
-    doc.fontSize(14).text(`Boutique : ${tenantName}`);
+    doc.fontSize(14).text(`Agence : ${tenantName}`);
     doc.text(`Période : ${summary.month}/${summary.year}`);
     doc.moveDown();
 
-    doc.fontSize(13).text(`Chiffre d'affaires : ${this.formatAmount(summary.grossSales)}`);
-    doc.text(`Encaissements : ${this.formatAmount(summary.totalPayments)}`);
-    doc.text(`Remboursements : ${this.formatAmount(summary.totalRefunds)}`);
-    doc.text(`Dépenses : ${this.formatAmount(summary.totalExpenses)}`);
-    doc.text(`Bénéfice net : ${this.formatAmount(summary.netResult)}`);
-    doc.text(`Nombre de ventes : ${summary.salesCount}`);
+    doc
+      .fontSize(13)
+      .text(`Loyers encaissés : ${this.formatAmount(summary.totalRentCollected)}`);
+    doc.text(`Paiements propriétaires : ${this.formatAmount(summary.totalOwnerPaid)}`);
+    doc.text(`Dépenses agence : ${this.formatAmount(summary.totalExpenses)}`);
+    doc.text(`Résultat net agence : ${this.formatAmount(summary.netResult)}`);
+    doc.text(`Nombre de loyers encaissés : ${summary.rentsCount}`);
+    doc.text(`Nombre de paiements propriétaires : ${summary.ownerPaymentsCount}`);
     doc.text(`Nombre de dépenses : ${summary.expensesCount}`);
 
     doc.moveDown();
@@ -289,6 +295,27 @@ export class CommerceAccountingService {
       });
     }
 
+    doc.moveDown();
+    doc.fontSize(15).text('Paiements propriétaires', { underline: true });
+    doc.moveDown(0.5);
+
+    if (summary.ownerPayments.length === 0) {
+      doc.fontSize(12).text('Aucun paiement propriétaire sur cette période.');
+    } else {
+      summary.ownerPayments.forEach((payment, index) => {
+        doc
+          .fontSize(11)
+          .text(
+            `${index + 1}. ${payment.owner?.name || '-'} | ${
+              payment.property?.title || '-'
+            } | ${this.formatAmount(Number(payment.amount || 0))} | ${new Date(
+              payment.paidAt,
+            ).toLocaleDateString('fr-FR')}`,
+          );
+        doc.moveDown(0.4);
+      });
+    }
+
     doc.end();
 
     const buffer: Buffer = await new Promise((resolve) => {
@@ -296,7 +323,7 @@ export class CommerceAccountingService {
     });
 
     return {
-      fileName: `comptabilite-commerce-${summary.month}-${summary.year}.pdf`,
+      fileName: `comptabilite-immobilier-${summary.month}-${summary.year}.pdf`,
       mimeType: 'application/pdf',
       base64: buffer.toString('base64'),
     };
@@ -314,19 +341,22 @@ export class CommerceAccountingService {
 
     const resumeSheet = workbook.addWorksheet('Résumé');
     resumeSheet.columns = [
-      { header: 'Indicateur', key: 'label', width: 30 },
+      { header: 'Indicateur', key: 'label', width: 35 },
       { header: 'Valeur', key: 'value', width: 25 },
     ];
 
     resumeSheet.addRows([
-      { label: 'Boutique', value: tenantName },
+      { label: 'Agence', value: tenantName },
       { label: 'Période', value: `${summary.month}/${summary.year}` },
-      { label: "Chiffre d'affaires", value: summary.grossSales },
-      { label: 'Encaissements', value: summary.totalPayments },
-      { label: 'Remboursements', value: summary.totalRefunds },
-      { label: 'Dépenses', value: summary.totalExpenses },
-      { label: 'Bénéfice net', value: summary.netResult },
-      { label: 'Nombre de ventes', value: summary.salesCount },
+      { label: 'Loyers encaissés', value: summary.totalRentCollected },
+      { label: 'Paiements propriétaires', value: summary.totalOwnerPaid },
+      { label: 'Dépenses agence', value: summary.totalExpenses },
+      { label: 'Résultat net agence', value: summary.netResult },
+      { label: 'Nombre de loyers encaissés', value: summary.rentsCount },
+      {
+        label: 'Nombre de paiements propriétaires',
+        value: summary.ownerPaymentsCount,
+      },
       { label: 'Nombre de dépenses', value: summary.expensesCount },
     ]);
 
@@ -351,13 +381,35 @@ export class CommerceAccountingService {
       });
     });
 
+    const ownerPaymentsSheet = workbook.addWorksheet('Paiements propriétaires');
+    ownerPaymentsSheet.columns = [
+      { header: 'Date', key: 'paidAt', width: 18 },
+      { header: 'Propriétaire', key: 'owner', width: 25 },
+      { header: 'Bien', key: 'property', width: 28 },
+      { header: 'Montant', key: 'amount', width: 18 },
+      { header: 'Méthode', key: 'paymentMethod', width: 18 },
+      { header: 'Référence', key: 'reference', width: 22 },
+    ];
+
+    summary.ownerPayments.forEach((payment) => {
+      ownerPaymentsSheet.addRow({
+        paidAt: new Date(payment.paidAt).toLocaleDateString('fr-FR'),
+        owner: payment.owner?.name || '',
+        property: payment.property?.title || '',
+        amount: Number(payment.amount || 0),
+        paymentMethod: payment.paymentMethod || '',
+        reference: payment.reference || '',
+      });
+    });
+
     resumeSheet.getRow(1).font = { bold: true };
     expensesSheet.getRow(1).font = { bold: true };
+    ownerPaymentsSheet.getRow(1).font = { bold: true };
 
     const buffer = await workbook.xlsx.writeBuffer();
 
     return {
-      fileName: `comptabilite-commerce-${summary.month}-${summary.year}.xlsx`,
+      fileName: `comptabilite-immobilier-${summary.month}-${summary.year}.xlsx`,
       mimeType:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       base64: Buffer.from(buffer).toString('base64'),
