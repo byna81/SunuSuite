@@ -26,6 +26,7 @@ import { AppSettingsModule } from './modules/app-settings/app-settings.module';
 
 import { TenantsController } from './tenants/tenants.controller';
 import { TenantsService } from './tenants/tenants.service';
+
 import { CommerceAccountingModule } from './modules/commerce-accounting/commerce-accounting.module';
 import { RealEstateAccountingModule } from './modules/real-estate-accounting/real-estate-accounting.module';
 
@@ -53,6 +54,7 @@ import { RealEstateAccountingModule } from './modules/real-estate-accounting/rea
     ContractsModule,
     AppSettingsModule,
     CommerceAccountingModule,
+    RealEstateAccountingModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
