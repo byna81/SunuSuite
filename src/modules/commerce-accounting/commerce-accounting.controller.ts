@@ -56,4 +56,30 @@ export class CommerceAccountingController {
       year,
     });
   }
+
+  @Get('export/pdf')
+  exportPdf(
+    @Query('tenantId') tenantId: string,
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+  ) {
+    return this.commerceAccountingService.exportPdf({
+      tenantId,
+      month,
+      year,
+    });
+  }
+
+  @Get('export/excel')
+  exportExcel(
+    @Query('tenantId') tenantId: string,
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+  ) {
+    return this.commerceAccountingService.exportExcel({
+      tenantId,
+      month,
+      year,
+    });
+  }
 }
