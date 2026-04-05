@@ -1,10 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
-import { RealEstateAccountingService } from './real-estate-accounting.service';
+import { CommerceAccountingService } from './commerce-accounting.service';
 
-@Controller('real-estate/accounting')
-export class RealEstateAccountingController {
+@Controller('commerce/accounting')
+export class CommerceAccountingController {
   constructor(
-    private readonly realEstateAccountingService: RealEstateAccountingService,
+    private readonly commerceAccountingService: CommerceAccountingService,
   ) {}
 
   @Post('expenses')
@@ -20,7 +20,7 @@ export class RealEstateAccountingController {
       note?: string;
     },
   ) {
-    return this.realEstateAccountingService.createExpense(body);
+    return this.commerceAccountingService.createExpense(body);
   }
 
   @Get('expenses')
@@ -29,7 +29,7 @@ export class RealEstateAccountingController {
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
-    return this.realEstateAccountingService.getExpenses({
+    return this.commerceAccountingService.getExpenses({
       tenantId,
       month,
       year,
@@ -41,7 +41,7 @@ export class RealEstateAccountingController {
     @Param('id') id: string,
     @Query('tenantId') tenantId: string,
   ) {
-    return this.realEstateAccountingService.deleteExpense(id, tenantId);
+    return this.commerceAccountingService.deleteExpense(id, tenantId);
   }
 
   @Get('summary')
@@ -50,7 +50,7 @@ export class RealEstateAccountingController {
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
-    return this.realEstateAccountingService.getSummary({
+    return this.commerceAccountingService.getSummary({
       tenantId,
       month,
       year,
@@ -63,7 +63,7 @@ export class RealEstateAccountingController {
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
-    return this.realEstateAccountingService.exportPdf({
+    return this.commerceAccountingService.exportPdf({
       tenantId,
       month,
       year,
@@ -76,7 +76,7 @@ export class RealEstateAccountingController {
     @Query('month') month?: string,
     @Query('year') year?: string,
   ) {
-    return this.realEstateAccountingService.exportExcel({
+    return this.commerceAccountingService.exportExcel({
       tenantId,
       month,
       year,
