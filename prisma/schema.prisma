@@ -118,6 +118,7 @@ model Tenant {
   modules                TenantModule[]
   commerceExpenses       CommerceExpense[]
   commerceClosings       CommerceClosing[]
+  realEstateExpenses     RealEstateExpense[]
 }
 
 model User {
@@ -713,4 +714,18 @@ model CommerceClosing {
 
   closedAt          DateTime @default(now())
   closedBy          String?
+}
+
+model RealEstateExpense {
+  id            String   @id @default(uuid())
+  tenantId      String
+  label         String
+  category      String
+  amount        Float
+  expenseDate   DateTime @default(now())
+  paymentMethod String?
+  note          String?
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
 }
