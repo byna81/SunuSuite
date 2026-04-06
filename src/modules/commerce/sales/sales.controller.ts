@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+ Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
@@ -16,10 +25,15 @@ export class SalesController {
     },
     @Req() req: any,
   ) {
+    const cashierId =
+      req?.user?.role === 'cashier' || req?.user?.role === 'manager'
+        ? req.user.id
+        : null;
+
     return this.salesService.create({
       tenantId: body.tenantId,
       items: body.items,
-      cashierId: req?.user?.role === 'cashier' ? req.user.id : null,
+      cashierId,
     });
   }
 
