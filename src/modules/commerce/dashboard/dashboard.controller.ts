@@ -12,12 +12,12 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.dashboardService.getSummary(
+    return this.dashboardService.getSummary({
       tenantId,
       period,
       startDate,
       endDate,
-    );
+    });
   }
 
   @Get('top-products')
@@ -27,26 +27,26 @@ export class DashboardController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.dashboardService.getTopProducts(
+    return this.dashboardService.getTopProducts({
       tenantId,
       period,
       startDate,
       endDate,
-    );
+    });
   }
 
-  @Get('sales')
-  getSales(
+  @Get('sales-by-cashier')
+  getSalesByCashier(
     @Query('tenantId') tenantId: string,
     @Query('period') period?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    return this.dashboardService.getSales(
+    return this.dashboardService.getSalesByCashier({
       tenantId,
       period,
       startDate,
       endDate,
-    );
+    });
   }
 }
