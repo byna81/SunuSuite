@@ -64,4 +64,19 @@ export class DashboardController {
       endDate,
     });
   }
+
+  @Get('product-inventory')
+  getProductInventory(
+    @Query('tenantId') tenantId: string,
+    @Query('period') period?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.dashboardService.getProductInventory({
+      tenantId,
+      period,
+      startDate,
+      endDate,
+    });
+  }
 }
