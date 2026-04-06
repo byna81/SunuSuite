@@ -12,6 +12,7 @@ export class SalesService {
   async create(data: {
     tenantId: string;
     items: { productId: string; quantity: number }[];
+    cashierId?: string;
   }) {
     if (!data.tenantId) {
       throw new BadRequestException('tenantId obligatoire');
@@ -27,6 +28,7 @@ export class SalesService {
       const sale = await tx.sale.create({
         data: {
           tenantId: data.tenantId,
+          cashierId: data.cashierId || null,
           total: 0,
           status: 'unpaid',
         },
@@ -59,6 +61,9 @@ export class SalesService {
           );
         }
 
+        const previousStock = product.stock;
+        const newStock = product.stock - item.quantity;
+
         total += Number(product.price) * item.quantity;
 
         await tx.saleItem.create({
@@ -82,8 +87,13 @@ export class SalesService {
         await tx.stockMovement.create({
           data: {
             productId: product.id,
-            type: 'SALE',
+            tenantId: data.tenantId,
+            userId: data.cashierId || null,
+            type: 'out',
             quantity: item.quantity,
+            previousStock,
+            newStock,
+            note: 'Vente produit',
           },
         });
       }
@@ -111,6 +121,7 @@ export class SalesService {
     return this.prisma.sale.findMany({
       where: { tenantId },
       include: {
+        cashier: true,
         items: {
           include: { product: true },
         },
@@ -125,6 +136,7 @@ export class SalesService {
     const sale = await this.prisma.sale.findUnique({
       where: { id },
       include: {
+        cashier: true,
         items: {
           include: { product: true },
         },
