@@ -177,7 +177,8 @@ export class DashboardService {
 
         if (existing) {
           existing.quantitySold += Number(item.quantity || 0);
-          existing.revenue += Number(item.price || 0) * Number(item.quantity || 0);
+          existing.revenue +=
+            Number(item.price || 0) * Number(item.quantity || 0);
         } else {
           map.set(productId, {
             productId,
@@ -263,5 +264,100 @@ export class DashboardService {
     return Array.from(grouped.values()).sort(
       (a, b) => b.totalPayments - a.totalPayments,
     );
+  }
+
+  async getSalesByCashierDaily(query: DashboardQuery) {
+    const tenantId = query.tenantId?.trim();
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    const { start, end } = this.getDateRange(query);
+
+    const sales = await this.prisma.sale.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+        cashierId: {
+          not: null,
+        },
+      },
+      include: {
+        cashier: true,
+        payments: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const grouped = new Map<
+      string,
+      {
+        date: string;
+        cashierId: string;
+        cashierName: string;
+        salesCount: number;
+        totalSales: number;
+        totalPayments: number;
+        difference: number;
+        missingAmount: number;
+      }
+    >();
+
+    for (const sale of sales) {
+      if (!sale.cashierId) continue;
+
+      const saleDate = new Date(sale.createdAt).toISOString().slice(0, 10);
+      const key = `${saleDate}_${sale.cashierId}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          date: saleDate,
+          cashierId: sale.cashierId,
+          cashierName:
+            sale.cashier?.fullName ||
+            sale.cashier?.login ||
+            sale.cashier?.email ||
+            'Caisse',
+          salesCount: 0,
+          totalSales: 0,
+          totalPayments: 0,
+          difference: 0,
+          missingAmount: 0,
+        });
+      }
+
+      const row = grouped.get(key)!;
+
+      row.salesCount += 1;
+      row.totalSales += Number(sale.total || 0);
+      row.totalPayments += sale.payments.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0,
+      );
+    }
+
+    const result = Array.from(grouped.values()).map((row) => {
+      const difference = row.totalPayments - row.totalSales;
+      const missingAmount = row.totalSales - row.totalPayments;
+
+      return {
+        ...row,
+        difference,
+        missingAmount,
+      };
+    });
+
+    return result.sort((a, b) => {
+      if (a.date === b.date) {
+        return a.cashierName.localeCompare(b.cashierName);
+      }
+      return b.date.localeCompare(a.date);
+    });
   }
 }
