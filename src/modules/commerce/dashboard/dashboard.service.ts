@@ -1,132 +1,123 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
+
+type DashboardQuery = {
+  tenantId: string;
+  period?: string;
+  startDate?: string;
+  endDate?: string;
+};
 
 @Injectable()
 export class DashboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  private resolvePeriod(
-    period?: string,
-    startDate?: string,
-    endDate?: string,
-  ) {
+  private getDateRange(query: DashboardQuery) {
     const now = new Date();
+    let start: Date;
+    let end: Date = new Date();
 
-    if (period === 'today') {
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date();
+    if (query.startDate && query.endDate) {
+      start = new Date(query.startDate);
+      end = new Date(query.endDate);
       end.setHours(23, 59, 59, 999);
-
-      return { gte: start, lte: end };
+      return { start, end };
     }
 
-    if (period === 'this_week') {
-      const current = new Date();
-      const day = current.getDay();
-      const diff = current.getDate() - day + (day === 0 ? -6 : 1);
-
-      const start = new Date(current);
-      start.setDate(diff);
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date();
-      end.setHours(23, 59, 59, 999);
-
-      return { gte: start, lte: end };
-    }
-
-    if (period === 'this_month') {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      start.setHours(0, 0, 0, 0);
-
-      const end = new Date();
-      end.setHours(23, 59, 59, 999);
-
-      return { gte: start, lte: end };
-    }
-
-    if (startDate || endDate) {
-      const filter: { gte?: Date; lte?: Date } = {};
-
-      if (startDate) {
-        const start = new Date(startDate);
-        if (isNaN(start.getTime())) {
-          throw new BadRequestException('startDate invalide');
-        }
+    switch (query.period) {
+      case 'this_week': {
+        const currentDay = now.getDay();
+        const diff = currentDay === 0 ? 6 : currentDay - 1;
+        start = new Date(now);
+        start.setDate(now.getDate() - diff);
         start.setHours(0, 0, 0, 0);
-        filter.gte = start;
+        break;
       }
 
-      if (endDate) {
-        const end = new Date(endDate);
-        if (isNaN(end.getTime())) {
-          throw new BadRequestException('endDate invalide');
-        }
-        end.setHours(23, 59, 59, 999);
-        filter.lte = end;
+      case 'this_month': {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        start.setHours(0, 0, 0, 0);
+        break;
       }
 
-      return filter;
+      case 'today':
+      default: {
+        start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        break;
+      }
     }
 
-    return undefined;
+    end = new Date(now);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
   }
 
-  async getSummary(
-    tenantId: string,
-    period?: string,
-    startDate?: string,
-    endDate?: string,
-  ) {
-    const dateFilter = this.resolvePeriod(period, startDate, endDate);
+  async getSummary(query: DashboardQuery) {
+    const tenantId = query.tenantId?.trim();
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    const { start, end } = this.getDateRange(query);
 
     const sales = await this.prisma.sale.findMany({
       where: {
         tenantId,
-        ...(dateFilter ? { createdAt: dateFilter } : {}),
-      },
-      include: { payments: true },
-    });
-
-    const refunds = await this.prisma.refund.findMany({
-      where: {
-        saleReturn: {
-          tenantId,
+        createdAt: {
+          gte: start,
+          lte: end,
         },
-        ...(dateFilter ? { createdAt: dateFilter } : {}),
+      },
+      include: {
+        payments: true,
+        returns: {
+          include: {
+            refunds: true,
+          },
+        },
       },
     });
 
     const productsCount = await this.prisma.product.count({
-  where: {
-    tenantId,
-    isActive: true,
-  },
-});
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
 
-    const grossRevenue = sales.reduce((sum, sale) => sum + Number(sale.total), 0);
-    const refundsTotal = refunds.reduce(
-      (sum, refund) => sum + Number(refund.amount),
+    const grossRevenue = sales.reduce(
+      (sum, sale) => sum + Number(sale.total || 0),
       0,
     );
+
+    const refundsTotal = sales.reduce((sum, sale) => {
+      const saleRefunds = sale.returns.reduce((returnsSum, saleReturn) => {
+        const refundAmount = saleReturn.refunds.reduce(
+          (refundsSum, refund) => refundsSum + Number(refund.amount || 0),
+          0,
+        );
+        return returnsSum + refundAmount;
+      }, 0);
+
+      return sum + saleRefunds;
+    }, 0);
+
     const netRevenue = grossRevenue - refundsTotal;
-    const salesCount = sales.length;
 
-    const paymentsByMethodMap: Record<string, number> = {};
+    const paymentsByMethodMap = new Map<string, number>();
 
-    for (const sale of sales) {
-      for (const payment of sale.payments) {
-        if (payment.status !== 'paid') continue;
+    sales.forEach((sale) => {
+      sale.payments.forEach((payment) => {
+        const key = String(payment.method || 'unknown');
+        const current = paymentsByMethodMap.get(key) || 0;
+        paymentsByMethodMap.set(key, current + Number(payment.amount || 0));
+      });
+    });
 
-        const method = payment.method;
-        paymentsByMethodMap[method] =
-          (paymentsByMethodMap[method] || 0) + Number(payment.amount);
-      }
-    }
-
-    const paymentsByMethod = Object.entries(paymentsByMethodMap).map(
+    const paymentsByMethod = Array.from(paymentsByMethodMap.entries()).map(
       ([method, amount]) => ({
         method,
         amount,
@@ -134,82 +125,31 @@ export class DashboardService {
     );
 
     return {
-      tenantId,
-      period: {
-        mode: period ?? 'custom',
-        startDate: startDate ?? null,
-        endDate: endDate ?? null,
-      },
       grossRevenue,
       refundsTotal,
       netRevenue,
-      salesCount,
+      salesCount: sales.length,
       productsCount,
       paymentsByMethod,
     };
   }
 
-  async getTopProducts(
-    tenantId: string,
-    period?: string,
-    startDate?: string,
-    endDate?: string,
-  ) {
-    const dateFilter = this.resolvePeriod(period, startDate, endDate);
+  async getTopProducts(query: DashboardQuery) {
+    const tenantId = query.tenantId?.trim();
 
-    const items = await this.prisma.saleItem.findMany({
-      where: {
-        sale: {
-          tenantId,
-          ...(dateFilter ? { createdAt: dateFilter } : {}),
-        },
-      },
-      include: {
-        product: true,
-      },
-    });
-
-    const map: Record<
-      string,
-      {
-        productId: string;
-        name: string;
-        quantitySold: number;
-        revenue: number;
-      }
-    > = {};
-
-    for (const item of items) {
-      const key = item.productId;
-
-      if (!map[key]) {
-        map[key] = {
-          productId: item.productId,
-          name: item.product.name,
-          quantitySold: 0,
-          revenue: 0,
-        };
-      }
-
-      map[key].quantitySold += item.quantity;
-      map[key].revenue += Number(item.price) * item.quantity;
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
     }
 
-    return Object.values(map).sort((a, b) => b.quantitySold - a.quantitySold);
-  }
+    const { start, end } = this.getDateRange(query);
 
-  async getSales(
-    tenantId: string,
-    period?: string,
-    startDate?: string,
-    endDate?: string,
-  ) {
-    const dateFilter = this.resolvePeriod(period, startDate, endDate);
-
-    return this.prisma.sale.findMany({
+    const sales = await this.prisma.sale.findMany({
       where: {
         tenantId,
-        ...(dateFilter ? { createdAt: dateFilter } : {}),
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
       },
       include: {
         items: {
@@ -217,9 +157,111 @@ export class DashboardService {
             product: true,
           },
         },
+      },
+    });
+
+    const map = new Map<
+      string,
+      {
+        productId: string;
+        name: string;
+        quantitySold: number;
+        revenue: number;
+      }
+    >();
+
+    sales.forEach((sale) => {
+      sale.items.forEach((item) => {
+        const productId = item.productId;
+        const existing = map.get(productId);
+
+        if (existing) {
+          existing.quantitySold += Number(item.quantity || 0);
+          existing.revenue += Number(item.price || 0) * Number(item.quantity || 0);
+        } else {
+          map.set(productId, {
+            productId,
+            name: item.product?.name || 'Produit',
+            quantitySold: Number(item.quantity || 0),
+            revenue: Number(item.price || 0) * Number(item.quantity || 0),
+          });
+        }
+      });
+    });
+
+    return Array.from(map.values())
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+  }
+
+  async getSalesByCashier(query: DashboardQuery) {
+    const tenantId = query.tenantId?.trim();
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    const { start, end } = this.getDateRange(query);
+
+    const sales = await this.prisma.sale.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+        cashierId: {
+          not: null,
+        },
+      },
+      include: {
+        cashier: true,
         payments: true,
       },
-      orderBy: { createdAt: 'desc' },
     });
+
+    const grouped = new Map<
+      string,
+      {
+        cashierId: string;
+        cashierName: string;
+        salesCount: number;
+        totalSales: number;
+        totalPayments: number;
+      }
+    >();
+
+    for (const sale of sales) {
+      if (!sale.cashierId) continue;
+
+      const key = sale.cashierId;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          cashierId: sale.cashierId,
+          cashierName:
+            sale.cashier?.fullName ||
+            sale.cashier?.login ||
+            sale.cashier?.email ||
+            'Caisse',
+          salesCount: 0,
+          totalSales: 0,
+          totalPayments: 0,
+        });
+      }
+
+      const row = grouped.get(key)!;
+
+      row.salesCount += 1;
+      row.totalSales += Number(sale.total || 0);
+      row.totalPayments += sale.payments.reduce(
+        (sum, payment) => sum + Number(payment.amount || 0),
+        0,
+      );
+    }
+
+    return Array.from(grouped.values()).sort(
+      (a, b) => b.totalPayments - a.totalPayments,
+    );
   }
 }
