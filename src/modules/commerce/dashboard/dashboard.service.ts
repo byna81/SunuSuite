@@ -19,8 +19,11 @@ export class DashboardService {
 
     if (query.startDate && query.endDate) {
       start = new Date(query.startDate);
+      start.setHours(0, 0, 0, 0);
+
       end = new Date(query.endDate);
       end.setHours(23, 59, 59, 999);
+
       return { start, end };
     }
 
@@ -52,6 +55,13 @@ export class DashboardService {
     end.setHours(23, 59, 59, 999);
 
     return { start, end };
+  }
+
+  private formatLocalDateKey(date: Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
 
   async getSummary(query: DashboardQuery) {
@@ -211,9 +221,6 @@ export class DashboardService {
           gte: start,
           lte: end,
         },
-        cashierId: {
-          not: null,
-        },
       },
       include: {
         cashier: true,
@@ -233,18 +240,16 @@ export class DashboardService {
     >();
 
     for (const sale of sales) {
-      if (!sale.cashierId) continue;
-
-      const key = sale.cashierId;
+      const key = sale.cashierId || `unassigned-${sale.tenantId}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
-          cashierId: sale.cashierId,
+          cashierId: sale.cashierId || 'unassigned',
           cashierName:
             sale.cashier?.fullName ||
             sale.cashier?.login ||
             sale.cashier?.email ||
-            'Caisse',
+            'Caisse non affectée',
           salesCount: 0,
           totalSales: 0,
           totalPayments: 0,
@@ -282,17 +287,15 @@ export class DashboardService {
           gte: start,
           lte: end,
         },
-        cashierId: {
-          not: null,
-        },
       },
       include: {
         cashier: true,
         payments: true,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: [
+        { createdAt: 'desc' },
+        { cashierId: 'asc' },
+      ],
     });
 
     const grouped = new Map<
@@ -310,20 +313,19 @@ export class DashboardService {
     >();
 
     for (const sale of sales) {
-      if (!sale.cashierId) continue;
-
-      const saleDate = new Date(sale.createdAt).toISOString().slice(0, 10);
-      const key = `${saleDate}_${sale.cashierId}`;
+      const saleDate = this.formatLocalDateKey(new Date(sale.createdAt));
+      const cashierKey = sale.cashierId || 'unassigned';
+      const key = `${saleDate}_${cashierKey}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
           date: saleDate,
-          cashierId: sale.cashierId,
+          cashierId: sale.cashierId || 'unassigned',
           cashierName:
             sale.cashier?.fullName ||
             sale.cashier?.login ||
             sale.cashier?.email ||
-            'Caisse',
+            'Caisse non affectée',
           salesCount: 0,
           totalSales: 0,
           totalPayments: 0,
