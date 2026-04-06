@@ -292,10 +292,7 @@ export class DashboardService {
         cashier: true,
         payments: true,
       },
-      orderBy: [
-        { createdAt: 'desc' },
-        { cashierId: 'asc' },
-      ],
+      orderBy: [{ createdAt: 'desc' }, { cashierId: 'asc' }],
     });
 
     const grouped = new Map<
@@ -360,6 +357,88 @@ export class DashboardService {
         return a.cashierName.localeCompare(b.cashierName);
       }
       return b.date.localeCompare(a.date);
+    });
+  }
+
+  async getProductInventory(query: DashboardQuery) {
+    const tenantId = query.tenantId?.trim();
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    const { start, end } = this.getDateRange(query);
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    const saleItems = await this.prisma.saleItem.findMany({
+      where: {
+        sale: {
+          tenantId,
+          createdAt: {
+            gte: start,
+            lte: end,
+          },
+        },
+      },
+    });
+
+    const stockMovements = await this.prisma.stockMovement.findMany({
+      where: {
+        tenantId,
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+    });
+
+    const soldMap = new Map<string, number>();
+    const addedMap = new Map<string, number>();
+
+    for (const item of saleItems) {
+      const current = soldMap.get(item.productId) || 0;
+      soldMap.set(item.productId, current + Number(item.quantity || 0));
+    }
+
+    for (const movement of stockMovements) {
+      const productId = movement.productId;
+      const quantity = Number(movement.quantity || 0);
+
+      if (
+        movement.type === 'adjustment' ||
+        movement.type === 'in' ||
+        movement.type === 'inventory'
+      ) {
+        const current = addedMap.get(productId) || 0;
+        addedMap.set(productId, current + quantity);
+      }
+    }
+
+    return products.map((product) => {
+      const soldQuantity = soldMap.get(product.id) || 0;
+      const addedQuantity = addedMap.get(product.id) || 0;
+      const remainingStock = Number(product.stock || 0);
+
+      const stockInitial = remainingStock + soldQuantity - addedQuantity;
+
+      return {
+        productId: product.id,
+        name: product.name,
+        stockInitial,
+        addedQuantity,
+        soldQuantity,
+        remainingStock,
+        price: Number(product.price || 0),
+      };
     });
   }
 }
