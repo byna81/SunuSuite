@@ -100,6 +100,9 @@ export class ReturnsService {
         });
 
         if (item.restock ?? true) {
+          const previousStock = product.stock;
+          const newStock = product.stock + item.quantity;
+
           await tx.product.update({
             where: { id: product.id },
             data: {
@@ -112,8 +115,13 @@ export class ReturnsService {
           await tx.stockMovement.create({
             data: {
               productId: product.id,
-              type: 'RETURN',
+              tenantId: data.tenantId,
+              userId: null,
+              type: 'in',
               quantity: item.quantity,
+              previousStock,
+              newStock,
+              note: 'Retour produit',
             },
           });
         }
