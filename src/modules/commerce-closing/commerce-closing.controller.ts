@@ -15,6 +15,8 @@ export class CommerceClosingController {
       month: number;
       year: number;
       openingBalance?: number;
+      actualCash?: number;
+      cashierId?: string;
       note?: string;
       closedBy?: string;
     },
@@ -27,11 +29,13 @@ export class CommerceClosingController {
     @Query('tenantId') tenantId: string,
     @Query('month') month?: string,
     @Query('year') year?: string,
+    @Query('cashierId') cashierId?: string,
   ) {
     return this.commerceClosingService.getClosings({
       tenantId,
       month,
       year,
+      cashierId,
     });
   }
 
@@ -40,11 +44,26 @@ export class CommerceClosingController {
     @Query('tenantId') tenantId: string,
     @Query('month') month?: string,
     @Query('year') year?: string,
+    @Query('cashierId') cashierId?: string,
   ) {
     return this.commerceClosingService.getClosingSummary({
       tenantId,
       month,
       year,
+      cashierId,
     });
   }
+
+  @Get('cashiers')
+  getCashiersForClosing(
+    @Query('tenantId') tenantId: string,
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+  ) {
+    return this.commerceClosingService.getCashiersForClosing({
+      tenantId,
+      month,
+      year,
+    });
 }
+  }
