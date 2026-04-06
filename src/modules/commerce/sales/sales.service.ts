@@ -12,7 +12,7 @@ export class SalesService {
   async create(data: {
     tenantId: string;
     items: { productId: string; quantity: number }[];
-    cashierId?: string;
+    cashierId?: string | null;
   }) {
     if (!data.tenantId) {
       throw new BadRequestException('tenantId obligatoire');
@@ -102,6 +102,7 @@ export class SalesService {
         where: { id: sale.id },
         data: { total },
         include: {
+          cashier: true,
           items: {
             include: {
               product: true,
