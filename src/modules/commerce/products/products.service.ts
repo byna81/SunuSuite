@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 @Injectable()
@@ -58,27 +62,130 @@ export class ProductsService {
   }
 
   async create(body: any) {
-    return this.prisma.product.create({
-      data: {
-        tenantId: body.tenantId,
-        categoryId: body.categoryId ?? null,
-        name: body.name,
-        price: Number(body.price),
-        stock: Number(body.stock ?? 0),
-        barcode: body.barcode ?? null,
-        isActive: true,
-      },
+    const tenantId = String(body?.tenantId || '').trim();
+    const name = String(body?.name || '').trim();
+    const price = Number(body?.price);
+    const stock = Number(body?.stock ?? 0);
+    const barcode = body?.barcode ? String(body.barcode).trim() : null;
+
+    const stockCost =
+      body?.stockCost !== undefined && body?.stockCost !== null && body?.stockCost !== ''
+        ? Number(body.stockCost)
+        : null;
+
+    const paymentMethod = body?.paymentMethod
+      ? String(body.paymentMethod).trim()
+      : null;
+
+    const supplier = body?.supplier ? String(body.supplier).trim() : null;
+    const note = body?.note ? String(body.note).trim() : null;
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    if (!name) {
+      throw new BadRequestException('Le nom du produit est obligatoire');
+    }
+
+    if (Number.isNaN(price) || price <= 0) {
+      throw new BadRequestException('Le prix doit être supérieur à 0');
+    }
+
+    if (Number.isNaN(stock) || stock < 0) {
+      throw new BadRequestException('Le stock doit être supérieur ou égal à 0');
+    }
+
+    if (stockCost !== null && (Number.isNaN(stockCost) || stockCost < 0)) {
+      throw new BadRequestException(
+        'Le montant dépensé pour le stock doit être supérieur ou égal à 0',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          tenantId,
+          categoryId: body.categoryId ?? null,
+          name,
+          price,
+          stock,
+          barcode,
+          isActive: true,
+        },
+      });
+
+      if (stock > 0) {
+        await tx.stockMovement.create({
+          data: {
+            productId: product.id,
+            tenantId,
+            userId: body?.userId || null,
+            type: 'in',
+            quantity: stock,
+            previousStock: 0,
+            newStock: stock,
+            note: 'Stock initial produit',
+          },
+        });
+      }
+
+      if (stock > 0 && stockCost !== null && stockCost > 0) {
+        const expenseNoteParts = [
+          supplier ? `Fournisseur: ${supplier}` : null,
+          note || null,
+        ].filter(Boolean);
+
+        await tx.commerceExpense.create({
+          data: {
+            tenantId,
+            label: `Achat stock - ${name}`,
+            category: 'stock',
+            amount: stockCost,
+            expenseDate: new Date(),
+            paymentMethod,
+            note: expenseNoteParts.length > 0 ? expenseNoteParts.join(' | ') : null,
+          },
+        });
+      }
+
+      return product;
     });
   }
 
   async update(id: string, body: any) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Produit introuvable');
+    }
+
+    const name = String(body?.name || '').trim();
+    const price = Number(body?.price);
+    const stock = Number(body?.stock ?? 0);
+    const barcode = body?.barcode ? String(body.barcode).trim() : null;
+
+    if (!name) {
+      throw new BadRequestException('Le nom du produit est obligatoire');
+    }
+
+    if (Number.isNaN(price) || price <= 0) {
+      throw new BadRequestException('Le prix doit être supérieur à 0');
+    }
+
+    if (Number.isNaN(stock) || stock < 0) {
+      throw new BadRequestException('Le stock doit être supérieur ou égal à 0');
+    }
+
     return this.prisma.product.update({
       where: { id },
       data: {
-        name: body.name,
-        price: Number(body.price),
-        stock: Number(body.stock ?? 0),
-        barcode: body.barcode ?? null,
+        name,
+        price,
+        stock,
+        barcode,
         categoryId: body.categoryId ?? undefined,
       },
     });
