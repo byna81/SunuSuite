@@ -1,7 +1,7 @@
 import {
   Body,
   Controller,
- Get,
+  Get,
   Param,
   Post,
   Query,
@@ -25,10 +25,7 @@ export class SalesController {
     },
     @Req() req: any,
   ) {
-    const cashierId =
-      req?.user?.role === 'cashier' || req?.user?.role === 'manager'
-        ? req.user.id
-        : null;
+    const cashierId = req?.user?.id || null;
 
     return this.salesService.create({
       tenantId: body.tenantId,
