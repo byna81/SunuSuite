@@ -21,11 +21,13 @@ export class SalesController {
     @Body()
     body: {
       tenantId: string;
+      cashierId?: string | null;
       items: { productId: string; quantity: number }[];
     },
     @Req() req: any,
   ) {
-    const cashierId = req?.user?.id || req?.user?.sub || null;
+    const cashierId =
+      body.cashierId || req?.user?.id || req?.user?.sub || null;
 
     return this.salesService.create({
       tenantId: body.tenantId,
