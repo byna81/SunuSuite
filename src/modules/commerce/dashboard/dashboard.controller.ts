@@ -49,4 +49,19 @@ export class DashboardController {
       endDate,
     });
   }
+
+  @Get('sales-by-cashier-daily')
+  getSalesByCashierDaily(
+    @Query('tenantId') tenantId: string,
+    @Query('period') period?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.dashboardService.getSalesByCashierDaily({
+      tenantId,
+      period,
+      startDate,
+      endDate,
+    });
+  }
 }
