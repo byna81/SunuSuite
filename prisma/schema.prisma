@@ -357,24 +357,24 @@ model Product {
 }
 
 model StockMovement {
-  id              String            @id @default(uuid())
+  id              String          @id @default(uuid())
   productId       String
-  tenantId        String
+  tenantId        String?
   userId          String?
 
-  type            StockMovementType
+  type            String
   quantity        Int
   previousStock   Int?
   newStock        Int?
   note            String?
 
   inventoryId     String?
-  createdAt       DateTime          @default(now())
+  createdAt       DateTime        @default(now())
 
-  product         Product           @relation(fields: [productId], references: [id])
-  tenant          Tenant            @relation(fields: [tenantId], references: [id])
-  user            User?             @relation(fields: [userId], references: [id])
-  inventory       StockInventory?   @relation(fields: [inventoryId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id])
+  tenant          Tenant?         @relation(fields: [tenantId], references: [id])
+  user            User?           @relation(fields: [userId], references: [id])
+  inventory       StockInventory? @relation(fields: [inventoryId], references: [id])
 
   @@index([tenantId, createdAt])
   @@index([productId, createdAt])
@@ -762,13 +762,6 @@ model RealEstateExpense {
   tenant        Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId, expenseDate])
-}
-
-enum StockMovementType {
-  in
-  out
-  adjustment
-  inventory
 }
 
 enum InventoryStatus {
