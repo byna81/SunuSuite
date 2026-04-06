@@ -107,6 +107,8 @@ model Tenant {
   products               Product[]
   sales                  Sale[]
   returns                SaleReturn[]
+  stockInventories       StockInventory[]
+  stockMovementsTenant   StockMovement[]
 
   properties             Property[]
   contracts              LeaseContract[]
@@ -144,6 +146,11 @@ model User {
   canViewDashboard       Boolean     @default(false)
 
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
+
+  // ✅ Commerce
+  sales                  Sale[]
+  stockMovements         StockMovement[]
+  inventories            StockInventory[] @relation("InventoryCreatedBy")
 }
 
 model Vehicle {
@@ -328,47 +335,68 @@ model Category {
 }
 
 model Product {
-  id          String          @id @default(uuid())
-  tenantId    String
-  categoryId  String?
-  name        String
-  price       Float
-  stock       Int             @default(0)
-  isActive    Boolean         @default(true)
-  barcode     String?
-  createdAt   DateTime        @default(now())
+  id             String               @id @default(uuid())
+  tenantId       String
+  categoryId     String?
+  name           String
+  price          Float
+  stock          Int                  @default(0)
+  isActive       Boolean              @default(true)
+  barcode        String?
+  createdAt      DateTime             @default(now())
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id])
-  category    Category?       @relation(fields: [categoryId], references: [id])
-  items       SaleItem[]
-  movements   StockMovement[]
-  returnItems SaleReturnItem[]
+  tenant         Tenant               @relation(fields: [tenantId], references: [id])
+  category       Category?            @relation(fields: [categoryId], references: [id])
+  items          SaleItem[]
+  movements      StockMovement[]
+  returnItems    SaleReturnItem[]
+  inventoryItems StockInventoryItem[]
 
   @@unique([tenantId, name])
   @@unique([tenantId, barcode])
 }
 
 model StockMovement {
-  id         String   @id @default(uuid())
-  productId  String
-  type       String
-  quantity   Int
-  createdAt  DateTime @default(now())
+  id              String            @id @default(uuid())
+  productId       String
+  tenantId        String
+  userId          String?
 
-  product    Product  @relation(fields: [productId], references: [id])
+  type            StockMovementType
+  quantity        Int
+  previousStock   Int?
+  newStock        Int?
+  note            String?
+
+  inventoryId     String?
+  createdAt       DateTime          @default(now())
+
+  product         Product           @relation(fields: [productId], references: [id])
+  tenant          Tenant            @relation(fields: [tenantId], references: [id])
+  user            User?             @relation(fields: [userId], references: [id])
+  inventory       StockInventory?   @relation(fields: [inventoryId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([productId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Sale {
   id         String      @id @default(uuid())
   tenantId   String
+  cashierId  String?
   total      Float
   status     String      @default("unpaid")
   createdAt  DateTime    @default(now())
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  cashier    User?       @relation(fields: [cashierId], references: [id])
   items      SaleItem[]
   payments   Payment[]
   returns    SaleReturn[]
+
+  @@index([tenantId, createdAt])
+  @@index([cashierId, createdAt])
 }
 
 model SaleItem {
@@ -736,3 +764,58 @@ model RealEstateExpense {
   @@index([tenantId, expenseDate])
 }
 
+enum StockMovementType {
+  in
+  out
+  adjustment
+  inventory
+}
+
+enum InventoryStatus {
+  draft
+  validated
+}
+
+model StockInventory {
+  id             String               @id @default(uuid())
+  tenantId       String
+  createdById    String?
+
+  title          String
+  note           String?
+  status         InventoryStatus      @default(draft)
+
+  totalTheoretical Int                @default(0)
+  totalActual      Int                @default(0)
+  totalGap         Int                @default(0)
+
+  createdAt      DateTime             @default(now())
+  validatedAt    DateTime?
+  updatedAt      DateTime             @default(now()) @updatedAt
+
+  tenant         Tenant               @relation(fields: [tenantId], references: [id])
+  createdBy      User?                @relation("InventoryCreatedBy", fields: [createdById], references: [id])
+  items          StockInventoryItem[]
+  movements      StockMovement[]
+
+  @@index([tenantId, createdAt])
+  @@index([createdById])
+}
+
+model StockInventoryItem {
+  id               String          @id @default(uuid())
+  inventoryId      String
+  productId        String
+
+  theoreticalStock Int
+  actualStock      Int
+  gap              Int
+
+  note             String?
+
+  inventory        StockInventory  @relation(fields: [inventoryId], references: [id])
+  product          Product         @relation(fields: [productId], references: [id])
+
+  @@unique([inventoryId, productId])
+  @@index([productId])
+}
