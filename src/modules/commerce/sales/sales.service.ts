@@ -1,354 +1,161 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 
-type DashboardQuery = {
-  tenantId: string;
-  period?: string;
-  startDate?: string;
-  endDate?: string;
-};
-
 @Injectable()
-export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+export class SalesService {
+  constructor(private prisma: PrismaService) {}
 
-  private getDateRange(query: DashboardQuery) {
-    const now = new Date();
-    let start: Date;
-    let end: Date = new Date();
-
-    if (query.startDate && query.endDate) {
-      start = new Date(query.startDate);
-      end = new Date(query.endDate);
-      end.setHours(23, 59, 59, 999);
-      return { start, end };
+  async create(data: {
+    tenantId: string;
+    items: { productId: string; quantity: number }[];
+    cashierId?: string | null;
+  }) {
+    if (!data.tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
     }
 
-    switch (query.period) {
-      case 'this_week': {
-        const currentDay = now.getDay();
-        const diff = currentDay === 0 ? 6 : currentDay - 1;
-        start = new Date(now);
-        start.setDate(now.getDate() - diff);
-        start.setHours(0, 0, 0, 0);
-        break;
-      }
-
-      case 'this_month': {
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        start.setHours(0, 0, 0, 0);
-        break;
-      }
-
-      case 'today':
-      default: {
-        start = new Date(now);
-        start.setHours(0, 0, 0, 0);
-        break;
-      }
+    if (!data.items || data.items.length === 0) {
+      throw new BadRequestException('Au moins un article est obligatoire');
     }
 
-    end = new Date(now);
-    end.setHours(23, 59, 59, 999);
+    return this.prisma.$transaction(async (tx) => {
+      let total = 0;
 
-    return { start, end };
+      const sale = await tx.sale.create({
+        data: {
+          tenantId: data.tenantId,
+          cashierId: data.cashierId || null,
+          total: 0,
+          status: 'unpaid',
+        },
+      });
+
+      for (const item of data.items) {
+        if (!item.productId) {
+          throw new BadRequestException('productId obligatoire');
+        }
+
+        if (!item.quantity || item.quantity <= 0) {
+          throw new BadRequestException('Quantité invalide');
+        }
+
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
+
+        if (!product) {
+          throw new NotFoundException('Produit introuvable');
+        }
+
+        if (!product.isActive) {
+          throw new BadRequestException(`Produit inactif: ${product.name}`);
+        }
+
+        if (product.stock < item.quantity) {
+          throw new BadRequestException(
+            `Stock insuffisant pour ${product.name}. Stock disponible: ${product.stock}`,
+          );
+        }
+
+        const previousStock = product.stock;
+        const newStock = product.stock - item.quantity;
+        const lineTotal = Number(product.price) * item.quantity;
+
+        total += lineTotal;
+
+        await tx.saleItem.create({
+          data: {
+            saleId: sale.id,
+            productId: product.id,
+            quantity: item.quantity,
+            price: Number(product.price),
+          },
+        });
+
+        await tx.product.update({
+          where: { id: product.id },
+          data: {
+            stock: {
+              decrement: item.quantity,
+            },
+          },
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            productId: product.id,
+            tenantId: data.tenantId,
+            userId: data.cashierId || null,
+            type: 'out',
+            quantity: item.quantity,
+            previousStock,
+            newStock,
+            note: `Vente produit - vente ${sale.id}`,
+          },
+        });
+      }
+
+      return tx.sale.update({
+        where: { id: sale.id },
+        data: { total },
+        include: {
+          cashier: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+          payments: true,
+        },
+      });
+    });
   }
 
-  async getSummary(query: DashboardQuery) {
-    const tenantId = query.tenantId?.trim();
-
+  async findAll(tenantId: string) {
     if (!tenantId) {
       throw new BadRequestException('tenantId obligatoire');
     }
 
-    const { start, end } = this.getDateRange(query);
-
-    const sales = await this.prisma.sale.findMany({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
+    return this.prisma.sale.findMany({
+      where: { tenantId },
       include: {
+        cashier: true,
+        items: {
+          include: { product: true },
+        },
+        payments: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+  }
+
+  async findOne(id: string) {
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+      include: {
+        cashier: true,
+        items: {
+          include: { product: true },
+        },
         payments: true,
         returns: {
           include: {
+            items: true,
             refunds: true,
           },
         },
       },
     });
 
-    const productsCount = await this.prisma.product.count({
-      where: {
-        tenantId,
-        isActive: true,
-      },
-    });
-
-    const grossRevenue = sales.reduce(
-      (sum, sale) => sum + Number(sale.total || 0),
-      0,
-    );
-
-    const refundsTotal = sales.reduce((sum, sale) => {
-      const saleRefunds = sale.returns.reduce((returnsSum, saleReturn) => {
-        const refundAmount = saleReturn.refunds.reduce(
-          (refundsSum, refund) => refundsSum + Number(refund.amount || 0),
-          0,
-        );
-        return returnsSum + refundAmount;
-      }, 0);
-
-      return sum + saleRefunds;
-    }, 0);
-
-    const netRevenue = grossRevenue - refundsTotal;
-
-    const paymentsByMethodMap = new Map<string, number>();
-
-    sales.forEach((sale) => {
-      sale.payments.forEach((payment) => {
-        const key = String(payment.method || 'unknown');
-        const current = paymentsByMethodMap.get(key) || 0;
-        paymentsByMethodMap.set(key, current + Number(payment.amount || 0));
-      });
-    });
-
-    const paymentsByMethod = Array.from(paymentsByMethodMap.entries()).map(
-      ([method, amount]) => ({
-        method,
-        amount,
-      }),
-    );
-
-    return {
-      grossRevenue,
-      refundsTotal,
-      netRevenue,
-      salesCount: sales.length,
-      productsCount,
-      paymentsByMethod,
-    };
-  }
-
-  async getTopProducts(query: DashboardQuery) {
-    const tenantId = query.tenantId?.trim();
-
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
+    if (!sale) {
+      throw new NotFoundException('Vente introuvable');
     }
 
-    const { start, end } = this.getDateRange(query);
-
-    const sales = await this.prisma.sale.findMany({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-      },
-    });
-
-    const map = new Map<
-      string,
-      {
-        productId: string;
-        name: string;
-        quantitySold: number;
-        revenue: number;
-      }
-    >();
-
-    sales.forEach((sale) => {
-      sale.items.forEach((item) => {
-        const productId = item.productId;
-        const existing = map.get(productId);
-
-        if (existing) {
-          existing.quantitySold += Number(item.quantity || 0);
-          existing.revenue +=
-            Number(item.price || 0) * Number(item.quantity || 0);
-        } else {
-          map.set(productId, {
-            productId,
-            name: item.product?.name || 'Produit',
-            quantitySold: Number(item.quantity || 0),
-            revenue: Number(item.price || 0) * Number(item.quantity || 0),
-          });
-        }
-      });
-    });
-
-    return Array.from(map.values())
-      .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10);
-  }
-
-  async getSalesByCashier(query: DashboardQuery) {
-    const tenantId = query.tenantId?.trim();
-
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
-    const { start, end } = this.getDateRange(query);
-
-    const sales = await this.prisma.sale.findMany({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      include: {
-        cashier: true,
-        payments: true,
-      },
-    });
-
-    const grouped = new Map<
-      string,
-      {
-        cashierId: string;
-        cashierName: string;
-        salesCount: number;
-        totalSales: number;
-        totalPayments: number;
-      }
-    >();
-
-    for (const sale of sales) {
-      const key = sale.cashierId || `unassigned-${sale.tenantId}`;
-
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          cashierId: sale.cashierId || 'unassigned',
-          cashierName:
-            sale.cashier?.fullName ||
-            sale.cashier?.login ||
-            sale.cashier?.email ||
-            'Caisse non affectée',
-          salesCount: 0,
-          totalSales: 0,
-          totalPayments: 0,
-        });
-      }
-
-      const row = grouped.get(key)!;
-
-      row.salesCount += 1;
-      row.totalSales += Number(sale.total || 0);
-      row.totalPayments += sale.payments.reduce(
-        (sum, payment) => sum + Number(payment.amount || 0),
-        0,
-      );
-    }
-
-    return Array.from(grouped.values()).sort(
-      (a, b) => b.totalPayments - a.totalPayments,
-    );
-  }
-
-  async getSalesByCashierDaily(query: DashboardQuery) {
-    const tenantId = query.tenantId?.trim();
-
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
-    const { start, end } = this.getDateRange(query);
-
-    const sales = await this.prisma.sale.findMany({
-      where: {
-        tenantId,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      include: {
-        cashier: true,
-        payments: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    const grouped = new Map<
-      string,
-      {
-        date: string;
-        cashierId: string;
-        cashierName: string;
-        salesCount: number;
-        totalSales: number;
-        totalPayments: number;
-        difference: number;
-        missingAmount: number;
-      }
-    >();
-
-    for (const sale of sales) {
-      const saleDate = new Date(sale.createdAt).toISOString().slice(0, 10);
-      const cashierKey = sale.cashierId || 'unassigned';
-      const key = `${saleDate}_${cashierKey}`;
-
-      if (!grouped.has(key)) {
-        grouped.set(key, {
-          date: saleDate,
-          cashierId: sale.cashierId || 'unassigned',
-          cashierName:
-            sale.cashier?.fullName ||
-            sale.cashier?.login ||
-            sale.cashier?.email ||
-            'Caisse non affectée',
-          salesCount: 0,
-          totalSales: 0,
-          totalPayments: 0,
-          difference: 0,
-          missingAmount: 0,
-        });
-      }
-
-      const row = grouped.get(key)!;
-
-      row.salesCount += 1;
-      row.totalSales += Number(sale.total || 0);
-      row.totalPayments += sale.payments.reduce(
-        (sum, payment) => sum + Number(payment.amount || 0),
-        0,
-      );
-    }
-
-    const result = Array.from(grouped.values()).map((row) => {
-      const difference = row.totalPayments - row.totalSales;
-      const missingAmount = row.totalSales - row.totalPayments;
-
-      return {
-        ...row,
-        difference,
-        missingAmount,
-      };
-    });
-
-    return result.sort((a, b) => {
-      if (a.date === b.date) {
-        return a.cashierName.localeCompare(b.cashierName);
-      }
-      return b.date.localeCompare(a.date);
-    });
+    return sale;
   }
 }
