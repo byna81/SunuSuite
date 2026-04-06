@@ -162,4 +162,60 @@ export class CommerceClosingService {
       );
     }
 
-    const summary = await this.getClosing
+    const summary = await this.getClosingSummary({
+      tenantId,
+      month: String(month),
+      year: String(year),
+    });
+
+    const closingBalance = openingBalance + Number(summary.netResult || 0);
+
+    return this.prisma.commerceClosing.create({
+      data: {
+        tenantId,
+        month,
+        year,
+        openingBalance,
+        totalSales: Number(summary.totalSales || 0),
+        totalPayments: Number(summary.totalPayments || 0),
+        totalRefunds: Number(summary.totalRefunds || 0),
+        totalExpenses: Number(summary.totalExpenses || 0),
+        closingBalance,
+        netResult: Number(summary.netResult || 0),
+        note,
+        closedBy,
+      },
+    });
+  }
+
+  async getClosings(query: {
+    tenantId: string;
+    month?: string;
+    year?: string;
+  }) {
+    const tenantId = query.tenantId?.trim();
+
+    if (!tenantId) {
+      throw new BadRequestException('tenantId est obligatoire');
+    }
+
+    const where: any = { tenantId };
+
+    if (query.month) {
+      where.month = Number(query.month);
+    }
+
+    if (query.year) {
+      where.year = Number(query.year);
+    }
+
+    return this.prisma.commerceClosing.findMany({
+      where,
+      orderBy: [
+        { year: 'desc' },
+        { month: 'desc' },
+        { closedAt: 'desc' },
+      ],
+    });
+  }
+}
