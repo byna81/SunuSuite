@@ -25,7 +25,7 @@ export class SalesController {
     },
     @Req() req: any,
   ) {
-    const cashierId = req?.user?.id || null;
+    const cashierId = req?.user?.id || req?.user?.sub || null;
 
     return this.salesService.create({
       tenantId: body.tenantId,
