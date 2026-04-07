@@ -31,6 +31,13 @@ import { CommerceAccountingModule } from './modules/commerce-accounting/commerce
 import { RealEstateAccountingModule } from './modules/real-estate-accounting/real-estate-accounting.module';
 import { CommerceClosingModule } from './modules/commerce-closing/commerce-closing.module';
 
+import { VtcDriversModule } from './modules/vtc-drivers/vtc-drivers.module';
+import { VehicleAssignmentsModule } from './modules/vehicle-assignments/vehicle-assignments.module';
+import { VtcContractsModule } from './modules/vtc-contracts/vtc-contracts.module';
+import { VtcDriverPaymentsModule } from './modules/vtc-driver-payments/vtc-driver-payments.module';
+import { VtcOwnerSettlementsModule } from './modules/vtc-owner-settlements/vtc-owner-settlements.module';
+import { VehicleMaintenancesModule } from './modules/vehicle-maintenances/vehicle-maintenances.module';
+
 @Module({
   imports: [
     PrismaModule,
@@ -57,6 +64,12 @@ import { CommerceClosingModule } from './modules/commerce-closing/commerce-closi
     CommerceAccountingModule,
     RealEstateAccountingModule,
     CommerceClosingModule,
+    VtcDriversModule,
+    VehicleAssignmentsModule,
+    VtcContractsModule,
+    VtcDriverPaymentsModule,
+    VtcOwnerSettlementsModule,
+    VehicleMaintenancesModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
