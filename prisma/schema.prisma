@@ -239,7 +239,6 @@ model Vehicle {
   rentalContracts      VehicleRentalContract[]
   expenses             VehicleExpense[]
   assignments          VehicleAssignment[]
-  assignments          VehicleAssignment[]
   vtcContracts         VtcContract[]
   vtcDriverPayments    VtcDriverPayment[]
   vtcOwnerSettlements  VtcOwnerSettlement[]
