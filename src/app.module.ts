@@ -37,6 +37,7 @@ import { VtcContractsModule } from './modules/vtc-contracts/vtc-contracts.module
 import { VtcDriverPaymentsModule } from './modules/vtc-driver-payments/vtc-driver-payments.module';
 import { VtcOwnerSettlementsModule } from './modules/vtc-owner-settlements/vtc-owner-settlements.module';
 import { VehicleMaintenancesModule } from './modules/vehicle-maintenances/vehicle-maintenances.module';
+import { VehiclePaymentModule } from './modules/vehicle-payment/vehicle-payment.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { VehicleMaintenancesModule } from './modules/vehicle-maintenances/vehicl
     VtcDriverPaymentsModule,
     VtcOwnerSettlementsModule,
     VehicleMaintenancesModule,
+    VehiclePaymentModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
