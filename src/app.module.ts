@@ -72,6 +72,7 @@ import { VehiclePaymentModule } from './modules/vehicle-payment/vehicle-payment.
     VtcOwnerSettlementsModule,
     VehicleMaintenancesModule,
     VehiclePaymentModule,
+    VehicleRentalDashboardService,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
