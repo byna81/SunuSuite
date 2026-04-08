@@ -55,6 +55,8 @@ export class VehicleRentalContractsService {
       totalAmount?: number;
       depositAmount?: number;
       amountPaid?: number;
+      paymentMethod?: string;
+      reference?: string;
       paymentFrequency?: string;
       dueDay?: number;
       notes?: string;
@@ -179,7 +181,8 @@ export class VehicleRentalContractsService {
           paymentType: 'rental',
           rentalContractId: contract.id,
           amount: amountPaid,
-          paymentMethod: 'non_precise',
+          paymentMethod: body.paymentMethod?.trim() || 'cash',
+          reference: body.reference?.trim() || null,
           note: 'Paiement initial à la création du contrat',
           paidAt: new Date(),
         },
