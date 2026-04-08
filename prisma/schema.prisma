@@ -80,6 +80,7 @@ enum ManualPaymentStatus {
   validated
   rejected
 }
+
 enum VtcDriverStatus {
   actif
   suspendu
@@ -126,6 +127,24 @@ enum VehicleMaintenanceStatus {
   cancelled
 }
 
+enum InventoryStatus {
+  draft
+  validated
+}
+
+enum VehicleCustomerType {
+  sale
+  rental
+  mixed
+}
+
+enum VehicleRentalReturnStatus {
+  pending
+  checked
+  completed
+  completed_with_issue
+}
+
 model Tenant {
   id                     String                  @id @default(cuid())
   name                   String
@@ -147,6 +166,8 @@ model Tenant {
   vehicleRentalContracts VehicleRentalContract[]
   vehiclePayments        VehiclePayment[]
   vehicleExpenses        VehicleExpense[]
+  vehicleRentalReturns   VehicleRentalReturn[]
+  vehicleRentalExtensions VehicleRentalExtension[]
 
   categories             Category[]
   products               Product[]
@@ -166,12 +187,13 @@ model Tenant {
   commerceExpenses       CommerceExpense[]
   commerceClosings       CommerceClosing[]
   realEstateExpenses     RealEstateExpense[]
-  vtcDrivers           VtcDriver[]
-  vehicleAssignments   VehicleAssignment[]
-  vtcContracts         VtcContract[]
-  vtcDriverPayments    VtcDriverPayment[]
-  vtcOwnerSettlements  VtcOwnerSettlement[]
-  vehicleMaintenances  VehicleMaintenance[]
+
+  vtcDrivers             VtcDriver[]
+  vehicleAssignments     VehicleAssignment[]
+  vtcContracts           VtcContract[]
+  vtcDriverPayments      VtcDriverPayment[]
+  vtcOwnerSettlements    VtcOwnerSettlement[]
+  vehicleMaintenances    VehicleMaintenance[]
 }
 
 model User {
@@ -198,7 +220,6 @@ model User {
 
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
-  // ✅ Commerce
   sales                  Sale[]
   stockMovements         StockMovement[]
   inventories            StockInventory[] @relation("InventoryCreatedBy")
@@ -237,6 +258,7 @@ model Vehicle {
   tenant               Tenant             @relation(fields: [tenantId], references: [id])
   saleContracts        VehicleSaleContract[]
   rentalContracts      VehicleRentalContract[]
+  rentalReturns        VehicleRentalReturn[]
   expenses             VehicleExpense[]
   assignments          VehicleAssignment[]
   vtcContracts         VtcContract[]
@@ -248,7 +270,7 @@ model Vehicle {
 }
 
 model VehicleCustomer {
-  id                  String                  @id @default(uuid())
+  id                  String               @id @default(uuid())
   tenantId            String
 
   fullName            String
@@ -258,14 +280,14 @@ model VehicleCustomer {
   idCardNumber        String?
   driverLicenseNumber String?
   notes               String?
+  customerType        VehicleCustomerType  @default(sale)
 
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @default(now()) @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now()) @updatedAt
 
-  tenant              Tenant                  @relation(fields: [tenantId], references: [id])
+  tenant              Tenant               @relation(fields: [tenantId], references: [id])
   saleContracts       VehicleSaleContract[]
   rentalContracts     VehicleRentalContract[]
-  
 
   @@unique([tenantId, phone])
 }
@@ -294,14 +316,13 @@ model VehicleSaleContract {
   vehicle         Vehicle               @relation(fields: [vehicleId], references: [id])
   customer        VehicleCustomer       @relation(fields: [customerId], references: [id])
   payments        VehiclePayment[]
-  customerType    VehicleCustomerType @default(sale)
 
   @@index([tenantId, vehicleId])
   @@index([tenantId, customerId])
 }
 
 model VehicleRentalContract {
-  id               String                @id @default(uuid())
+  id               String                   @id @default(uuid())
   tenantId         String
   vehicleId        String
   customerId       String
@@ -309,30 +330,93 @@ model VehicleRentalContract {
   startDate        DateTime
   endDate          DateTime?
 
-  pricingUnit      String                @default("month")
-  unitPrice        Float                 @default(0)
-  totalAmount      Float                 @default(0)
+  pricingUnit      String                   @default("month")
+  unitPrice        Float                    @default(0)
+  totalAmount      Float                    @default(0)
 
-  depositAmount    Float                 @default(0)
-  amountPaid       Float                 @default(0)
-  remainingAmount  Float                 @default(0)
+  depositAmount    Float                    @default(0)
+  amountPaid       Float                    @default(0)
+  remainingAmount  Float                    @default(0)
 
-  status           VehicleContractStatus @default(brouillon)
+  status           VehicleContractStatus    @default(brouillon)
 
-  paymentFrequency String                @default("mensuel")
+  paymentFrequency String                   @default("mensuel")
   dueDay           Int?
   notes            String?
 
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @default(now()) @updatedAt
+
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id])
+  vehicle          Vehicle                  @relation(fields: [vehicleId], references: [id])
+  customer         VehicleCustomer          @relation(fields: [customerId], references: [id])
+  payments         VehiclePayment[]
+  rentalReturn     VehicleRentalReturn?
+  extensions       VehicleRentalExtension[]
+
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, customerId])
+}
+
+model VehicleRentalReturn {
+  id                    String                    @id @default(uuid())
+  tenantId              String
+  rentalContractId      String                    @unique
+  vehicleId             String
+
+  expectedReturnDate    DateTime?
+  actualReturnDate      DateTime                  @default(now())
+
+  startMileage          Float?
+  returnMileage         Float?
+
+  fuelLevelStart        String?
+  fuelLevelReturn       String?
+
+  hasDamage             Boolean                   @default(false)
+  damageNote            String?
+  missingItemsNote      String?
+
+  depositAmount         Float                     @default(0)
+  depositReturnedAmount Float                     @default(0)
+  depositHeldAmount     Float                     @default(0)
+  holdReason            String?
+
+  vehicleConditionOk    Boolean                   @default(true)
+  status                VehicleRentalReturnStatus @default(pending)
+  note                  String?
+
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @default(now()) @updatedAt
+
+  tenant                Tenant                    @relation(fields: [tenantId], references: [id])
+  rentalContract        VehicleRentalContract     @relation(fields: [rentalContractId], references: [id])
+  vehicle               Vehicle                   @relation(fields: [vehicleId], references: [id])
+
+  @@index([tenantId, actualReturnDate])
+  @@index([tenantId, vehicleId])
+}
+
+model VehicleRentalExtension {
+  id               String                @id @default(uuid())
+  tenantId         String
+  rentalContractId String
+
+  previousEndDate  DateTime?
+  newEndDate       DateTime
+
+  previousTotal    Float                 @default(0)
+  addedAmount      Float                 @default(0)
+  newTotal         Float                 @default(0)
+
+  note             String?
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @default(now()) @updatedAt
 
   tenant           Tenant                @relation(fields: [tenantId], references: [id])
-  vehicle          Vehicle               @relation(fields: [vehicleId], references: [id])
-  customer         VehicleCustomer       @relation(fields: [customerId], references: [id])
-  payments         VehiclePayment[]
+  rentalContract   VehicleRentalContract @relation(fields: [rentalContractId], references: [id])
 
-  @@index([tenantId, vehicleId])
-  @@index([tenantId, customerId])
+  @@index([tenantId, rentalContractId])
 }
 
 model VehiclePayment {
@@ -595,19 +679,19 @@ model LeaseContract {
 }
 
 model Owner {
-  id         String         @id @default(uuid())
-  tenantId   String
-  name       String
-  phone      String?
-  email      String?
-  address    String?
-  createdAt  DateTime       @default(now())
+  id                  String                @id @default(uuid())
+  tenantId            String
+  name                String
+  phone               String?
+  email               String?
+  address             String?
+  createdAt           DateTime              @default(now())
 
-  tenant     Tenant         @relation(fields: [tenantId], references: [id])
-  properties Property[]
-  payments   OwnerPayment[]
-  vtcContracts         VtcContract[]
-  vtcOwnerSettlements  VtcOwnerSettlement[]
+  tenant              Tenant                @relation(fields: [tenantId], references: [id])
+  properties          Property[]
+  payments            OwnerPayment[]
+  vtcContracts        VtcContract[]
+  vtcOwnerSettlements VtcOwnerSettlement[]
 }
 
 model OwnerPayment {
@@ -774,8 +858,7 @@ model CommerceExpense {
   amount        Float
 
   expenseDate   DateTime
-  paymentMethod String? // cash, wave, orange_money
-
+  paymentMethod String?
   note          String?
 
   createdAt     DateTime @default(now())
@@ -824,32 +907,27 @@ model RealEstateExpense {
   @@index([tenantId, expenseDate])
 }
 
-enum InventoryStatus {
-  draft
-  validated
-}
-
 model StockInventory {
-  id             String               @id @default(uuid())
-  tenantId       String
-  createdById    String?
+  id               String               @id @default(uuid())
+  tenantId         String
+  createdById      String?
 
-  title          String
-  note           String?
-  status         InventoryStatus      @default(draft)
+  title            String
+  note             String?
+  status           InventoryStatus      @default(draft)
 
-  totalTheoretical Int                @default(0)
-  totalActual      Int                @default(0)
-  totalGap         Int                @default(0)
+  totalTheoretical Int                  @default(0)
+  totalActual      Int                  @default(0)
+  totalGap         Int                  @default(0)
 
-  createdAt      DateTime             @default(now())
-  validatedAt    DateTime?
-  updatedAt      DateTime             @default(now()) @updatedAt
+  createdAt        DateTime             @default(now())
+  validatedAt      DateTime?
+  updatedAt        DateTime             @default(now()) @updatedAt
 
-  tenant         Tenant               @relation(fields: [tenantId], references: [id])
-  createdBy      User?                @relation("InventoryCreatedBy", fields: [createdById], references: [id])
-  items          StockInventoryItem[]
-  movements      StockMovement[]
+  tenant           Tenant               @relation(fields: [tenantId], references: [id])
+  createdBy        User?                @relation("InventoryCreatedBy", fields: [createdById], references: [id])
+  items            StockInventoryItem[]
+  movements        StockMovement[]
 
   @@index([tenantId, createdAt])
   @@index([createdById])
@@ -1077,9 +1155,4 @@ model VehicleMaintenance {
   @@index([tenantId, vehicleId])
   @@index([tenantId, status])
   @@index([tenantId, type])
-}
-enum VehicleCustomerType {
-  sale
-  rental
-  mixed
 }
