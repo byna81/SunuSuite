@@ -265,6 +265,7 @@ model VehicleCustomer {
   tenant              Tenant                  @relation(fields: [tenantId], references: [id])
   saleContracts       VehicleSaleContract[]
   rentalContracts     VehicleRentalContract[]
+  
 
   @@unique([tenantId, phone])
 }
@@ -293,6 +294,7 @@ model VehicleSaleContract {
   vehicle         Vehicle               @relation(fields: [vehicleId], references: [id])
   customer        VehicleCustomer       @relation(fields: [customerId], references: [id])
   payments        VehiclePayment[]
+  customerType    VehicleCustomerType @default(sale)
 
   @@index([tenantId, vehicleId])
   @@index([tenantId, customerId])
@@ -1075,4 +1077,9 @@ model VehicleMaintenance {
   @@index([tenantId, vehicleId])
   @@index([tenantId, status])
   @@index([tenantId, type])
+}
+enum VehicleCustomerType {
+  sale
+  rental
+  mixed
 }
