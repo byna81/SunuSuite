@@ -38,10 +38,10 @@ import { VtcDriverPaymentsModule } from './modules/vtc-driver-payments/vtc-drive
 import { VtcOwnerSettlementsModule } from './modules/vtc-owner-settlements/vtc-owner-settlements.module';
 import { VehicleMaintenancesModule } from './modules/vehicle-maintenances/vehicle-maintenances.module';
 import { VehiclePaymentModule } from './modules/vehicle-payment/vehicle-payment.module';
+import { VehicleRentalDashboardModule } from './modules/vehicle-rental-dashboard/vehicle-rental-dashboard.module';
 
 @Module({
-  imports: [
-    PrismaModule,
+  imports: [PrismaModule,
     CommerceModule,
     CommerceDashboardModule,
     AuthModule,
@@ -72,7 +72,7 @@ import { VehiclePaymentModule } from './modules/vehicle-payment/vehicle-payment.
     VtcOwnerSettlementsModule,
     VehicleMaintenancesModule,
     VehiclePaymentModule,
-    VehicleRentalDashboardService,
+    VehicleRentalDashboardModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
