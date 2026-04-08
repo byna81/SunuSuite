@@ -34,4 +34,22 @@ export class VehicleRentalContractsController {
   addPayment(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     return this.service.addPayment(req.user.tenantId, id, body);
   }
+
+  @Post(':id/extend')
+  extendContract(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.service.extendContract(req.user.tenantId, id, body);
+  }
+
+  @Post(':id/return')
+  registerReturn(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.service.registerReturn(req.user.tenantId, id, body);
+  }
 }
