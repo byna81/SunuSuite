@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Query,
-  Body,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { VehiclePaymentService } from './vehicle-payment.service';
 
 @Controller('vehicle-payments')
