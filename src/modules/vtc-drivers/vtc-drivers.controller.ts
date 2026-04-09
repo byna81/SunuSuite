@@ -1,12 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
   Query,
-  Delete,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { VtcDriversService } from './vtc-drivers.service';
@@ -20,33 +21,33 @@ export class VtcDriversController {
   constructor(private readonly service: VtcDriversService) {}
 
   @Get()
-  findAll(@Query('tenantId') tenantId: string, @Query('status') status?: string) {
-    return this.service.findAll(tenantId, status);
+  findAll(@Req() req: any, @Query('status') status?: string) {
+    return this.service.findAll(req.user.tenantId, status);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findOne(id);
+  findOne(@Req() req: any, @Param('id') id: string) {
+    return this.service.findOne(req.user.tenantId, id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Post()
-  create(@Body() body: any) {
-    return this.service.create(body);
+  create(@Req() req: any, @Body() body: any) {
+    return this.service.create(req.user.tenantId, body);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Patch(':id')
-  update(@Param('id') id: string, @Body() body: any) {
-    return this.service.update(id, body);
+  update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.service.update(req.user.tenantId, id, body);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.service.remove(id);
+  remove(@Req() req: any, @Param('id') id: string) {
+    return this.service.remove(req.user.tenantId, id);
   }
 }
