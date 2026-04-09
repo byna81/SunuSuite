@@ -106,10 +106,6 @@ export class VehicleRentalDashboardService {
       0,
     );
 
-    // Contrats actifs métier :
-    // - déjà commencés
-    // - pas encore finis
-    // - non annulés / non terminés
     const activeContractsList = contracts.filter((c) => {
       const contractStart = new Date(c.startDate);
       const contractEnd = c.endDate ? new Date(c.endDate) : null;
