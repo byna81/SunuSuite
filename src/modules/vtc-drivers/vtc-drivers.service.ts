@@ -23,9 +23,16 @@ export class VtcDriversService {
     });
   }
 
-  async findOne(id: string) {
-    const driver = await this.prisma.vtcDriver.findUnique({
-      where: { id },
+  async findOne(tenantId: string, id: string) {
+    if (!tenantId?.trim()) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    const driver = await this.prisma.vtcDriver.findFirst({
+      where: {
+        id,
+        tenantId: tenantId.trim(),
+      },
       include: {
         assignments: true,
         contracts: true,
@@ -40,20 +47,22 @@ export class VtcDriversService {
     return driver;
   }
 
-  async create(body: any) {
-    if (!body?.tenantId?.trim()) {
+  async create(tenantId: string, body: any) {
+    if (!tenantId?.trim()) {
       throw new BadRequestException('tenantId obligatoire');
     }
+
     if (!body?.fullName?.trim()) {
       throw new BadRequestException('fullName obligatoire');
     }
+
     if (!body?.phone?.trim()) {
       throw new BadRequestException('phone obligatoire');
     }
 
     return this.prisma.vtcDriver.create({
       data: {
-        tenantId: body.tenantId.trim(),
+        tenantId: tenantId.trim(),
         fullName: body.fullName.trim(),
         phone: body.phone.trim(),
         email: body.email?.trim() || null,
@@ -73,14 +82,14 @@ export class VtcDriversService {
     });
   }
 
-  async update(id: string, body: any) {
-    await this.findOne(id);
+  async update(tenantId: string, id: string, body: any) {
+    await this.findOne(tenantId, id);
 
     return this.prisma.vtcDriver.update({
       where: { id },
       data: {
-        fullName: body.fullName?.trim(),
-        phone: body.phone?.trim(),
+        fullName: body.fullName?.trim() || undefined,
+        phone: body.phone?.trim() || undefined,
         email: body.email?.trim() || null,
         address: body.address?.trim() || null,
         nationalIdNumber: body.nationalIdNumber?.trim() || null,
@@ -98,8 +107,8 @@ export class VtcDriversService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(tenantId: string, id: string) {
+    await this.findOne(tenantId, id);
 
     return this.prisma.vtcDriver.update({
       where: { id },
