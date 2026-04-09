@@ -24,6 +24,7 @@ enum VehicleStatus {
 enum VehicleUsageType {
   sale
   rental
+  vtc
   mixed
 }
 
