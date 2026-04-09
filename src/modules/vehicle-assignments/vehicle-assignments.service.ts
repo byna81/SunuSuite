@@ -24,14 +24,44 @@ export class VehicleAssignmentsService {
     });
   }
 
-  async create(body: any) {
-    if (!body?.tenantId?.trim()) throw new BadRequestException('tenantId obligatoire');
-    if (!body?.vehicleId?.trim()) throw new BadRequestException('vehicleId obligatoire');
-    if (!body?.driverId?.trim()) throw new BadRequestException('driverId obligatoire');
+  async create(tenantId: string, body: any) {
+    if (!tenantId?.trim()) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    if (!body?.vehicleId?.trim()) {
+      throw new BadRequestException('vehicleId obligatoire');
+    }
+
+    if (!body?.driverId?.trim()) {
+      throw new BadRequestException('driverId obligatoire');
+    }
+
+    const vehicle = await this.prisma.vehicle.findFirst({
+      where: {
+        id: body.vehicleId.trim(),
+        tenantId: tenantId.trim(),
+      },
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException('Véhicule introuvable');
+    }
+
+    const driver = await this.prisma.vtcDriver.findFirst({
+      where: {
+        id: body.driverId.trim(),
+        tenantId: tenantId.trim(),
+      },
+    });
+
+    if (!driver) {
+      throw new NotFoundException('Chauffeur introuvable');
+    }
 
     const activeAssignment = await this.prisma.vehicleAssignment.findFirst({
       where: {
-        tenantId: body.tenantId.trim(),
+        tenantId: tenantId.trim(),
         vehicleId: body.vehicleId.trim(),
         isActive: true,
       },
@@ -41,9 +71,21 @@ export class VehicleAssignmentsService {
       throw new BadRequestException('Ce véhicule est déjà affecté');
     }
 
+    const activeDriverAssignment = await this.prisma.vehicleAssignment.findFirst({
+      where: {
+        tenantId: tenantId.trim(),
+        driverId: body.driverId.trim(),
+        isActive: true,
+      },
+    });
+
+    if (activeDriverAssignment) {
+      throw new BadRequestException('Ce chauffeur a déjà un véhicule affecté');
+    }
+
     return this.prisma.vehicleAssignment.create({
       data: {
-        tenantId: body.tenantId.trim(),
+        tenantId: tenantId.trim(),
         vehicleId: body.vehicleId.trim(),
         driverId: body.driverId.trim(),
         assignedAt: body.assignedAt ? new Date(body.assignedAt) : new Date(),
@@ -57,9 +99,16 @@ export class VehicleAssignmentsService {
     });
   }
 
-  async unassign(id: string, body: any) {
-    const assignment = await this.prisma.vehicleAssignment.findUnique({
-      where: { id },
+  async unassign(tenantId: string, id: string, body: any) {
+    if (!tenantId?.trim()) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    const assignment = await this.prisma.vehicleAssignment.findFirst({
+      where: {
+        id,
+        tenantId: tenantId.trim(),
+      },
     });
 
     if (!assignment) {
@@ -70,8 +119,14 @@ export class VehicleAssignmentsService {
       where: { id },
       data: {
         isActive: false,
-        unassignedAt: body?.unassignedAt ? new Date(body.unassignedAt) : new Date(),
+        unassignedAt: body?.unassignedAt
+          ? new Date(body.unassignedAt)
+          : new Date(),
         note: body?.note?.trim() || assignment.note,
+      },
+      include: {
+        vehicle: true,
+        driver: true,
       },
     });
   }
