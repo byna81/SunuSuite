@@ -8,26 +8,31 @@ export class VehicleRentalDashboardService {
   async getDashboard(tenantId: string, period: string) {
     const now = new Date();
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
     let startDate: Date;
 
     if (period === 'week') {
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - 7);
+      startDate = new Date(todayStart);
+      startDate.setDate(startDate.getDate() - 6);
     } else if (period === 'month') {
-      startDate = new Date(now);
-      startDate.setMonth(now.getMonth() - 1);
+      startDate = new Date(todayStart);
+      startDate.setDate(1);
     } else {
-      startDate = new Date(now);
-      startDate.setHours(0, 0, 0, 0);
+      startDate = new Date(todayStart);
     }
 
     const [
       vehiclesAvailable,
       vehiclesRented,
-      contractsActive,
-      payments,
       contracts,
+      payments,
       maintenanceVehicles,
+      latestPayments,
     ] = await Promise.all([
       this.prisma.vehicle.count({
         where: {
@@ -45,28 +50,24 @@ export class VehicleRentalDashboardService {
         },
       }),
 
-      this.prisma.vehicleRentalContract.count({
-        where: {
-          tenantId,
-          status: 'actif',
+      this.prisma.vehicleRentalContract.findMany({
+        where: { tenantId },
+        include: {
+          vehicle: true,
+          customer: true,
+          payments: {
+            orderBy: { paidAt: 'desc' },
+          },
         },
+        orderBy: { createdAt: 'desc' },
       }),
 
       this.prisma.vehiclePayment.findMany({
         where: {
           tenantId,
           paymentType: 'rental',
-          paidAt: { gte: startDate },
+          paidAt: { gte: startDate, lte: todayEnd },
         },
-      }),
-
-      this.prisma.vehicleRentalContract.findMany({
-        where: { tenantId },
-        include: {
-          vehicle: true,
-          customer: true,
-        },
-        orderBy: { createdAt: 'desc' },
       }),
 
       this.prisma.vehicle.count({
@@ -75,6 +76,23 @@ export class VehicleRentalDashboardService {
           status: 'maintenance',
           OR: [{ usageType: 'rental' }, { usageType: 'mixed' }],
         },
+      }),
+
+      this.prisma.vehiclePayment.findMany({
+        where: {
+          tenantId,
+          paymentType: 'rental',
+        },
+        include: {
+          rentalContract: {
+            include: {
+              vehicle: true,
+              customer: true,
+            },
+          },
+        },
+        orderBy: { paidAt: 'desc' },
+        take: 10,
       }),
     ]);
 
@@ -88,11 +106,20 @@ export class VehicleRentalDashboardService {
       0,
     );
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // Contrats actifs métier :
+    // - déjà commencés
+    // - pas encore finis
+    // - non annulés / non terminés
+    const activeContractsList = contracts.filter((c) => {
+      const contractStart = new Date(c.startDate);
+      const contractEnd = c.endDate ? new Date(c.endDate) : null;
 
-    const todayEnd = new Date();
-    todayEnd.setHours(23, 59, 59, 999);
+      const started = contractStart <= todayEnd;
+      const notFinished = !contractEnd || contractEnd >= todayStart;
+      const notClosed = c.status !== 'annule' && c.status !== 'termine';
+
+      return started && notFinished && notClosed;
+    });
 
     const departuresToday = contracts.filter((c) => {
       const d = new Date(c.startDate);
@@ -107,36 +134,28 @@ export class VehicleRentalDashboardService {
 
     const overdueContracts = contracts.filter((c) => {
       if (!c.endDate) return false;
-      return c.status === 'actif' && new Date(c.endDate) < todayStart;
+      const end = new Date(c.endDate);
+
+      return (
+        c.status !== 'annule' &&
+        c.status !== 'termine' &&
+        end < todayStart
+      );
     });
 
-    const latestPayments = await this.prisma.vehiclePayment.findMany({
-      where: {
-        tenantId,
-        paymentType: 'rental',
-      },
-      include: {
-        rentalContract: {
-          include: {
-            vehicle: true,
-            customer: true,
-          },
-        },
-      },
-      orderBy: { paidAt: 'desc' },
-      take: 10,
+    const newContracts = contracts.filter((c) => {
+      const createdAt = new Date(c.createdAt);
+      return createdAt >= startDate && createdAt <= todayEnd;
     });
 
     return {
       kpis: {
         availableVehicles: vehiclesAvailable,
         rentedVehicles: vehiclesRented,
-        activeContracts: contractsActive,
+        activeContracts: activeContractsList.length,
         collectedAmount,
         remainingAmount,
-        newContracts: contracts.filter(
-          (c) => new Date(c.createdAt) >= startDate,
-        ).length,
+        newContracts: newContracts.length,
       },
       alerts: {
         departuresToday: departuresToday.length,
