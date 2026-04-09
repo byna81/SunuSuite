@@ -5,7 +5,7 @@ import {
   Param,
   Patch,
   Post,
-  Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { VehicleAssignmentsService } from './vehicle-assignments.service';
@@ -19,21 +19,21 @@ export class VehicleAssignmentsController {
   constructor(private readonly service: VehicleAssignmentsService) {}
 
   @Get()
-  findAll(@Query('tenantId') tenantId: string) {
-    return this.service.findAll(tenantId);
+  findAll(@Req() req: any) {
+    return this.service.findAll(req.user.tenantId);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Post()
-  create(@Body() body: any) {
-    return this.service.create(body);
+  create(@Req() req: any, @Body() body: any) {
+    return this.service.create(req.user.tenantId, body);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Patch(':id/unassign')
-  unassign(@Param('id') id: string, @Body() body: any) {
-    return this.service.unassign(id, body);
+  unassign(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.service.unassign(req.user.tenantId, id, body);
   }
 }
