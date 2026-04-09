@@ -273,16 +273,11 @@ export class VehicleRentalContractsService {
     const remainingAmount = newTotal - Number(contract.amountPaid || 0);
     const status = remainingAmount <= 0 ? 'solde' : 'actif';
 
-    // IMPORTANT:
-    // ici j’utilise rentalContractId car ton schéma actuel semble exposer
-    // la relation payments via rentalContractId. Si ton modèle
-    // VehicleRentalExtension utilise un autre nom, adapte juste cette ligne.
     await this.prisma.vehicleRentalExtension.create({
       data: {
         rentalContractId: contract.id,
         previousEndDate,
         newEndDate,
-        addedDays,
         addedAmount,
         newTotal,
         note: body.note?.trim() || null,
@@ -364,7 +359,9 @@ export class VehicleRentalContractsService {
 
     await this.prisma.vehicleRentalReturn.create({
       data: {
-        rentalContractId: contract.id,
+        rentalContract: {
+          connect: { id: contract.id },
+        },
         actualReturnDate,
         returnMileage:
           body.returnMileage !== undefined && body.returnMileage !== null
