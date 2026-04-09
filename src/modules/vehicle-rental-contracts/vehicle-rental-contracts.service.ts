@@ -275,7 +275,9 @@ export class VehicleRentalContractsService {
 
     await this.prisma.vehicleRentalExtension.create({
       data: {
-        rentalContractId: contract.id,
+        rentalContract: {
+          connect: { id: contract.id },
+        },
         previousEndDate,
         newEndDate,
         addedAmount,
@@ -359,6 +361,12 @@ export class VehicleRentalContractsService {
 
     await this.prisma.vehicleRentalReturn.create({
       data: {
+        tenant: {
+          connect: { id: tenantId },
+        },
+        vehicle: {
+          connect: { id: contract.vehicleId },
+        },
         rentalContract: {
           connect: { id: contract.id },
         },
