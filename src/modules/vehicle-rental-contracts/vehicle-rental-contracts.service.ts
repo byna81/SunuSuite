@@ -275,6 +275,9 @@ export class VehicleRentalContractsService {
 
     await this.prisma.vehicleRentalExtension.create({
       data: {
+        tenant: {
+          connect: { id: tenantId },
+        },
         rentalContract: {
           connect: { id: contract.id },
         },
