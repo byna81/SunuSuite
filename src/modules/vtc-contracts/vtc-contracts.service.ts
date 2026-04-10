@@ -20,6 +20,7 @@ export class VtcContractsService {
         ...(status ? { status: status as any } : {}),
       },
       include: {
+        tenant: true,
         vehicle: true,
         driver: true,
         owner: true,
