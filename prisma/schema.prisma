@@ -89,6 +89,7 @@ enum VtcDriverStatus {
 }
 
 enum VtcContractType {
+  versement_journalier
   journee
   semaine
   mois
