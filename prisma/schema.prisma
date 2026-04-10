@@ -89,6 +89,9 @@ enum VtcDriverStatus {
 }
 
 enum VtcContractType {
+  versement_journalier
+  versement_hedbomadaire
+  versement_mensuel
   location
   pourcentage
   mixte
