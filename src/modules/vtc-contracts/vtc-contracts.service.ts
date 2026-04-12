@@ -21,7 +21,11 @@ export class VtcContractsService {
       },
       include: {
         tenant: true,
-        vehicle: true,
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         driver: true,
         owner: true,
       },
@@ -41,7 +45,11 @@ export class VtcContractsService {
       },
       include: {
         tenant: true,
-        vehicle: true,
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         driver: true,
         owner: true,
         driverPayments: true,
@@ -82,6 +90,9 @@ export class VtcContractsService {
         id: body.vehicleId.trim(),
         tenantId: tenantId.trim(),
       },
+      include: {
+        owner: true,
+      },
     });
 
     if (!vehicle) {
@@ -99,25 +110,12 @@ export class VtcContractsService {
       throw new NotFoundException('Chauffeur introuvable');
     }
 
-    if (body.ownerId?.trim()) {
-      const owner = await this.prisma.owner.findFirst({
-        where: {
-          id: body.ownerId.trim(),
-          tenantId: tenantId.trim(),
-        },
-      });
-
-      if (!owner) {
-        throw new NotFoundException('Propriétaire introuvable');
-      }
-    }
-
     return this.prisma.vtcContract.create({
       data: {
         tenantId: tenantId.trim(),
         vehicleId: body.vehicleId.trim(),
         driverId: body.driverId.trim(),
-        ownerId: body.ownerId?.trim() || null,
+        ownerId: vehicle.ownerId || null,
         contractType: body.contractType,
         status: body.status || 'brouillon',
         startDate: new Date(body.startDate),
@@ -130,11 +128,16 @@ export class VtcContractsService {
         companyPercent: Number(body.companyPercent || 0),
         ownerPercent: Number(body.ownerPercent || 0),
         driverPercent: Number(body.driverPercent || 0),
+        restDay: body.restDay?.trim() || null,
         notes: body.notes?.trim() || null,
       },
       include: {
         tenant: true,
-        vehicle: true,
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         driver: true,
         owner: true,
       },
@@ -151,6 +154,9 @@ export class VtcContractsService {
       where: {
         id: nextVehicleId,
         tenantId: tenantId.trim(),
+      },
+      include: {
+        owner: true,
       },
     });
 
@@ -169,28 +175,12 @@ export class VtcContractsService {
       throw new NotFoundException('Chauffeur introuvable');
     }
 
-    if (body.ownerId?.trim()) {
-      const owner = await this.prisma.owner.findFirst({
-        where: {
-          id: body.ownerId.trim(),
-          tenantId: tenantId.trim(),
-        },
-      });
-
-      if (!owner) {
-        throw new NotFoundException('Propriétaire introuvable');
-      }
-    }
-
     return this.prisma.vtcContract.update({
       where: { id },
       data: {
         vehicleId: nextVehicleId,
         driverId: nextDriverId,
-        ownerId:
-          body.ownerId !== undefined
-            ? body.ownerId?.trim() || null
-            : undefined,
+        ownerId: vehicle.ownerId || null,
         contractType: body.contractType || undefined,
         status: body.status || undefined,
         startDate: body.startDate ? new Date(body.startDate) : undefined,
@@ -227,11 +217,19 @@ export class VtcContractsService {
           body.driverPercent !== undefined
             ? Number(body.driverPercent)
             : undefined,
+        restDay:
+          body.restDay !== undefined
+            ? body.restDay?.trim() || null
+            : undefined,
         notes: body.notes?.trim() || null,
       },
       include: {
         tenant: true,
-        vehicle: true,
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         driver: true,
         owner: true,
         driverPayments: true,
@@ -248,7 +246,11 @@ export class VtcContractsService {
       data: { status: status as any },
       include: {
         tenant: true,
-        vehicle: true,
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         driver: true,
         owner: true,
         driverPayments: true,
