@@ -231,8 +231,9 @@ model User {
 }
 
 model Vehicle {
-  id                   String             @id @default(uuid())
+  id                   String                @id @default(uuid())
   tenantId             String
+  ownerId              String?
 
   brand                String
   model                String
@@ -242,25 +243,27 @@ model Vehicle {
   color                String?
   fuelType             String?
   transmission         String?
-  mileage              Float              @default(0)
+  mileage              Float                 @default(0)
 
-  usageType            VehicleUsageType   @default(sale)
-  status               VehicleStatus      @default(disponible)
+  usageType            VehicleUsageType      @default(sale)
+  status               VehicleStatus         @default(disponible)
 
-  price                Float              @default(0)
-  salePrice            Float              @default(0)
-  rentalPriceDay       Float              @default(0)
-  rentalPriceWeek      Float              @default(0)
-  rentalPriceMonth     Float              @default(0)
+  price                Float                 @default(0)
+  salePrice            Float                 @default(0)
+  rentalPriceDay       Float                 @default(0)
+  rentalPriceWeek      Float                 @default(0)
+  rentalPriceMonth     Float                 @default(0)
 
   insuranceExpiry      DateTime?
   technicalVisitExpiry DateTime?
   notes                String?
 
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @default(now()) @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @default(now()) @updatedAt
 
-  tenant               Tenant             @relation(fields: [tenantId], references: [id])
+  tenant               Tenant                @relation(fields: [tenantId], references: [id])
+  owner                Owner?                @relation(fields: [ownerId], references: [id])
+
   saleContracts        VehicleSaleContract[]
   rentalContracts      VehicleRentalContract[]
   rentalReturns        VehicleRentalReturn[]
@@ -273,7 +276,6 @@ model Vehicle {
 
   @@unique([tenantId, registrationNumber])
 }
-
 model VehicleCustomer {
   id                  String               @id @default(uuid())
   tenantId            String
