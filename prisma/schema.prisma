@@ -276,6 +276,7 @@ model Vehicle {
 
   @@unique([tenantId, registrationNumber])
 }
+
 model VehicleCustomer {
   id                  String               @id @default(uuid())
   tenantId            String
@@ -697,6 +698,7 @@ model Owner {
   tenant              Tenant                @relation(fields: [tenantId], references: [id])
   properties          Property[]
   payments            OwnerPayment[]
+  vehicles            Vehicle[]
   vtcContracts        VtcContract[]
   vtcOwnerSettlements VtcOwnerSettlement[]
 }
@@ -1039,6 +1041,7 @@ model VtcContract {
   ownerPercent     Float              @default(0)
   driverPercent    Float              @default(0)
 
+  restDay          String?
   notes            String?
 
   createdAt        DateTime           @default(now())
@@ -1056,7 +1059,6 @@ model VtcContract {
   @@index([tenantId, driverId])
   @@index([tenantId, status])
 }
-
 model VtcDriverPayment {
   id              String            @id @default(uuid())
   tenantId        String
