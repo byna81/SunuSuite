@@ -12,9 +12,13 @@ export class OwnersController {
   constructor(private readonly service: OwnersService) {}
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.service.findAll(req.user.tenantId);
+findAll(@Query('tenantId') tenantId: string) {
+  if (!tenantId) {
+    throw new BadRequestException('tenantId requis');
   }
+
+  return this.ownersService.findAll(tenantId);
+}
 
   @Post()
   create(@Req() req: any, @Body() body: any) {
