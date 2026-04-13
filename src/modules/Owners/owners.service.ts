@@ -6,9 +6,15 @@ export class OwnersService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
+  if (!tenantId) {
+    throw new BadRequestException('tenantId obligatoire');
+  }
+
+  return this.prisma.owner.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 
     return this.prisma.owner.findMany({
       where: { tenantId },
