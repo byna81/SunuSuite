@@ -1,83 +1,45 @@
 import {
   BadRequestException,
-  Injectable,
-  NotFoundException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { OwnersService } from './owners.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
-@Injectable()
-export class OwnersService {
-  constructor(private readonly prisma: PrismaService) {}
+@Controller('owners')
+@UseGuards(JwtAuthGuard)
+export class OwnersController {
+  constructor(private readonly ownersService: OwnersService) {}
 
-  async findAll(tenantId: string) {
+  @Get()
+  findAll(
+    @Query('tenantId') tenantId: string,
+    @Query('usageType') usageType?: string,
+  ) {
     if (!tenantId?.trim()) {
+      throw new BadRequestException('tenantId requis');
+    }
+
+    return this.ownersService.findAll(
+      tenantId.trim(),
+      usageType?.trim() || undefined,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
+  @Post()
+  create(@Body() body: any) {
+    if (!body?.tenantId?.trim()) {
       throw new BadRequestException('tenantId obligatoire');
     }
 
-    return this.prisma.owner.findMany({
-      where: {
-        tenantId: tenantId.trim(),
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-  }
-
-  async findOne(tenantId: string, id: string) {
-    if (!tenantId?.trim()) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
-    if (!id?.trim()) {
-      throw new BadRequestException('id obligatoire');
-    }
-
-    const owner = await this.prisma.owner.findFirst({
-      where: {
-        id: id.trim(),
-        tenantId: tenantId.trim(),
-      },
-    });
-
-    if (!owner) {
-      throw new NotFoundException('Propriétaire introuvable');
-    }
-
-    return owner;
-  }
-
-  async create(tenantId: string, body: any) {
-    if (!tenantId?.trim()) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
-
-    if (!body?.name?.trim()) {
-      throw new BadRequestException('name obligatoire');
-    }
-
-    return this.prisma.owner.create({
-      data: {
-        tenantId: tenantId.trim(),
-        name: body.name.trim(),
-        phone: body.phone?.trim() || null,
-        email: body.email?.trim() || null,
-        address: body.address?.trim() || null,
-      },
-    });
-  }
-
-  async update(tenantId: string, id: string, body: any) {
-    await this.findOne(tenantId, id);
-
-    return this.prisma.owner.update({
-      where: { id: id.trim() },
-      data: {
-        name: body.name?.trim() || undefined,
-        phone: body.phone !== undefined ? body.phone?.trim() || null : undefined,
-        email: body.email !== undefined ? body.email?.trim() || null : undefined,
-        address: body.address !== undefined ? body.address?.trim() || null : undefined,
-      },
-    });
+    return this.ownersService.create(body.tenantId.trim(), body);
   }
 }
