@@ -695,6 +695,7 @@ model Owner {
   email               String?
   address             String?
   createdAt           DateTime              @default(now())
+  usageType           String? // 'sale' | 'rental' | 'mixed'
 
   tenant              Tenant                @relation(fields: [tenantId], references: [id])
   properties          Property[]
