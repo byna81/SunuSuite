@@ -230,6 +230,7 @@ model User {
   inventories            StockInventory[] @relation("InventoryCreatedBy")
 }
 
+
 model Vehicle {
   id                   String                @id @default(uuid())
   tenantId             String
@@ -238,7 +239,6 @@ model Vehicle {
   brand                String
   model                String
   year                 Int
-  ownerId              String?
 
   registrationNumber   String?
   color                String?
@@ -276,7 +276,7 @@ model Vehicle {
   maintenances         VehicleMaintenance[]
 
   @@unique([tenantId, registrationNumber])
-}
+}     
 
 model VehicleCustomer {
   id                  String               @id @default(uuid())
