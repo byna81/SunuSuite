@@ -238,6 +238,7 @@ model Vehicle {
   brand                String
   model                String
   year                 Int
+  ownerId              String?
 
   registrationNumber   String?
   color                String?
