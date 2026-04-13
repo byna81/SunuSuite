@@ -39,6 +39,7 @@ import { VtcOwnerSettlementsModule } from './modules/vtc-owner-settlements/vtc-o
 import { VehicleMaintenancesModule } from './modules/vehicle-maintenances/vehicle-maintenances.module';
 import { VehiclePaymentModule } from './modules/vehicle-payment/vehicle-payment.module';
 import { VehicleRentalDashboardModule } from './modules/vehicle-rental-dashboard/vehicle-rental-dashboard.module';
+import { OwnersModule } from './modules/owners/owners.module';
 
 @Module({
   imports: [PrismaModule,
@@ -73,6 +74,7 @@ import { VehicleRentalDashboardModule } from './modules/vehicle-rental-dashboard
     VehicleMaintenancesModule,
     VehiclePaymentModule,
     VehicleRentalDashboardModule,
+    OwnersModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
