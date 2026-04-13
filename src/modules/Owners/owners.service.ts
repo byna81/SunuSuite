@@ -16,6 +16,12 @@ export class OwnersService {
   });
 }
 
+  return this.prisma.owner.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
     return this.prisma.owner.findMany({
       where: { tenantId },
       orderBy: { createdAt: 'desc' },
