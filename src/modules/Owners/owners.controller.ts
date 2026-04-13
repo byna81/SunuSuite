@@ -11,11 +11,14 @@ import { OwnersService } from './owners.service';
 export class OwnersController {
   constructor(private readonly service: OwnersService) {}
 
-  @Get()
+ @Get()
 findAll(@Query('tenantId') tenantId: string) {
   if (!tenantId) {
     throw new BadRequestException('tenantId requis');
   }
+
+  return this.ownersService.findAll(tenantId);
+}
 
   return this.ownersService.findAll(tenantId);
 }
