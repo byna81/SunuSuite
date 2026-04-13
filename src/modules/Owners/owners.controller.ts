@@ -1,30 +1,39 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   Post,
-  Body,
-  Req,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
 import { OwnersService } from './owners.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 
 @Controller('owners')
+@UseGuards(JwtAuthGuard)
 export class OwnersController {
-  constructor(private readonly service: OwnersService) {}
+  constructor(private readonly ownersService: OwnersService) {}
 
- @Get()
-findAll(@Query('tenantId') tenantId: string) {
-  if (!tenantId) {
-    throw new BadRequestException('tenantId requis');
+  @Get()
+  findAll(@Query('tenantId') tenantId: string) {
+    if (!tenantId?.trim()) {
+      throw new BadRequestException('tenantId requis');
+    }
+
+    return this.ownersService.findAll(tenantId.trim());
   }
 
-  return this.ownersService.findAll(tenantId);
-}
-
-  return this.ownersService.findAll(tenantId);
-}
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('manager')
   @Post()
-  create(@Req() req: any, @Body() body: any) {
-    return this.service.create(req.user.tenantId, body);
+  create(@Body() body: any) {
+    if (!body?.tenantId?.trim()) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    return this.ownersService.create(body.tenantId.trim(), body);
   }
 }
