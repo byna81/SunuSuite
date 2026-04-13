@@ -20,8 +20,16 @@ export class VtcOwnerSettlementsService {
         ...(status ? { status: status as any } : {}),
       },
       include: {
-        contract: true,
-        vehicle: true,
+        contract: {
+          include: {
+            driver: true,
+          },
+        },
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         owner: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -39,8 +47,16 @@ export class VtcOwnerSettlementsService {
         tenantId: tenantId.trim(),
       },
       include: {
-        contract: true,
-        vehicle: true,
+        contract: {
+          include: {
+            driver: true,
+          },
+        },
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         owner: true,
       },
     });
@@ -52,6 +68,16 @@ export class VtcOwnerSettlementsService {
     return settlement;
   }
 
+  private roundAmount(value: number) {
+    return Math.round(Number(value || 0));
+  }
+
+  private computeStatus(alreadyPaid: number, remainingToPay: number) {
+    if (remainingToPay <= 0) return 'paid';
+    if (alreadyPaid > 0) return 'partial';
+    return 'pending';
+  }
+
   async create(tenantId: string, body: any) {
     if (!tenantId?.trim()) {
       throw new BadRequestException('tenantId obligatoire');
@@ -61,12 +87,8 @@ export class VtcOwnerSettlementsService {
       throw new BadRequestException('contractId obligatoire');
     }
 
-    if (!body?.vehicleId?.trim()) {
-      throw new BadRequestException('vehicleId obligatoire');
-    }
-
-    if (!body?.ownerId?.trim()) {
-      throw new BadRequestException('ownerId obligatoire');
+    if (!body?.periodLabel?.trim()) {
+      throw new BadRequestException('periodLabel obligatoire');
     }
 
     const contract = await this.prisma.vtcContract.findFirst({
@@ -74,73 +96,132 @@ export class VtcOwnerSettlementsService {
         id: body.contractId.trim(),
         tenantId: tenantId.trim(),
       },
+      include: {
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
+        owner: true,
+        driver: true,
+      },
     });
 
     if (!contract) {
       throw new NotFoundException('Contrat introuvable');
     }
 
-    const vehicle = await this.prisma.vehicle.findFirst({
+    const ownerId = contract.ownerId || contract.vehicle?.ownerId || null;
+    const vehicleId = contract.vehicleId;
+
+    if (!vehicleId) {
+      throw new NotFoundException('Véhicule introuvable pour ce contrat');
+    }
+
+    if (!ownerId) {
+      throw new BadRequestException(
+        'Aucun propriétaire n’est défini pour ce contrat ou ce véhicule',
+      );
+    }
+
+    const existingSettlement = await this.prisma.vtcOwnerSettlement.findFirst({
       where: {
-        id: body.vehicleId.trim(),
         tenantId: tenantId.trim(),
+        contractId: contract.id,
+        periodLabel: body.periodLabel.trim(),
       },
     });
 
-    if (!vehicle) {
-      throw new NotFoundException('Véhicule introuvable');
+    if (existingSettlement) {
+      throw new BadRequestException(
+        'Un paiement propriétaire existe déjà pour ce contrat et cette période',
+      );
     }
 
-    const owner = await this.prisma.owner.findFirst({
+    const driverPayments = await this.prisma.vtcDriverPayment.findMany({
       where: {
-        id: body.ownerId.trim(),
         tenantId: tenantId.trim(),
+        contractId: contract.id,
+        periodLabel: body.periodLabel.trim(),
       },
     });
 
-    if (!owner) {
-      throw new NotFoundException('Propriétaire introuvable');
-    }
+    const grossRevenue = this.roundAmount(
+      driverPayments.reduce(
+        (sum, item) => sum + Number(item.paidAmount || 0),
+        0,
+      ),
+    );
 
-    const grossRevenue = Number(body.grossRevenue || 0);
-    const companyShare = Number(body.companyShare || 0);
-    const ownerShare = Number(body.ownerShare || 0);
-    const driverShare = Number(body.driverShare || 0);
-    const alreadyPaid = Number(body.alreadyPaid || 0);
+    const companyPercent = Number(contract.companyPercent || 0);
+    const ownerPercent = Number(contract.ownerPercent || 0);
+    const driverPercent = Number(contract.driverPercent || 0);
 
-    const remainingToPay =
+    const computedCompanyShare = this.roundAmount(
+      (grossRevenue * companyPercent) / 100,
+    );
+    const computedOwnerShare = this.roundAmount(
+      (grossRevenue * ownerPercent) / 100,
+    );
+    const computedDriverShare = this.roundAmount(
+      (grossRevenue * driverPercent) / 100,
+    );
+
+    const alreadyPaid = this.roundAmount(
+      body.alreadyPaid !== undefined
+        ? Number(body.alreadyPaid)
+        : computedOwnerShare,
+    );
+
+    const remainingToPay = this.roundAmount(
       body.remainingToPay !== undefined
         ? Number(body.remainingToPay)
-        : ownerShare - alreadyPaid;
+        : computedOwnerShare - alreadyPaid,
+    );
+
+    const status =
+      body.status ||
+      this.computeStatus(alreadyPaid, remainingToPay);
 
     return this.prisma.vtcOwnerSettlement.create({
       data: {
         tenantId: tenantId.trim(),
-        contractId: body.contractId.trim(),
-        vehicleId: body.vehicleId.trim(),
-        ownerId: body.ownerId.trim(),
-        periodLabel: body.periodLabel?.trim() || null,
+        contractId: contract.id,
+        vehicleId,
+        ownerId,
+        periodLabel: body.periodLabel.trim(),
         grossRevenue,
-        companyShare,
-        ownerShare,
-        driverShare,
+        companyShare:
+          body.companyShare !== undefined
+            ? this.roundAmount(Number(body.companyShare))
+            : computedCompanyShare,
+        ownerShare:
+          body.ownerShare !== undefined
+            ? this.roundAmount(Number(body.ownerShare))
+            : computedOwnerShare,
+        driverShare:
+          body.driverShare !== undefined
+            ? this.roundAmount(Number(body.driverShare))
+            : computedDriverShare,
         alreadyPaid,
         remainingToPay,
         paymentDate: body.paymentDate ? new Date(body.paymentDate) : null,
         paymentMethod: body.paymentMethod?.trim() || null,
         reference: body.reference?.trim() || null,
         note: body.note?.trim() || null,
-        status:
-          body.status ||
-          (remainingToPay <= 0
-            ? 'paid'
-            : alreadyPaid > 0
-              ? 'partial'
-              : 'pending'),
+        status,
       },
       include: {
-        contract: true,
-        vehicle: true,
+        contract: {
+          include: {
+            driver: true,
+          },
+        },
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         owner: true,
       },
     });
@@ -151,38 +232,41 @@ export class VtcOwnerSettlementsService {
 
     const grossRevenue =
       body.grossRevenue !== undefined
-        ? Number(body.grossRevenue)
-        : Number(existing.grossRevenue || 0);
+        ? this.roundAmount(Number(body.grossRevenue))
+        : this.roundAmount(Number(existing.grossRevenue || 0));
 
     const companyShare =
       body.companyShare !== undefined
-        ? Number(body.companyShare)
-        : Number(existing.companyShare || 0);
+        ? this.roundAmount(Number(body.companyShare))
+        : this.roundAmount(Number(existing.companyShare || 0));
 
     const ownerShare =
       body.ownerShare !== undefined
-        ? Number(body.ownerShare)
-        : Number(existing.ownerShare || 0);
+        ? this.roundAmount(Number(body.ownerShare))
+        : this.roundAmount(Number(existing.ownerShare || 0));
 
     const driverShare =
       body.driverShare !== undefined
-        ? Number(body.driverShare)
-        : Number(existing.driverShare || 0);
+        ? this.roundAmount(Number(body.driverShare))
+        : this.roundAmount(Number(existing.driverShare || 0));
 
     const alreadyPaid =
       body.alreadyPaid !== undefined
-        ? Number(body.alreadyPaid)
-        : Number(existing.alreadyPaid || 0);
+        ? this.roundAmount(Number(body.alreadyPaid))
+        : this.roundAmount(Number(existing.alreadyPaid || 0));
 
     const remainingToPay =
       body.remainingToPay !== undefined
-        ? Number(body.remainingToPay)
-        : ownerShare - alreadyPaid;
+        ? this.roundAmount(Number(body.remainingToPay))
+        : this.roundAmount(ownerShare - alreadyPaid);
 
     return this.prisma.vtcOwnerSettlement.update({
       where: { id },
       data: {
-        periodLabel: body.periodLabel?.trim() || undefined,
+        periodLabel:
+          body.periodLabel !== undefined
+            ? body.periodLabel?.trim() || null
+            : undefined,
         grossRevenue:
           body.grossRevenue !== undefined ? grossRevenue : undefined,
         companyShare:
@@ -200,20 +284,33 @@ export class VtcOwnerSettlementsService {
               ? new Date(body.paymentDate)
               : null
             : undefined,
-        paymentMethod: body.paymentMethod?.trim() || null,
-        reference: body.reference?.trim() || null,
-        note: body.note?.trim() || null,
+        paymentMethod:
+          body.paymentMethod !== undefined
+            ? body.paymentMethod?.trim() || null
+            : undefined,
+        reference:
+          body.reference !== undefined
+            ? body.reference?.trim() || null
+            : undefined,
+        note:
+          body.note !== undefined
+            ? body.note?.trim() || null
+            : undefined,
         status:
           body.status ||
-          (remainingToPay <= 0
-            ? 'paid'
-            : alreadyPaid > 0
-              ? 'partial'
-              : 'pending'),
+          this.computeStatus(alreadyPaid, remainingToPay),
       },
       include: {
-        contract: true,
-        vehicle: true,
+        contract: {
+          include: {
+            driver: true,
+          },
+        },
+        vehicle: {
+          include: {
+            owner: true,
+          },
+        },
         owner: true,
       },
     });
