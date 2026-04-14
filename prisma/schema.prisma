@@ -1135,7 +1135,7 @@ model VehicleMaintenance {
   tenantId         String
   vehicleId        String
 
-  type             VehicleMaintenanceType
+  type             String
   title            String
 
   description      String?
