@@ -217,6 +217,7 @@ model User {
 
   fullName               String?
   phone                  String?
+
   canManageProperties    Boolean     @default(false)
   canManageTenants       Boolean     @default(false)
   canManageContracts     Boolean     @default(false)
@@ -224,13 +225,24 @@ model User {
   canManageOwnerPayments Boolean     @default(false)
   canViewDashboard       Boolean     @default(false)
 
+  canAccessSale          Boolean     @default(false)
+  canAccessRental        Boolean     @default(false)
+  canAccessYango         Boolean     @default(false)
+
+  canManageAccounting    Boolean     @default(false)
+  canDoDataEntry         Boolean     @default(false)
+
+  canManageVehicles      Boolean     @default(false)
+  canManageDrivers       Boolean     @default(false)
+  canManagePayments      Boolean     @default(false)
+  canManageUsers         Boolean     @default(false)
+
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
   sales                  Sale[]
   stockMovements         StockMovement[]
   inventories            StockInventory[] @relation("InventoryCreatedBy")
 }
-
 
 model Vehicle {
   id                   String                @id @default(uuid())
