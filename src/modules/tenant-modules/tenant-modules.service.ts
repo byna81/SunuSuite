@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { TenantSector } from '@prisma/client';
 
-const ALL_SECTORS = ['sale', 'rental', 'yango'] as const;
-type TenantSector = (typeof ALL_SECTORS)[number];
+const ALL_SECTORS: TenantSector[] = ['sale', 'rental', 'yango'];
 
 @Injectable()
 export class TenantModulesService {
