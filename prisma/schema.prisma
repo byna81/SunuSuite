@@ -269,7 +269,7 @@ model Vehicle {
   saleContracts        VehicleSaleContract[]
   rentalContracts      VehicleRentalContract[]
   rentalReturns        VehicleRentalReturn[]
-  expenses             VehicleExpense[]
+  expenseItems         Expense[]
   assignments          VehicleAssignment[]
   vtcContracts         VtcContract[]
   vtcDriverPayments    VtcDriverPayment[]
