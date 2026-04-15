@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { MailService } from '../mail/mail.service';
 import { SubscriptionContractService } from '../contracts/subscription-contract.service';
+import { TenantSector } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -23,6 +24,50 @@ export class AdminService {
       this.prismaAny.businessRequests ||
       null
     );
+  }
+
+  private mapSectorToTenantSector(sector?: string | null): TenantSector | null {
+    if (!sector) return null;
+
+    if (sector === 'sale') return 'sale';
+    if (sector === 'rental') return 'rental';
+    if (sector === 'yango') return 'yango';
+
+    return null;
+  }
+
+  private async enableTenantModuleIfSupported(tenantId: string, sector?: string | null) {
+    const tenantSector = this.mapSectorToTenantSector(sector);
+
+    if (!tenantSector) {
+      return null;
+    }
+
+    const existingModule = await this.prisma.tenantModule.findFirst({
+      where: {
+        tenantId,
+        sector: tenantSector,
+      },
+    });
+
+    if (existingModule) {
+      return this.prisma.tenantModule.update({
+        where: { id: existingModule.id },
+        data: {
+          isEnabled: true,
+          activatedAt: new Date(),
+          expiresAt: null,
+        },
+      });
+    }
+
+    return this.prisma.tenantModule.create({
+      data: {
+        tenantId,
+        sector: tenantSector,
+        isEnabled: true,
+      },
+    });
   }
 
   async dashboard() {
@@ -173,31 +218,7 @@ export class AdminService {
       },
     });
 
-    const existingModule = await this.prisma.tenantModule.findFirst({
-      where: {
-        tenantId,
-        sector: plan.sector,
-      },
-    });
-
-    if (existingModule) {
-      await this.prisma.tenantModule.update({
-        where: { id: existingModule.id },
-        data: {
-          isEnabled: true,
-          activatedAt: new Date(),
-          expiresAt: null,
-        },
-      });
-    } else {
-      await this.prisma.tenantModule.create({
-        data: {
-          tenantId,
-          sector: plan.sector,
-          isEnabled: true,
-        },
-      });
-    }
+    await this.enableTenantModuleIfSupported(tenantId, plan.sector);
 
     await this.prisma.tenant.update({
       where: { id: tenantId },
@@ -348,6 +369,15 @@ export class AdminService {
             canManageRents: true,
             canManageOwnerPayments: true,
             canViewDashboard: true,
+            canAccessSale: true,
+            canAccessRental: true,
+            canAccessYango: true,
+            canManageAccounting: true,
+            canDoDataEntry: true,
+            canManageVehicles: true,
+            canManageDrivers: true,
+            canManagePayments: true,
+            canManageUsers: true,
           },
         });
 
@@ -371,13 +401,17 @@ export class AdminService {
           },
         });
 
-        await tx.tenantModule.create({
-          data: {
-            tenantId: createdTenant.id,
-            sector,
-            isEnabled: true,
-          },
-        });
+        const tenantSector = this.mapSectorToTenantSector(sector);
+
+        if (tenantSector) {
+          await tx.tenantModule.create({
+            data: {
+              tenantId: createdTenant.id,
+              sector: tenantSector,
+              isEnabled: true,
+            },
+          });
+        }
 
         await requestDelegate.update({
           where: { id: requestId },
@@ -659,31 +693,10 @@ export class AdminService {
     });
 
     if (payload.planId && targetPlan) {
-      const existingModule = await this.prisma.tenantModule.findFirst({
-        where: {
-          tenantId: updatedSubscription.tenantId,
-          sector: targetPlan.sector,
-        },
-      });
-
-      if (existingModule) {
-        await this.prisma.tenantModule.update({
-          where: { id: existingModule.id },
-          data: {
-            isEnabled: true,
-            activatedAt: new Date(),
-            expiresAt: null,
-          },
-        });
-      } else {
-        await this.prisma.tenantModule.create({
-          data: {
-            tenantId: updatedSubscription.tenantId,
-            sector: targetPlan.sector,
-            isEnabled: true,
-          },
-        });
-      }
+      await this.enableTenantModuleIfSupported(
+        updatedSubscription.tenantId,
+        targetPlan.sector,
+      );
 
       await this.prisma.tenant.update({
         where: { id: updatedSubscription.tenantId },
