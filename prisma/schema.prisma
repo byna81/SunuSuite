@@ -199,7 +199,7 @@ model Tenant {
   vtcDriverPayments      VtcDriverPayment[]
   vtcOwnerSettlements    VtcOwnerSettlement[]
   vehicleMaintenances    VehicleMaintenance[]
-  expenses Expense[]
+  expenses               Expense[]
 }
 
 model User {
@@ -269,7 +269,10 @@ model Vehicle {
   saleContracts        VehicleSaleContract[]
   rentalContracts      VehicleRentalContract[]
   rentalReturns        VehicleRentalReturn[]
-  expenseItems         Expense[]
+
+  expenses             VehicleExpense[]
+  expenseItems         Expense[]             @relation("VehicleCommonExpenses")
+
   assignments          VehicleAssignment[]
   vtcContracts         VtcContract[]
   vtcDriverPayments    VtcDriverPayment[]
@@ -277,8 +280,7 @@ model Vehicle {
   maintenances         VehicleMaintenance[]
 
   @@unique([tenantId, registrationNumber])
-}     
-
+}
 model VehicleCustomer {
   id                  String               @id @default(uuid())
   tenantId            String
@@ -1205,7 +1207,7 @@ model Expense {
   updatedAt   DateTime         @default(now()) @updatedAt
 
   tenant      Tenant           @relation(fields: [tenantId], references: [id])
-  vehicle     Vehicle?         @relation(fields: [vehicleId], references: [id])
+  vehicle     Vehicle? @relation("VehicleCommonExpenses", fields: [vehicleId], references: [id])
 
   @@index([tenantId, module])
   @@index([tenantId, vehicleId])
