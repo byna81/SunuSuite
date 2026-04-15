@@ -8,26 +8,24 @@ import {
   Post,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ExpensesService } from './expenses.service';
 
 @Controller('expenses')
+@UseGuards(JwtAuthGuard)
 export class ExpensesController {
   constructor(private readonly expensesService: ExpensesService) {}
 
   private getTenantId(req: any, tenantIdFromQuery?: string) {
-    return (
-      req?.user?.tenantId ||
-      tenantIdFromQuery ||
-      req?.query?.tenantId ||
-      ''
-    );
+    return req?.user?.tenantId || tenantIdFromQuery || '';
   }
 
   @Get()
   findAll(
     @Req() req: any,
-    @Query('tenantId') tenantId: string,
+    @Query('tenantId') tenantId?: string,
     @Query('module') module?: string,
   ) {
     return this.expensesService.findAll(
@@ -40,18 +38,24 @@ export class ExpensesController {
   findOne(
     @Req() req: any,
     @Param('id') id: string,
-    @Query('tenantId') tenantId: string,
+    @Query('tenantId') tenantId?: string,
   ) {
-    return this.expensesService.findOne(this.getTenantId(req, tenantId), id);
+    return this.expensesService.findOne(
+      this.getTenantId(req, tenantId),
+      id,
+    );
   }
 
   @Post()
   create(
     @Req() req: any,
     @Body() body: any,
-    @Query('tenantId') tenantId: string,
+    @Query('tenantId') tenantId?: string,
   ) {
-    return this.expensesService.create(this.getTenantId(req, tenantId), body);
+    return this.expensesService.create(
+      this.getTenantId(req, tenantId),
+      body,
+    );
   }
 
   @Patch(':id')
@@ -59,7 +63,7 @@ export class ExpensesController {
     @Req() req: any,
     @Param('id') id: string,
     @Body() body: any,
-    @Query('tenantId') tenantId: string,
+    @Query('tenantId') tenantId?: string,
   ) {
     return this.expensesService.update(
       this.getTenantId(req, tenantId),
@@ -72,8 +76,11 @@ export class ExpensesController {
   remove(
     @Req() req: any,
     @Param('id') id: string,
-    @Query('tenantId') tenantId: string,
+    @Query('tenantId') tenantId?: string,
   ) {
-    return this.expensesService.remove(this.getTenantId(req, tenantId), id);
+    return this.expensesService.remove(
+      this.getTenantId(req, tenantId),
+      id,
+    );
   }
 }
