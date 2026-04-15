@@ -207,20 +207,6 @@ model Tenant {
   vehicleMaintenances    VehicleMaintenance[]
   expenses               Expense[]
 }
-
-model TenantModule {
-  id          String       @id @default(uuid())
-  tenantId     String
-  sector       TenantSector
-  isEnabled    Boolean      @default(false)
-  activatedAt  DateTime?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, sector])
-}
 model User {
   id                     String      @id @default(uuid())
   email                  String?     @unique
