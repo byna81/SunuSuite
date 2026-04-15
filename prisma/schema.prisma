@@ -206,7 +206,6 @@ model Tenant {
   vtcOwnerSettlements    VtcOwnerSettlement[]
   vehicleMaintenances    VehicleMaintenance[]
   expenses               Expense[]
-  modules                TenantModule[]
 }
 
 model TenantModule {
