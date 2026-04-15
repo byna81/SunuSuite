@@ -41,6 +41,7 @@ import { VehiclePaymentModule } from './modules/vehicle-payment/vehicle-payment.
 import { VehicleRentalDashboardModule } from './modules/vehicle-rental-dashboard/vehicle-rental-dashboard.module';
 import { OwnersModule } from './modules/Owners/owners.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
+import { TenantModulesModule } from './modules/tenant-modules/tenant-modules.module';
 
 @Module({
   imports: [PrismaModule,
@@ -77,6 +78,7 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
     VehicleRentalDashboardModule,
     OwnersModule,
     ExpensesModule,
+    TenantModulesModule,        
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
