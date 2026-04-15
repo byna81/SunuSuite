@@ -143,6 +143,12 @@ enum VehicleCustomerType {
   mixed
 }
 
+enum TenantSector {
+  sale
+  rental
+  yango
+}
+
 enum VehicleRentalReturnStatus {
   pending
   checked
@@ -200,8 +206,22 @@ model Tenant {
   vtcOwnerSettlements    VtcOwnerSettlement[]
   vehicleMaintenances    VehicleMaintenance[]
   expenses               Expense[]
+  modules                TenantModule[]
 }
 
+model TenantModule {
+  id          String       @id @default(uuid())
+  tenantId     String
+  sector       TenantSector
+  isEnabled    Boolean      @default(false)
+  activatedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sector])
+}
 model User {
   id                     String      @id @default(uuid())
   email                  String?     @unique
