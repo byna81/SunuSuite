@@ -199,6 +199,7 @@ model Tenant {
   vtcDriverPayments      VtcDriverPayment[]
   vtcOwnerSettlements    VtcOwnerSettlement[]
   vehicleMaintenances    VehicleMaintenance[]
+  expenses Expense[]
 }
 
 model User {
