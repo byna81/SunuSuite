@@ -9,6 +9,153 @@ export class DashboardService {
     return `${year}-${String(month).padStart(2, '0')}`;
   }
 
+  private toNumber(value: any) {
+    return Number(value || 0);
+  }
+
+  private toDate(value: any): Date | null {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  private startOfDay(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+  }
+
+  private endOfDay(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  }
+
+  private startOfWeek(date: Date) {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    d.setDate(d.getDate() + diffToMonday);
+    return this.startOfDay(d);
+  }
+
+  private endOfWeek(date: Date) {
+    const d = this.startOfWeek(date);
+    d.setDate(d.getDate() + 6);
+    return this.endOfDay(d);
+  }
+
+  private startOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
+  }
+
+  private endOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+  }
+
+  private isInRange(dateValue: any, start: Date, end: Date) {
+    const date = this.toDate(dateValue);
+    if (!date) return false;
+    return date >= start && date <= end;
+  }
+
+  private getSaleContractDate(item: any) {
+    return (
+      this.toDate(item?.saleDate) ||
+      this.toDate(item?.paymentDate) ||
+      this.toDate(item?.signedAt) ||
+      this.toDate(item?.createdAt)
+    );
+  }
+
+  private getRentalContractDate(item: any) {
+    return (
+      this.toDate(item?.paymentDate) ||
+      this.toDate(item?.paidAt) ||
+      this.toDate(item?.startDate) ||
+      this.toDate(item?.createdAt)
+    );
+  }
+
+  private getDriverPaymentDate(item: any) {
+    return (
+      this.toDate(item?.paymentDate) ||
+      this.toDate(item?.paidAt) ||
+      this.toDate(item?.createdAt)
+    );
+  }
+
+  private getSaleRevenueValue(item: any) {
+    return this.toNumber(
+      item?.paidAmount ??
+        item?.amountPaid ??
+        item?.salePrice ??
+        item?.totalAmount ??
+        item?.amount ??
+        item?.vehicle?.salePrice ??
+        0,
+    );
+  }
+
+  private getSaleExpectedValue(item: any) {
+    return this.toNumber(
+      item?.salePrice ??
+        item?.totalAmount ??
+        item?.amountDue ??
+        item?.amount ??
+        item?.vehicle?.salePrice ??
+        0,
+    );
+  }
+
+  private getRentalCollectedValue(item: any) {
+    return this.toNumber(
+      item?.paidAmount ??
+        item?.amountPaid ??
+        item?.totalPaid ??
+        item?.collectedAmount ??
+        0,
+    );
+  }
+
+  private getRentalExpectedValue(item: any) {
+    return this.toNumber(
+      item?.totalAmount ??
+        item?.amountDue ??
+        item?.rentAmount ??
+        item?.price ??
+        item?.monthlyAmount ??
+        item?.weeklyAmount ??
+        item?.dailyAmount ??
+        0,
+    );
+  }
+
+  private getRemainingValue(item: any, expected: number, paid: number) {
+    if (item?.remainingAmount !== undefined && item?.remainingAmount !== null) {
+      return this.toNumber(item.remainingAmount);
+    }
+    if (item?.remainingToPay !== undefined && item?.remainingToPay !== null) {
+      return this.toNumber(item.remainingToPay);
+    }
+    return Math.max(expected - paid, 0);
+  }
+
+  private getExpectedYangoAmount(contract: any) {
+    if (
+      contract?.contractType === 'journee' ||
+      contract?.contractType === 'versement_journalier'
+    ) {
+      return this.toNumber(contract?.dailyTarget || contract?.fixedRentAmount || 0);
+    }
+
+    if (contract?.contractType === 'semaine') {
+      return this.toNumber(contract?.weeklyTarget || contract?.fixedRentAmount || 0);
+    }
+
+    if (contract?.contractType === 'mois') {
+      return this.toNumber(contract?.monthlyTarget || contract?.fixedRentAmount || 0);
+    }
+
+    return this.toNumber(contract?.fixedRentAmount || 0);
+  }
+
   async getRealEstateDashboard(tenantId: string) {
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
@@ -426,46 +573,268 @@ export class DashboardService {
     };
   }
 
+  async getSaleDashboard(tenantId: string) {
+    const now = new Date();
+    const startOfToday = this.startOfDay(now);
+    const endOfToday = this.endOfDay(now);
+    const startOfWeek = this.startOfWeek(now);
+    const endOfWeek = this.endOfWeek(now);
+    const startOfMonth = this.startOfMonth(now);
+    const endOfMonth = this.endOfMonth(now);
+
+    const [vehicles, saleContracts, expenses] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: {
+          tenantId,
+          usageType: 'sale',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.vehicleSaleContract.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          vehicle: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.expense.findMany({
+        where: {
+          tenantId,
+          module: 'sale',
+        },
+        include: {
+          vehicle: true,
+        },
+        orderBy: {
+          expenseDate: 'desc',
+        },
+      }),
+    ]);
+
+    const saleRevenueToday = saleContracts
+      .filter((item: any) => this.isInRange(this.getSaleContractDate(item), startOfToday, endOfToday))
+      .reduce((sum: number, item: any) => sum + this.getSaleRevenueValue(item), 0);
+
+    const saleRevenueWeek = saleContracts
+      .filter((item: any) => this.isInRange(this.getSaleContractDate(item), startOfWeek, endOfWeek))
+      .reduce((sum: number, item: any) => sum + this.getSaleRevenueValue(item), 0);
+
+    const saleRevenueMonth = saleContracts
+      .filter((item: any) => this.isInRange(this.getSaleContractDate(item), startOfMonth, endOfMonth))
+      .reduce((sum: number, item: any) => sum + this.getSaleRevenueValue(item), 0);
+
+    const totalSalesRevenue = saleContracts.reduce(
+      (sum: number, item: any) => sum + this.getSaleRevenueValue(item),
+      0,
+    );
+
+    const totalExpenses = expenses.reduce(
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
+      0,
+    );
+
+    const netResult = totalSalesRevenue - totalExpenses;
+
+    const outstandingSales = saleContracts
+      .map((item: any) => {
+        const expectedAmount = this.getSaleExpectedValue(item);
+        const paidAmount = this.getSaleRevenueValue(item);
+        const remainingAmount = this.getRemainingValue(item, expectedAmount, paidAmount);
+
+        return {
+          id: item.id,
+          vehicleLabel: `${item.vehicle?.brand || ''} ${item.vehicle?.model || ''}`.trim() || '-',
+          expectedAmount,
+          paidAmount,
+          remainingAmount,
+          status: item.status || '-',
+          contractDate: this.getSaleContractDate(item),
+        };
+      })
+      .filter((item: any) => item.remainingAmount > 0)
+      .sort((a: any, b: any) => b.remainingAmount - a.remainingAmount);
+
+    const latestSales = saleContracts.slice(0, 8);
+    const latestExpenses = expenses.slice(0, 8);
+
+    return {
+      summary: {
+        totalVehicles: vehicles.length,
+        totalSaleContracts: saleContracts.length,
+      },
+
+      revenues: {
+        revenueToday: saleRevenueToday,
+        revenueWeek: saleRevenueWeek,
+        revenueMonth: saleRevenueMonth,
+        totalSalesRevenue,
+      },
+
+      expenses: {
+        totalExpenses,
+        count: expenses.length,
+      },
+
+      finance: {
+        netResult,
+        totalOutstandingSales: outstandingSales.reduce(
+          (sum: number, item: any) => sum + this.toNumber(item.remainingAmount),
+          0,
+        ),
+      },
+
+      alerts: {
+        outstandingSales,
+      },
+
+      latestSales,
+      latestExpenses,
+    };
+  }
+
+  async getRentalDashboard(tenantId: string) {
+    const now = new Date();
+    const startOfToday = this.startOfDay(now);
+    const endOfToday = this.endOfDay(now);
+    const startOfWeek = this.startOfWeek(now);
+    const endOfWeek = this.endOfWeek(now);
+    const startOfMonth = this.startOfMonth(now);
+    const endOfMonth = this.endOfMonth(now);
+
+    const [vehicles, rentalContracts, expenses] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: {
+          tenantId,
+          usageType: 'rental',
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.vehicleRentalContract.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          vehicle: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.expense.findMany({
+        where: {
+          tenantId,
+          module: 'rental',
+        },
+        include: {
+          vehicle: true,
+        },
+        orderBy: {
+          expenseDate: 'desc',
+        },
+      }),
+    ]);
+
+    const rentalRevenueToday = rentalContracts
+      .filter((item: any) => this.isInRange(this.getRentalContractDate(item), startOfToday, endOfToday))
+      .reduce((sum: number, item: any) => sum + this.getRentalCollectedValue(item), 0);
+
+    const rentalRevenueWeek = rentalContracts
+      .filter((item: any) => this.isInRange(this.getRentalContractDate(item), startOfWeek, endOfWeek))
+      .reduce((sum: number, item: any) => sum + this.getRentalCollectedValue(item), 0);
+
+    const rentalRevenueMonth = rentalContracts
+      .filter((item: any) => this.isInRange(this.getRentalContractDate(item), startOfMonth, endOfMonth))
+      .reduce((sum: number, item: any) => sum + this.getRentalCollectedValue(item), 0);
+
+    const totalRentalRevenue = rentalContracts.reduce(
+      (sum: number, item: any) => sum + this.getRentalCollectedValue(item),
+      0,
+    );
+
+    const totalExpenses = expenses.reduce(
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
+      0,
+    );
+
+    const netResult = totalRentalRevenue - totalExpenses;
+
+    const outstandingRentals = rentalContracts
+      .map((item: any) => {
+        const expectedAmount = this.getRentalExpectedValue(item);
+        const paidAmount = this.getRentalCollectedValue(item);
+        const remainingAmount = this.getRemainingValue(item, expectedAmount, paidAmount);
+
+        return {
+          id: item.id,
+          vehicleLabel: `${item.vehicle?.brand || ''} ${item.vehicle?.model || ''}`.trim() || '-',
+          expectedAmount,
+          paidAmount,
+          remainingAmount,
+          status: item.status || '-',
+          contractDate: this.getRentalContractDate(item),
+        };
+      })
+      .filter((item: any) => item.remainingAmount > 0)
+      .sort((a: any, b: any) => b.remainingAmount - a.remainingAmount);
+
+    const latestRentals = rentalContracts.slice(0, 8);
+    const latestExpenses = expenses.slice(0, 8);
+
+    return {
+      summary: {
+        totalVehicles: vehicles.length,
+        totalRentalContracts: rentalContracts.length,
+      },
+
+      revenues: {
+        revenueToday: rentalRevenueToday,
+        revenueWeek: rentalRevenueWeek,
+        revenueMonth: rentalRevenueMonth,
+        totalRentalRevenue,
+      },
+
+      expenses: {
+        totalExpenses,
+        count: expenses.length,
+      },
+
+      finance: {
+        netResult,
+        totalOutstandingRentals: outstandingRentals.reduce(
+          (sum: number, item: any) => sum + this.toNumber(item.remainingAmount),
+          0,
+        ),
+      },
+
+      alerts: {
+        outstandingRentals,
+      },
+
+      latestRentals,
+      latestExpenses,
+    };
+  }
+
   async getYangoDashboard(tenantId: string) {
     const now = new Date();
-    const startOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      0,
-      0,
-      0,
-      0,
-    );
-    const endOfToday = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate(),
-      23,
-      59,
-      59,
-      999,
-    );
-
-    const startOfWeek = new Date(startOfToday);
-    const day = startOfWeek.getDay();
-    const diffToMonday = day === 0 ? -6 : 1 - day;
-    startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
-
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(endOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-    const endOfMonth = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
+    const startOfToday = this.startOfDay(now);
+    const endOfToday = this.endOfDay(now);
+    const startOfWeek = this.startOfWeek(now);
+    const endOfWeek = this.endOfWeek(now);
+    const startOfMonth = this.startOfMonth(now);
+    const endOfMonth = this.endOfMonth(now);
 
     const [
       vehicles,
@@ -581,57 +950,53 @@ export class DashboardService {
         !item.status,
     );
 
-    const getPaymentDate = (item: any) => {
-      return new Date(item.paymentDate || item.paidAt || item.createdAt);
-    };
-
     const todayPayments = driverPayments.filter((item: any) => {
-      const date = getPaymentDate(item);
-      return date >= startOfToday && date <= endOfToday;
+      const date = this.getDriverPaymentDate(item);
+      return date && date >= startOfToday && date <= endOfToday;
     });
 
     const weekPayments = driverPayments.filter((item: any) => {
-      const date = getPaymentDate(item);
-      return date >= startOfWeek && date <= endOfWeek;
+      const date = this.getDriverPaymentDate(item);
+      return date && date >= startOfWeek && date <= endOfWeek;
     });
 
     const monthPayments = driverPayments.filter((item: any) => {
-      const date = getPaymentDate(item);
-      return date >= startOfMonth && date <= endOfMonth;
+      const date = this.getDriverPaymentDate(item);
+      return date && date >= startOfMonth && date <= endOfMonth;
     });
 
     const revenueToday = todayPayments.reduce(
-      (sum: number, item: any) => sum + Number(item.amount || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
       0,
     );
 
     const revenueWeek = weekPayments.reduce(
-      (sum: number, item: any) => sum + Number(item.amount || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
       0,
     );
 
     const revenueMonth = monthPayments.reduce(
-      (sum: number, item: any) => sum + Number(item.amount || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
       0,
     );
 
     const totalDriverPayments = driverPayments.reduce(
-      (sum: number, item: any) => sum + Number(item.amount || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
       0,
     );
 
     const totalExpenses = expenses.reduce(
-      (sum: number, item: any) => sum + Number(item.amount || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.amount),
       0,
     );
 
     const totalOwnerSettlementsPaid = ownerSettlements.reduce(
-      (sum: number, item: any) => sum + Number(item.alreadyPaid || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.alreadyPaid),
       0,
     );
 
     const totalOwnerSettlementsRemaining = ownerSettlements.reduce(
-      (sum: number, item: any) => sum + Number(item.remainingToPay || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.remainingToPay),
       0,
     );
 
@@ -640,13 +1005,7 @@ export class DashboardService {
 
     const latePayments = contracts
       .map((contract: any) => {
-        const expectedAmount =
-          contract.contractType === 'journee' ||
-          contract.contractType === 'versement_journalier'
-            ? Number(contract.dailyTarget || contract.fixedRentAmount || 0)
-            : contract.contractType === 'semaine'
-              ? Number(contract.weeklyTarget || contract.fixedRentAmount || 0)
-              : Number(contract.monthlyTarget || contract.fixedRentAmount || 0);
+        const expectedAmount = this.getExpectedYangoAmount(contract);
 
         if (expectedAmount <= 0) {
           return null;
@@ -660,7 +1019,7 @@ export class DashboardService {
         });
 
         const paidAmount = relatedPayments.reduce(
-          (sum: number, item: any) => sum + Number(item.amount || 0),
+          (sum: number, item: any) => sum + this.toNumber(item.amount),
           0,
         );
 
@@ -686,7 +1045,7 @@ export class DashboardService {
       .sort((a: any, b: any) => b.remainingAmount - a.remainingAmount);
 
     const totalLatePaymentsAmount = latePayments.reduce(
-      (sum: number, item: any) => sum + Number(item.remainingAmount || 0),
+      (sum: number, item: any) => sum + this.toNumber(item.remainingAmount),
       0,
     );
 
