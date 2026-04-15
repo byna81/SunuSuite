@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { TenantModulesService } from './tenant-modules.service';
+import { TenantSector } from '@prisma/client';
 
 @Controller('tenant-modules')
 @UseGuards(JwtAuthGuard)
@@ -36,7 +37,7 @@ export class TenantModulesController {
   @Patch(':sector')
   updateOneSector(
     @Req() req: any,
-    @Param('sector') sector: 'sale' | 'rental' | 'yango',
+    @Param('sector') sector: TenantSector,
     @Body() body: { isEnabled: boolean },
   ) {
     return this.service.updateModule(
