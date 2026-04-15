@@ -1167,3 +1167,46 @@ model VehicleMaintenance {
   @@index([tenantId, status])
   @@index([tenantId, type])
 }
+
+enum ExpenseModule {
+  sale
+  rental
+  yango
+}
+
+enum ExpenseCategory {
+  fuel
+  maintenance
+  insurance
+  repair
+  administrative
+  purchase
+  tax
+  cleaning
+  other
+}
+
+model Expense {
+  id          String           @id @default(uuid())
+  tenantId    String
+
+  module      ExpenseModule
+  category    ExpenseCategory  @default(other)
+
+  label       String
+  amount      Float            @default(0)
+  expenseDate DateTime
+
+  vehicleId   String?
+  note        String?
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @default(now()) @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  vehicle     Vehicle?         @relation(fields: [vehicleId], references: [id])
+
+  @@index([tenantId, module])
+  @@index([tenantId, vehicleId])
+  @@index([tenantId, expenseDate])
+}
