@@ -11,4 +11,10 @@ export class DashboardController {
   getRealEstateDashboard(@Req() req: any) {
     return this.service.getRealEstateDashboard(req.user.tenantId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('yango')
+  getYangoDashboard(@Req() req: any) {
+    return this.service.getYangoDashboard(req.user.tenantId);
+  }
 }
