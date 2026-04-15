@@ -827,14 +827,16 @@ model BusinessRequest {
 }
 
 model TenantModule {
-  id          String   @id @default(uuid())
+  id          String       @id @default(uuid())
   tenantId    String
-  sector      Sector
-  isEnabled   Boolean  @default(true)
-  activatedAt DateTime @default(now())
+  sector      TenantSector
+  isEnabled   Boolean      @default(false)
+  activatedAt DateTime?
   expiresAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, sector])
 }
