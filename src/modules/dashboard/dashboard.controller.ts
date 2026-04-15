@@ -29,4 +29,10 @@ export class DashboardController {
   getYangoDashboard(@Req() req: any) {
     return this.service.getYangoDashboard(req.user.tenantId);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('accounting')
+  getAccountingDashboard(@Req() req: any) {
+    return this.service.getAccountingDashboard(req.user.tenantId);
+  }
 }
