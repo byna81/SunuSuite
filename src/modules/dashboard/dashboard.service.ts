@@ -425,4 +425,354 @@ export class DashboardService {
       latestOwnerPayments,
     };
   }
+
+  async getYangoDashboard(tenantId: string) {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const endOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const startOfWeek = new Date(startOfToday);
+    const day = startOfWeek.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(endOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const [
+      vehicles,
+      drivers,
+      contracts,
+      driverPayments,
+      ownerSettlements,
+      maintenances,
+      expenses,
+    ] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: {
+          tenantId,
+          usageType: 'mixed',
+        },
+      }),
+
+      this.prisma.vtcDriver.findMany({
+        where: {
+          tenantId,
+        },
+      }),
+
+      this.prisma.vtcContract.findMany({
+        where: {
+          tenantId,
+        },
+        include: {
+          vehicle: {
+            select: {
+              id: true,
+              brand: true,
+              model: true,
+            },
+          },
+          driver: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.vtcDriverPayment.findMany({
+        where: {
+          tenantId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.vtcOwnerSettlement.findMany({
+        where: {
+          tenantId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+
+      this.prisma.vehicleMaintenance.findMany({
+        where: {
+          tenantId,
+          vehicle: {
+            usageType: 'mixed',
+          },
+        },
+        include: {
+          vehicle: {
+            select: {
+              id: true,
+              brand: true,
+              model: true,
+            },
+          },
+        },
+        orderBy: {
+          scheduledDate: 'asc',
+        },
+      }),
+
+      this.prisma.expense.findMany({
+        where: {
+          tenantId,
+          module: 'yango',
+        },
+        include: {
+          vehicle: {
+            select: {
+              id: true,
+              brand: true,
+              model: true,
+            },
+          },
+        },
+        orderBy: {
+          expenseDate: 'desc',
+        },
+      }),
+    ]);
+
+    const activeDrivers = drivers.filter(
+      (item: any) =>
+        item.status === 'actif' ||
+        item.status === 'active' ||
+        item.status === 'disponible' ||
+        !item.status,
+    );
+
+    const getPaymentDate = (item: any) => {
+      return new Date(item.paymentDate || item.paidAt || item.createdAt);
+    };
+
+    const todayPayments = driverPayments.filter((item: any) => {
+      const date = getPaymentDate(item);
+      return date >= startOfToday && date <= endOfToday;
+    });
+
+    const weekPayments = driverPayments.filter((item: any) => {
+      const date = getPaymentDate(item);
+      return date >= startOfWeek && date <= endOfWeek;
+    });
+
+    const monthPayments = driverPayments.filter((item: any) => {
+      const date = getPaymentDate(item);
+      return date >= startOfMonth && date <= endOfMonth;
+    });
+
+    const revenueToday = todayPayments.reduce(
+      (sum: number, item: any) => sum + Number(item.amount || 0),
+      0,
+    );
+
+    const revenueWeek = weekPayments.reduce(
+      (sum: number, item: any) => sum + Number(item.amount || 0),
+      0,
+    );
+
+    const revenueMonth = monthPayments.reduce(
+      (sum: number, item: any) => sum + Number(item.amount || 0),
+      0,
+    );
+
+    const totalDriverPayments = driverPayments.reduce(
+      (sum: number, item: any) => sum + Number(item.amount || 0),
+      0,
+    );
+
+    const totalExpenses = expenses.reduce(
+      (sum: number, item: any) => sum + Number(item.amount || 0),
+      0,
+    );
+
+    const totalOwnerSettlementsPaid = ownerSettlements.reduce(
+      (sum: number, item: any) => sum + Number(item.alreadyPaid || 0),
+      0,
+    );
+
+    const totalOwnerSettlementsRemaining = ownerSettlements.reduce(
+      (sum: number, item: any) => sum + Number(item.remainingToPay || 0),
+      0,
+    );
+
+    const netResult =
+      totalDriverPayments - totalExpenses - totalOwnerSettlementsPaid;
+
+    const latePayments = contracts
+      .map((contract: any) => {
+        const expectedAmount =
+          contract.contractType === 'journee' ||
+          contract.contractType === 'versement_journalier'
+            ? Number(contract.dailyTarget || contract.fixedRentAmount || 0)
+            : contract.contractType === 'semaine'
+              ? Number(contract.weeklyTarget || contract.fixedRentAmount || 0)
+              : Number(contract.monthlyTarget || contract.fixedRentAmount || 0);
+
+        if (expectedAmount <= 0) {
+          return null;
+        }
+
+        const relatedPayments = driverPayments.filter((payment: any) => {
+          return (
+            payment.contractId === contract.id ||
+            payment.vtcContractId === contract.id
+          );
+        });
+
+        const paidAmount = relatedPayments.reduce(
+          (sum: number, item: any) => sum + Number(item.amount || 0),
+          0,
+        );
+
+        const remainingAmount = Math.max(expectedAmount - paidAmount, 0);
+
+        if (remainingAmount <= 0) {
+          return null;
+        }
+
+        return {
+          contractId: contract.id,
+          driverName: contract.driver?.fullName || '-',
+          driverPhone: contract.driver?.phone || null,
+          vehicleLabel: `${contract.vehicle?.brand || ''} ${contract.vehicle?.model || ''}`.trim(),
+          expectedAmount,
+          paidAmount,
+          remainingAmount,
+          contractType: contract.contractType,
+          startDate: contract.startDate,
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.remainingAmount - a.remainingAmount);
+
+    const totalLatePaymentsAmount = latePayments.reduce(
+      (sum: number, item: any) => sum + Number(item.remainingAmount || 0),
+      0,
+    );
+
+    const upcomingMaintenances = maintenances.filter((item: any) => {
+      if (!item.scheduledDate) return false;
+      const date = new Date(item.scheduledDate);
+      return date >= startOfToday;
+    });
+
+    const overdueMaintenances = maintenances.filter((item: any) => {
+      if (!item.scheduledDate) return false;
+      const date = new Date(item.scheduledDate);
+      return date < startOfToday && item.status !== 'completed';
+    });
+
+    const insuranceExpiringSoon = vehicles
+      .filter((item: any) => {
+        if (!item.insuranceExpiry) return false;
+        const date = new Date(item.insuranceExpiry);
+        return date >= startOfToday && date <= endOfMonth;
+      })
+      .map((item: any) => ({
+        id: item.id,
+        brand: item.brand,
+        model: item.model,
+        insuranceExpiry: item.insuranceExpiry,
+      }));
+
+    const technicalVisitsExpiringSoon = vehicles
+      .filter((item: any) => {
+        if (!item.technicalVisitExpiry) return false;
+        const date = new Date(item.technicalVisitExpiry);
+        return date >= startOfToday && date <= endOfMonth;
+      })
+      .map((item: any) => ({
+        id: item.id,
+        brand: item.brand,
+        model: item.model,
+        technicalVisitExpiry: item.technicalVisitExpiry,
+      }));
+
+    const latestDriverPayments = driverPayments.slice(0, 8);
+    const latestExpenses = expenses.slice(0, 8);
+    const latestMaintenances = maintenances.slice(0, 8);
+
+    return {
+      summary: {
+        totalVehicles: vehicles.length,
+        activeDrivers: activeDrivers.length,
+        totalContracts: contracts.length,
+      },
+
+      revenues: {
+        revenueToday,
+        revenueWeek,
+        revenueMonth,
+        totalDriverPayments,
+      },
+
+      expenses: {
+        totalExpenses,
+        count: expenses.length,
+      },
+
+      ownerSettlements: {
+        totalOwnerSettlementsPaid,
+        totalOwnerSettlementsRemaining,
+        count: ownerSettlements.length,
+      },
+
+      finance: {
+        netResult,
+        totalLatePaymentsAmount,
+      },
+
+      alerts: {
+        latePayments,
+        upcomingMaintenances,
+        overdueMaintenances,
+        insuranceExpiringSoon,
+        technicalVisitsExpiringSoon,
+      },
+
+      latestDriverPayments,
+      latestExpenses,
+      latestMaintenances,
+    };
+  }
 }
