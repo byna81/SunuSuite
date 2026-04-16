@@ -74,7 +74,45 @@ export class DashboardService {
       },
     };
   }
-
+async getRealEstateDashboard(tenantId: string) {
+  return {
+    summary: {
+      totalProperties: 0,
+      occupiedProperties: 0,
+      availableProperties: 0,
+      activeTenants: 0,
+      occupancyRate: 0,
+    },
+    rents: {
+      totalRentDue: 0,
+      totalRentPaid: 0,
+      totalRentRemaining: 0,
+      currentMonthRentExpected: 0,
+      currentMonthRentCollected: 0,
+      currentMonthRentRemaining: 0,
+      paidRentsCount: 0,
+      partialRentsCount: 0,
+      lateRentsCount: 0,
+      unpaidRentsCount: 0,
+    },
+    ownerPayments: {
+      totalOwnerPaymentsDone: 0,
+      totalOwnerPaymentsRemaining: 0,
+      pendingCount: 0,
+    },
+    finance: {
+      agencyMarginEstimate: 0,
+    },
+    alerts: {
+      overdueTenants: [],
+      criticalTenants: [],
+      contractsExpiringSoon: [],
+      pendingOwnerPayments: [],
+    },
+    latestRents: [],
+    latestOwnerPayments: [],
+  };
+}
   // ================================
   // EXPORT PDF (FIX FINAL)
   // ================================
