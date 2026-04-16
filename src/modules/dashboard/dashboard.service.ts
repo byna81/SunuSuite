@@ -1238,165 +1238,154 @@ export class DashboardService {
     };
   }
 
-  async exportAccountingPdf(tenantId: string): Promise<Buffer> {
-    const PDFDocument = require('pdfkit');
-    const accounting = await this.getAccountingDashboard(tenantId);
+async exportAccountingPdf(tenantId: string) {
+  const PDFDocument = require('pdfkit');
+  const accounting = await this.getAccountingDashboard(tenantId);
 
-    return await new Promise<Buffer>((resolve, reject) => {
-      const doc = new PDFDocument({
-        size: 'A4',
-        margin: 40,
+  return await new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 40,
+    });
+
+    const chunks: Buffer[] = [];
+
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+
+    doc.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+
+      resolve({
+        fileName: 'comptabilite-transport.pdf',
+        mimeType: 'application/pdf',
+        base64: buffer.toString('base64'),
       });
+    });
 
-      const chunks: Buffer[] = [];
+    doc.on('error', (err: any) => reject(err));
 
-      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', (error: any) => reject(error));
+    // HEADER
+    doc.fontSize(22).text('Comptabilité transport', { align: 'center' });
+    doc.moveDown(0.5);
 
-      doc.fontSize(22).text('Comptabilité transport', { align: 'center' });
-      doc.moveDown(0.4);
-      doc
-        .fontSize(10)
-        .fillColor('#666666')
-        .text(`Date d’édition : ${this.formatDate()}`, { align: 'center' });
+    doc
+      .fontSize(10)
+      .fillColor('#666')
+      .text(`Date : ${this.formatDate()}`, { align: 'center' });
 
-      doc.moveDown(1.5);
-      doc.fillColor('#000000');
+    doc.moveDown(1.5);
+    doc.fillColor('#000');
 
-      const addSection = (
-        title: string,
-        rows: Array<{ label: string; value: any }>,
-      ) => {
+    const addSection = (title: string, rows: any[]) => {
+      doc.fontSize(16).text(title);
+      doc.moveDown(0.5);
+
+      rows.forEach((row) => {
         doc
-          .fontSize(16)
-          .fillColor('#111111')
-          .text(title);
-
-        doc.moveDown(0.5);
-
-        rows.forEach((row) => {
-          doc
-            .fontSize(11)
-            .fillColor('#444444')
-            .text(`${row.label} : `, {
-              continued: true,
-            })
-            .fillColor('#000000')
-            .text(this.formatAmount(row.value));
-        });
-
-        doc.moveDown(1);
-      };
-
-      addSection('Global société', [
-        { label: 'Revenus', value: accounting?.global?.revenue || 0 },
-        { label: 'Dépenses', value: accounting?.global?.expenses || 0 },
-        { label: 'Résultat net', value: accounting?.global?.netResult || 0 },
-        { label: 'En attente', value: accounting?.global?.outstanding || 0 },
-      ]);
-
-      addSection('Vente', [
-        { label: 'Revenus', value: accounting?.sale?.revenue || 0 },
-        { label: 'Dépenses', value: accounting?.sale?.expenses || 0 },
-        { label: 'Résultat net', value: accounting?.sale?.netResult || 0 },
-        { label: 'Reste à encaisser', value: accounting?.sale?.outstanding || 0 },
-      ]);
-
-      addSection('Location', [
-        { label: 'Revenus', value: accounting?.rental?.revenue || 0 },
-        { label: 'Dépenses', value: accounting?.rental?.expenses || 0 },
-        { label: 'Résultat net', value: accounting?.rental?.netResult || 0 },
-        { label: 'Reste à encaisser', value: accounting?.rental?.outstanding || 0 },
-      ]);
-
-      addSection('Yango', [
-        { label: 'Revenus', value: accounting?.yango?.revenue || 0 },
-        { label: 'Dépenses', value: accounting?.yango?.expenses || 0 },
-        {
-          label: 'Paiements propriétaires versés',
-          value: accounting?.yango?.ownerPaymentsPaid || 0,
-        },
-        {
-          label: 'Reste propriétaires',
-          value: accounting?.yango?.ownerPaymentsRemaining || 0,
-        },
-        { label: 'Résultat net', value: accounting?.yango?.netResult || 0 },
-        {
-          label: 'Versements en retard',
-          value: accounting?.yango?.latePayments || 0,
-        },
-      ]);
-
-      doc.end();
-    });
-  }
-
-  async exportAccountingExcel(tenantId: string): Promise<Buffer> {
-    const ExcelJS = require('exceljs');
-    const accounting = await this.getAccountingDashboard(tenantId);
-
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Comptabilité transport');
-
-    sheet.columns = [
-      { header: 'Section', key: 'section', width: 22 },
-      { header: 'Indicateur', key: 'indicator', width: 35 },
-      { header: 'Montant', key: 'amount', width: 20 },
-    ];
-
-    sheet.getRow(1).font = { bold: true };
-    sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
-
-    const rows = [
-      ['Global société', 'Revenus', accounting?.global?.revenue || 0],
-      ['Global société', 'Dépenses', accounting?.global?.expenses || 0],
-      ['Global société', 'Résultat net', accounting?.global?.netResult || 0],
-      ['Global société', 'En attente', accounting?.global?.outstanding || 0],
-
-      ['Vente', 'Revenus', accounting?.sale?.revenue || 0],
-      ['Vente', 'Dépenses', accounting?.sale?.expenses || 0],
-      ['Vente', 'Résultat net', accounting?.sale?.netResult || 0],
-      ['Vente', 'Reste à encaisser', accounting?.sale?.outstanding || 0],
-
-      ['Location', 'Revenus', accounting?.rental?.revenue || 0],
-      ['Location', 'Dépenses', accounting?.rental?.expenses || 0],
-      ['Location', 'Résultat net', accounting?.rental?.netResult || 0],
-      ['Location', 'Reste à encaisser', accounting?.rental?.outstanding || 0],
-
-      ['Yango', 'Revenus', accounting?.yango?.revenue || 0],
-      ['Yango', 'Dépenses', accounting?.yango?.expenses || 0],
-      [
-        'Yango',
-        'Paiements propriétaires versés',
-        accounting?.yango?.ownerPaymentsPaid || 0,
-      ],
-      [
-        'Yango',
-        'Reste propriétaires',
-        accounting?.yango?.ownerPaymentsRemaining || 0,
-      ],
-      ['Yango', 'Résultat net', accounting?.yango?.netResult || 0],
-      ['Yango', 'Versements en retard', accounting?.yango?.latePayments || 0],
-    ];
-
-    rows.forEach(([section, indicator, amount]) => {
-      sheet.addRow({
-        section,
-        indicator,
-        amount,
+          .fontSize(11)
+          .fillColor('#444')
+          .text(`${row.label} : `, { continued: true })
+          .fillColor('#000')
+          .text(this.formatAmount(row.value));
       });
-    });
 
-    sheet.eachRow((row: any, rowNumber: number) => {
-      row.alignment = { vertical: 'middle' };
+      doc.moveDown(1);
+    };
 
-      if (rowNumber > 1) {
-        row.getCell(3).numFmt = '#,##0';
-      }
-    });
+    // GLOBAL
+    addSection('Global', [
+      { label: 'Revenus', value: accounting.global.revenue },
+      { label: 'Dépenses', value: accounting.global.expenses },
+      { label: 'Résultat net', value: accounting.global.netResult },
+      { label: 'En attente', value: accounting.global.outstanding },
+    ]);
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-  }
+    // VENTE
+    addSection('Vente', [
+      { label: 'Revenus', value: accounting.sale.revenue },
+      { label: 'Dépenses', value: accounting.sale.expenses },
+      { label: 'Résultat net', value: accounting.sale.netResult },
+      { label: 'Reste à encaisser', value: accounting.sale.outstanding },
+    ]);
+
+    // LOCATION
+    addSection('Location', [
+      { label: 'Revenus', value: accounting.rental.revenue },
+      { label: 'Dépenses', value: accounting.rental.expenses },
+      { label: 'Résultat net', value: accounting.rental.netResult },
+      { label: 'Reste à encaisser', value: accounting.rental.outstanding },
+    ]);
+
+    // YANGO
+    addSection('Yango', [
+      { label: 'Revenus', value: accounting.yango.revenue },
+      { label: 'Dépenses', value: accounting.yango.expenses },
+      { label: 'Résultat net', value: accounting.yango.netResult },
+      { label: 'Versements en retard', value: accounting.yango.latePayments },
+    ]);
+
+    doc.end();
+  });
 }
+
+  async exportAccountingExcel(tenantId: string) {
+  const ExcelJS = require('exceljs');
+  const accounting = await this.getAccountingDashboard(tenantId);
+
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Comptabilité transport');
+
+  sheet.columns = [
+    { header: 'Section', key: 'section', width: 25 },
+    { header: 'Indicateur', key: 'indicator', width: 35 },
+    { header: 'Montant', key: 'amount', width: 20 },
+  ];
+
+  sheet.getRow(1).font = { bold: true };
+
+  const rows = [
+    // GLOBAL
+    ['Global', 'Revenus', accounting.global.revenue],
+    ['Global', 'Dépenses', accounting.global.expenses],
+    ['Global', 'Résultat net', accounting.global.netResult],
+    ['Global', 'En attente', accounting.global.outstanding],
+
+    // VENTE
+    ['Vente', 'Revenus', accounting.sale.revenue],
+    ['Vente', 'Dépenses', accounting.sale.expenses],
+    ['Vente', 'Résultat net', accounting.sale.netResult],
+    ['Vente', 'Reste à encaisser', accounting.sale.outstanding],
+
+    // LOCATION
+    ['Location', 'Revenus', accounting.rental.revenue],
+    ['Location', 'Dépenses', accounting.rental.expenses],
+    ['Location', 'Résultat net', accounting.rental.netResult],
+    ['Location', 'Reste à encaisser', accounting.rental.outstanding],
+
+    // YANGO
+    ['Yango', 'Revenus', accounting.yango.revenue],
+    ['Yango', 'Dépenses', accounting.yango.expenses],
+    ['Yango', 'Résultat net', accounting.yango.netResult],
+    ['Yango', 'Versements en retard', accounting.yango.latePayments],
+  ];
+
+  rows.forEach(([section, indicator, amount]) => {
+    sheet.addRow({
+      section,
+      indicator,
+      amount,
+    });
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+
+  return {
+    fileName: 'comptabilite-transport.xlsx',
+    mimeType:
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    base64: Buffer.from(buffer).toString('base64'),
+  };
+}
+
+
+  
