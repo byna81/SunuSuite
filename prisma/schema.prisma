@@ -245,7 +245,6 @@ model User {
 
   canManageProducts      Boolean     @default(false)
   canManageStock         Boolean     @default(false)
-  canViewDashboard       Boolean     @default(false)
 
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
