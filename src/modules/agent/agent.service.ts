@@ -30,12 +30,16 @@ export class AgentService {
     };
   }
 
+  /////////////////////////////////////////////////////////
+  // GET ALL AGENTS
+  /////////////////////////////////////////////////////////
   async findAll(currentUser: any) {
     this.ensureManager(currentUser);
 
     const users = await this.prisma.user.findMany({
       where: {
         tenantId: currentUser.tenantId,
+        role: 'agent', // ✅ IMPORTANT
       },
       orderBy: {
         createdAt: 'desc',
@@ -47,6 +51,9 @@ export class AgentService {
     };
   }
 
+  /////////////////////////////////////////////////////////
+  // GET ONE AGENT
+  /////////////////////////////////////////////////////////
   async findOne(currentUser: any, id: string) {
     this.ensureManager(currentUser);
 
@@ -54,16 +61,20 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
+        role: 'agent', // ✅ IMPORTANT
       },
     });
 
     if (!user) {
-      throw new NotFoundException('Utilisateur introuvable');
+      throw new NotFoundException('Agent introuvable');
     }
 
     return this.mapUser(user);
   }
 
+  /////////////////////////////////////////////////////////
+  // CREATE AGENT
+  /////////////////////////////////////////////////////////
   async create(currentUser: any, body: any) {
     this.ensureManager(currentUser);
 
@@ -113,8 +124,13 @@ export class AgentService {
         email,
         login,
         password: hashedPassword,
-        role: body?.role || 'agent',
+        role: 'agent', // ✅ FORCÉ
         isActive: true,
+
+        // droits
+        canManageProducts: !!body?.canManageProducts,
+        canManageStock: !!body?.canManageStock,
+        canViewDashboard: !!body?.canViewDashboard,
       },
     });
 
@@ -124,6 +140,9 @@ export class AgentService {
     };
   }
 
+  /////////////////////////////////////////////////////////
+  // UPDATE AGENT
+  /////////////////////////////////////////////////////////
   async update(currentUser: any, id: string, body: any) {
     this.ensureManager(currentUser);
 
@@ -131,11 +150,12 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
+        role: 'agent', // ✅ IMPORTANT
       },
     });
 
     if (!existing) {
-      throw new NotFoundException('Utilisateur introuvable');
+      throw new NotFoundException('Agent introuvable');
     }
 
     const fullName =
@@ -189,16 +209,22 @@ export class AgentService {
         phone,
         email,
         login,
-        role: body?.role ?? existing.role,
+        role: 'agent', // ✅ FORCÉ
+        canManageProducts: !!body?.canManageProducts,
+        canManageStock: !!body?.canManageStock,
+        canViewDashboard: !!body?.canViewDashboard,
       },
     });
 
     return {
-      message: 'Utilisateur modifié avec succès',
+      message: 'Agent modifié avec succès',
       user: this.mapUser(updated),
     };
   }
 
+  /////////////////////////////////////////////////////////
+  // ACTIVATE / DESACTIVATE
+  /////////////////////////////////////////////////////////
   async toggleActive(currentUser: any, id: string) {
     this.ensureManager(currentUser);
 
@@ -206,17 +232,12 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
+        role: 'agent', // ✅ IMPORTANT
       },
     });
 
     if (!user) {
-      throw new NotFoundException('Utilisateur introuvable');
-    }
-
-    if (user.role === 'manager' && user.id === currentUser.id) {
-      throw new BadRequestException(
-        'Vous ne pouvez pas désactiver votre propre compte',
-      );
+      throw new NotFoundException('Agent introuvable');
     }
 
     const updated = await this.prisma.user.update({
@@ -228,12 +249,15 @@ export class AgentService {
 
     return {
       message: updated.isActive
-        ? 'Utilisateur activé avec succès'
-        : 'Utilisateur désactivé avec succès',
+        ? 'Agent activé avec succès'
+        : 'Agent désactivé avec succès',
       user: this.mapUser(updated),
     };
   }
 
+  /////////////////////////////////////////////////////////
+  // RESET PASSWORD
+  /////////////////////////////////////////////////////////
   async resetPassword(currentUser: any, id: string, body: any) {
     this.ensureManager(currentUser);
 
@@ -249,11 +273,12 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
+        role: 'agent', // ✅ IMPORTANT
       },
     });
 
     if (!user) {
-      throw new NotFoundException('Utilisateur introuvable');
+      throw new NotFoundException('Agent introuvable');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -270,6 +295,9 @@ export class AgentService {
     };
   }
 
+  /////////////////////////////////////////////////////////
+  // DELETE AGENT
+  /////////////////////////////////////////////////////////
   async delete(currentUser: any, id: string) {
     this.ensureManager(currentUser);
 
@@ -277,17 +305,12 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
+        role: 'agent', // ✅ IMPORTANT
       },
     });
 
     if (!user) {
-      throw new NotFoundException('Utilisateur introuvable');
-    }
-
-    if (user.role === 'manager' && user.id === currentUser.id) {
-      throw new BadRequestException(
-        'Vous ne pouvez pas supprimer votre propre compte',
-      );
+      throw new NotFoundException('Agent introuvable');
     }
 
     await this.prisma.user.delete({
@@ -295,7 +318,7 @@ export class AgentService {
     });
 
     return {
-      message: 'Utilisateur supprimé avec succès',
+      message: 'Agent supprimé avec succès',
     };
   }
 }
