@@ -43,12 +43,20 @@ export class AgentService {
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
+
       canManageProperties: !!user.canManageProperties,
       canManageTenants: !!user.canManageTenants,
       canManageContracts: !!user.canManageContracts,
       canManageRents: !!user.canManageRents,
       canManageOwnerPayments: !!user.canManageOwnerPayments,
       canViewDashboard: !!user.canViewDashboard,
+
+      canAccessSale: !!user.canAccessSale,
+      canAccessRental: !!user.canAccessRental,
+      canAccessYango: !!user.canAccessYango,
+      canManageExpenses: !!user.canManageExpenses,
+      canManageAccounting: !!user.canManageAccounting,
+      canManageUsers: !!user.canManageUsers,
     };
   }
 
@@ -134,11 +142,25 @@ export class AgentService {
       role === 'manager' ? true : !!body?.canManageTenants;
     const canManageContracts =
       role === 'manager' ? true : !!body?.canManageContracts;
-    const canManageRents = role === 'manager' ? true : !!body?.canManageRents;
+    const canManageRents =
+      role === 'manager' ? true : !!body?.canManageRents;
     const canManageOwnerPayments =
       role === 'manager' ? true : !!body?.canManageOwnerPayments;
     const canViewDashboard =
       role === 'manager' ? true : !!body?.canViewDashboard;
+
+    const canAccessSale =
+      role === 'manager' ? true : !!body?.canAccessSale;
+    const canAccessRental =
+      role === 'manager' ? true : !!body?.canAccessRental;
+    const canAccessYango =
+      role === 'manager' ? true : !!body?.canAccessYango;
+    const canManageExpenses =
+      role === 'manager' ? true : !!body?.canManageExpenses;
+    const canManageAccounting =
+      role === 'manager' ? true : !!body?.canManageAccounting;
+    const canManageUsers =
+      role === 'manager' ? true : !!body?.canManageUsers;
 
     const created = await this.prisma.user.create({
       data: {
@@ -150,12 +172,20 @@ export class AgentService {
         password: hashedPassword,
         role,
         isActive: true,
+
         canManageProperties,
         canManageTenants,
         canManageContracts,
         canManageRents,
         canManageOwnerPayments,
         canViewDashboard,
+
+        canAccessSale,
+        canAccessRental,
+        canAccessYango,
+        canManageExpenses,
+        canManageAccounting,
+        canManageUsers,
       },
     });
 
@@ -180,13 +210,20 @@ export class AgentService {
     }
 
     const fullName =
-      typeof body?.fullName === 'string' ? body.fullName.trim() || null : existing.fullName;
+      typeof body?.fullName === 'string'
+        ? body.fullName.trim() || null
+        : existing.fullName;
+
     const phone =
-      typeof body?.phone === 'string' ? body.phone.trim() || null : existing.phone;
+      typeof body?.phone === 'string'
+        ? body.phone.trim() || null
+        : existing.phone;
+
     const email =
       typeof body?.email === 'string'
         ? body.email.trim().toLowerCase() || null
         : existing.email;
+
     const login =
       typeof body?.login === 'string'
         ? body.login.trim().toLowerCase() || null
@@ -229,17 +266,32 @@ export class AgentService {
         email,
         login,
         role,
+
         canManageProperties:
           role === 'manager' ? true : !!body?.canManageProperties,
         canManageTenants:
           role === 'manager' ? true : !!body?.canManageTenants,
         canManageContracts:
           role === 'manager' ? true : !!body?.canManageContracts,
-        canManageRents: role === 'manager' ? true : !!body?.canManageRents,
+        canManageRents:
+          role === 'manager' ? true : !!body?.canManageRents,
         canManageOwnerPayments:
           role === 'manager' ? true : !!body?.canManageOwnerPayments,
         canViewDashboard:
           role === 'manager' ? true : !!body?.canViewDashboard,
+
+        canAccessSale:
+          role === 'manager' ? true : !!body?.canAccessSale,
+        canAccessRental:
+          role === 'manager' ? true : !!body?.canAccessRental,
+        canAccessYango:
+          role === 'manager' ? true : !!body?.canAccessYango,
+        canManageExpenses:
+          role === 'manager' ? true : !!body?.canManageExpenses,
+        canManageAccounting:
+          role === 'manager' ? true : !!body?.canManageAccounting,
+        canManageUsers:
+          role === 'manager' ? true : !!body?.canManageUsers,
       },
     });
 
