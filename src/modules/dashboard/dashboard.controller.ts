@@ -2,10 +2,8 @@ import {
   Controller,
   Get,
   Req,
-  Res,
   UseGuards,
 } from '@nestjs/common';
-import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DashboardService } from './dashboard.service';
 
@@ -45,30 +43,13 @@ export class DashboardController {
 
   @UseGuards(JwtAuthGuard)
   @Get('accounting/export/pdf')
-  async exportAccountingPdf(@Req() req: any, @Res() res: Response) {
-    const buffer = await this.service.exportAccountingPdf(req.user.tenantId);
-
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="comptabilite-transport.pdf"`,
-      'Content-Length': buffer.length,
-    });
-
-    res.end(buffer);
+  exportAccountingPdf(@Req() req: any) {
+    return this.service.exportAccountingPdf(req.user.tenantId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('accounting/export/excel')
-  async exportAccountingExcel(@Req() req: any, @Res() res: Response) {
-    const buffer = await this.service.exportAccountingExcel(req.user.tenantId);
-
-    res.set({
-      'Content-Type':
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': `attachment; filename="comptabilite-transport.xlsx"`,
-      'Content-Length': buffer.length,
-    });
-
-    res.end(buffer);
+  exportAccountingExcel(@Req() req: any) {
+    return this.service.exportAccountingExcel(req.user.tenantId);
   }
 }
