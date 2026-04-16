@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -45,9 +46,9 @@ export class AgentController {
   resetPassword(@Req() req: any, @Param('id') id: string, @Body() body: any) {
     return this.agentService.resetPassword(req.user, id, body);
   }
-  @Delete('agents/:id')
-@UseGuards(JwtAuthGuard)
-deleteAgent(@Param('id') id: string, @Req() req: any) {
-  return this.service.deleteAgent(id, req.user.tenantId);
-}
+
+  @Delete(':id')
+  delete(@Req() req: any, @Param('id') id: string) {
+    return this.agentService.delete(req.user, id);
+  }
 }
