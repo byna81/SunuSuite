@@ -7,59 +7,46 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 
-type AllowedRole = 'manager' | 'cashier' | 'agent';
+type Role = 'manager' | 'cashier' | 'agent';
 
 @Injectable()
 export class AgentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-  private ensureManager(currentUser: any) {
-    if (!currentUser || currentUser.role !== 'manager') {
-      throw new ForbiddenException('Accès réservé au gérant');
+  // ================================
+  // SECURITY
+  // ================================
+  private ensureManager(user: any) {
+    if (!user || user.role !== 'manager') {
+      throw new ForbiddenException('Accès refusé');
     }
   }
 
-  private normalizeRole(role?: string): AllowedRole {
-    const normalized = String(role || 'agent').trim().toLowerCase();
+  private normalizeRole(role?: string): Role {
+    const r = String(role || 'agent').toLowerCase();
 
-    if (
-      normalized !== 'manager' &&
-      normalized !== 'cashier' &&
-      normalized !== 'agent'
-    ) {
+    if (!['manager', 'cashier', 'agent'].includes(r)) {
       throw new BadRequestException('Rôle invalide');
     }
 
-    return normalized as AllowedRole;
+    return r as Role;
   }
 
   private mapUser(user: any) {
     return {
       id: user.id,
-      fullName: user.fullName ?? null,
-      phone: user.phone ?? null,
-      email: user.email ?? null,
-      login: user.login ?? null,
+      fullName: user.fullName,
+      email: user.email,
+      login: user.login,
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
-
-      canManageProperties: !!user.canManageProperties,
-      canManageTenants: !!user.canManageTenants,
-      canManageContracts: !!user.canManageContracts,
-      canManageRents: !!user.canManageRents,
-      canManageOwnerPayments: !!user.canManageOwnerPayments,
-      canViewDashboard: !!user.canViewDashboard,
-
-      canAccessSale: !!user.canAccessSale,
-      canAccessRental: !!user.canAccessRental,
-      canAccessYango: !!user.canAccessYango,
-      canManageExpenses: !!user.canManageExpenses,
-      canManageAccounting: !!user.canManageAccounting,
-      canManageUsers: !!user.canManageUsers,
     };
   }
 
+  // ================================
+  // GET ALL
+  // ================================
   async findAll(currentUser: any) {
     this.ensureManager(currentUser);
 
@@ -73,10 +60,13 @@ export class AgentService {
     });
 
     return {
-      items: users.map((user) => this.mapUser(user)),
+      items: users.map((u) => this.mapUser(u)),
     };
   }
 
+  // ================================
+  // GET ONE
+  // ================================
   async findOne(currentUser: any, id: string) {
     this.ensureManager(currentUser);
 
@@ -94,13 +84,15 @@ export class AgentService {
     return this.mapUser(user);
   }
 
+  // ================================
+  // CREATE
+  // ================================
   async create(currentUser: any, body: any) {
     this.ensureManager(currentUser);
 
-    const fullName = body?.fullName?.trim() || null;
-    const phone = body?.phone?.trim() || null;
-    const email = body?.email?.trim()?.toLowerCase() || null;
-    const login = body?.login?.trim()?.toLowerCase() || null;
+    const fullName = body?.fullName?.trim();
+    const email = body?.email?.trim()?.toLowerCase();
+    const login = body?.login?.trim()?.toLowerCase();
     const password = body?.password?.trim();
     const role = this.normalizeRole(body?.role);
 
@@ -109,92 +101,42 @@ export class AgentService {
     }
 
     if (!password || password.length < 4) {
-      throw new BadRequestException(
-        'Le mot de passe doit contenir au moins 4 caractères',
-      );
+      throw new BadRequestException('Mot de passe trop court');
     }
 
     if (email) {
-      const emailExists = await this.prisma.user.findFirst({
-        where: { email },
-      });
-
-      if (emailExists) {
-        throw new BadRequestException('Email déjà utilisé');
-      }
+      const exists = await this.prisma.user.findFirst({ where: { email } });
+      if (exists) throw new BadRequestException('Email déjà utilisé');
     }
 
     if (login) {
-      const loginExists = await this.prisma.user.findFirst({
-        where: { login },
-      });
-
-      if (loginExists) {
-        throw new BadRequestException('Login déjà utilisé');
-      }
+      const exists = await this.prisma.user.findFirst({ where: { login } });
+      if (exists) throw new BadRequestException('Login déjà utilisé');
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10);
 
-    const canManageProperties =
-      role === 'manager' ? true : !!body?.canManageProperties;
-    const canManageTenants =
-      role === 'manager' ? true : !!body?.canManageTenants;
-    const canManageContracts =
-      role === 'manager' ? true : !!body?.canManageContracts;
-    const canManageRents =
-      role === 'manager' ? true : !!body?.canManageRents;
-    const canManageOwnerPayments =
-      role === 'manager' ? true : !!body?.canManageOwnerPayments;
-    const canViewDashboard =
-      role === 'manager' ? true : !!body?.canViewDashboard;
-
-    const canAccessSale =
-      role === 'manager' ? true : !!body?.canAccessSale;
-    const canAccessRental =
-      role === 'manager' ? true : !!body?.canAccessRental;
-    const canAccessYango =
-      role === 'manager' ? true : !!body?.canAccessYango;
-    const canManageExpenses =
-      role === 'manager' ? true : !!body?.canManageExpenses;
-    const canManageAccounting =
-      role === 'manager' ? true : !!body?.canManageAccounting;
-    const canManageUsers =
-      role === 'manager' ? true : !!body?.canManageUsers;
-
-    const created = await this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         tenantId: currentUser.tenantId,
         fullName,
-        phone,
         email,
         login,
-        password: hashedPassword,
+        password: hashed,
         role,
         isActive: true,
-
-        canManageProperties,
-        canManageTenants,
-        canManageContracts,
-        canManageRents,
-        canManageOwnerPayments,
-        canViewDashboard,
-
-        canAccessSale,
-        canAccessRental,
-        canAccessYango,
-        canManageExpenses,
-        canManageAccounting,
-        canManageUsers,
       },
     });
 
     return {
-      message: 'Utilisateur créé avec succès',
-      user: this.mapUser(created),
+      message: 'Agent créé',
+      user: this.mapUser(user),
     };
   }
 
+  // ================================
+  // UPDATE
+  // ================================
   async update(currentUser: any, id: string, body: any) {
     this.ensureManager(currentUser);
 
@@ -209,99 +151,33 @@ export class AgentService {
       throw new NotFoundException('Utilisateur introuvable');
     }
 
-    const fullName =
-      typeof body?.fullName === 'string'
-        ? body.fullName.trim() || null
-        : existing.fullName;
-
-    const phone =
-      typeof body?.phone === 'string'
-        ? body.phone.trim() || null
-        : existing.phone;
-
-    const email =
-      typeof body?.email === 'string'
-        ? body.email.trim().toLowerCase() || null
-        : existing.email;
-
-    const login =
-      typeof body?.login === 'string'
-        ? body.login.trim().toLowerCase() || null
-        : existing.login;
-
-    const role =
-      typeof body?.role === 'string'
-        ? this.normalizeRole(body.role)
-        : (existing.role as AllowedRole);
-
-    if (!email && !login) {
-      throw new BadRequestException('Email ou login obligatoire');
-    }
-
-    if (email && email !== existing.email) {
-      const emailExists = await this.prisma.user.findFirst({
-        where: { email },
-      });
-
-      if (emailExists) {
-        throw new BadRequestException('Email déjà utilisé');
-      }
-    }
-
-    if (login && login !== existing.login) {
-      const loginExists = await this.prisma.user.findFirst({
-        where: { login },
-      });
-
-      if (loginExists) {
-        throw new BadRequestException('Login déjà utilisé');
-      }
-    }
+    const fullName = body?.fullName ?? existing.fullName;
+    const email = body?.email ?? existing.email;
+    const login = body?.login ?? existing.login;
+    const role = body?.role
+      ? this.normalizeRole(body.role)
+      : existing.role;
 
     const updated = await this.prisma.user.update({
       where: { id },
       data: {
         fullName,
-        phone,
         email,
         login,
         role,
-
-        canManageProperties:
-          role === 'manager' ? true : !!body?.canManageProperties,
-        canManageTenants:
-          role === 'manager' ? true : !!body?.canManageTenants,
-        canManageContracts:
-          role === 'manager' ? true : !!body?.canManageContracts,
-        canManageRents:
-          role === 'manager' ? true : !!body?.canManageRents,
-        canManageOwnerPayments:
-          role === 'manager' ? true : !!body?.canManageOwnerPayments,
-        canViewDashboard:
-          role === 'manager' ? true : !!body?.canViewDashboard,
-
-        canAccessSale:
-          role === 'manager' ? true : !!body?.canAccessSale,
-        canAccessRental:
-          role === 'manager' ? true : !!body?.canAccessRental,
-        canAccessYango:
-          role === 'manager' ? true : !!body?.canAccessYango,
-        canManageExpenses:
-          role === 'manager' ? true : !!body?.canManageExpenses,
-        canManageAccounting:
-          role === 'manager' ? true : !!body?.canManageAccounting,
-        canManageUsers:
-          role === 'manager' ? true : !!body?.canManageUsers,
       },
     });
 
     return {
-      message: 'Utilisateur mis à jour avec succès',
+      message: 'Agent modifié',
       user: this.mapUser(updated),
     };
   }
 
-  async toggleActive(currentUser: any, id: string) {
+  // ================================
+  // DELETE (IMPORTANT)
+  // ================================
+  async delete(currentUser: any, id: string) {
     this.ensureManager(currentUser);
 
     const existing = await this.prisma.user.findFirst({
@@ -312,74 +188,22 @@ export class AgentService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Utilisateur introuvable');
+      throw new NotFoundException('Agent introuvable');
     }
 
-    const updated = await this.prisma.user.update({
-      where: { id },
-      data: {
-        isActive: !existing.isActive,
-      },
-    });
-
-    return {
-      message: updated.isActive
-        ? 'Utilisateur activé avec succès'
-        : 'Utilisateur désactivé avec succès',
-      user: this.mapUser(updated),
-    };
-  }
-async deleteAgent(agentId: string, tenantId: string) {
-  const agent = await this.prisma.user.findFirst({
-    where: {
-      id: agentId,
-      tenantId,
-    },
-  });
-
-  if (!agent) {
-    throw new Error('Agent introuvable');
-  }
-
-  await this.prisma.user.delete({
-    where: { id: agentId },
-  });
-
-  return { message: 'Agent supprimé' };
-}
-  async resetPassword(currentUser: any, id: string, body: any) {
-    this.ensureManager(currentUser);
-
-    const password = body?.password?.trim();
-
-    if (!password || password.length < 4) {
+    // 🔒 sécurité : éviter suppression du manager lui-même
+    if (existing.id === currentUser.id) {
       throw new BadRequestException(
-        'Le mot de passe doit contenir au moins 4 caractères',
+        'Vous ne pouvez pas supprimer votre propre compte',
       );
     }
 
-    const existing = await this.prisma.user.findFirst({
-      where: {
-        id,
-        tenantId: currentUser.tenantId,
-      },
-    });
-
-    if (!existing) {
-      throw new NotFoundException('Utilisateur introuvable');
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await this.prisma.user.update({
+    await this.prisma.user.delete({
       where: { id },
-      data: {
-        password: hashedPassword,
-      },
     });
 
     return {
-      message: 'Mot de passe réinitialisé avec succès',
+      message: 'Agent supprimé avec succès',
     };
   }
 }
