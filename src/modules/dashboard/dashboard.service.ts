@@ -17,6 +17,18 @@ export class DashboardService {
     return date.toLocaleDateString('fr-FR');
   }
 
+  private getLabel(key: string) {
+    const labels: Record<string, string> = {
+      revenue: 'Revenus',
+      expenses: 'Dépenses',
+      netResult: 'Résultat net',
+      outstanding: 'Reste à encaisser',
+      latePayments: 'Versements en retard',
+    };
+
+    return labels[key] || key;
+  }
+
   // ================================
   // DASHBOARD GLOBAL
   // ================================
@@ -74,47 +86,49 @@ export class DashboardService {
       },
     };
   }
-async getRealEstateDashboard(tenantId: string) {
-  return {
-    summary: {
-      totalProperties: 0,
-      occupiedProperties: 0,
-      availableProperties: 0,
-      activeTenants: 0,
-      occupancyRate: 0,
-    },
-    rents: {
-      totalRentDue: 0,
-      totalRentPaid: 0,
-      totalRentRemaining: 0,
-      currentMonthRentExpected: 0,
-      currentMonthRentCollected: 0,
-      currentMonthRentRemaining: 0,
-      paidRentsCount: 0,
-      partialRentsCount: 0,
-      lateRentsCount: 0,
-      unpaidRentsCount: 0,
-    },
-    ownerPayments: {
-      totalOwnerPaymentsDone: 0,
-      totalOwnerPaymentsRemaining: 0,
-      pendingCount: 0,
-    },
-    finance: {
-      agencyMarginEstimate: 0,
-    },
-    alerts: {
-      overdueTenants: [],
-      criticalTenants: [],
-      contractsExpiringSoon: [],
-      pendingOwnerPayments: [],
-    },
-    latestRents: [],
-    latestOwnerPayments: [],
-  };
-}
+
+  async getRealEstateDashboard(tenantId: string) {
+    return {
+      summary: {
+        totalProperties: 0,
+        occupiedProperties: 0,
+        availableProperties: 0,
+        activeTenants: 0,
+        occupancyRate: 0,
+      },
+      rents: {
+        totalRentDue: 0,
+        totalRentPaid: 0,
+        totalRentRemaining: 0,
+        currentMonthRentExpected: 0,
+        currentMonthRentCollected: 0,
+        currentMonthRentRemaining: 0,
+        paidRentsCount: 0,
+        partialRentsCount: 0,
+        lateRentsCount: 0,
+        unpaidRentsCount: 0,
+      },
+      ownerPayments: {
+        totalOwnerPaymentsDone: 0,
+        totalOwnerPaymentsRemaining: 0,
+        pendingCount: 0,
+      },
+      finance: {
+        agencyMarginEstimate: 0,
+      },
+      alerts: {
+        overdueTenants: [],
+        criticalTenants: [],
+        contractsExpiringSoon: [],
+        pendingOwnerPayments: [],
+      },
+      latestRents: [],
+      latestOwnerPayments: [],
+    };
+  }
+
   // ================================
-  // EXPORT PDF (FIX FINAL)
+  // EXPORT PDF
   // ================================
   async exportAccountingPdf(tenantId: string) {
     const PDFDocument = require('pdfkit');
@@ -122,7 +136,6 @@ async getRealEstateDashboard(tenantId: string) {
 
     return await new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 40 });
-
       const chunks: Buffer[] = [];
 
       doc.on('data', (c: Buffer) => chunks.push(c));
@@ -140,22 +153,34 @@ async getRealEstateDashboard(tenantId: string) {
       doc.on('error', reject);
 
       doc.fontSize(22).text('Comptabilité transport', { align: 'center' });
-      doc.moveDown();
+      doc.moveDown(0.3);
+      doc
+        .fontSize(10)
+        .fillColor('#666')
+        .text(`Date : ${this.formatDate()}`, { align: 'center' });
+
+      doc.moveDown(1.2);
+      doc.fillColor('#000');
 
       const add = (title: string, data: any) => {
-        doc.fontSize(16).text(title);
+        doc.fontSize(16).fillColor('#000').text(title);
         doc.moveDown(0.5);
 
         Object.entries(data).forEach(([k, v]) => {
+          const label = this.getLabel(k);
+
           doc
             .fontSize(11)
-            .text(`${k} : ${this.formatAmount(v)}`);
+            .fillColor('#444')
+            .text(`${label} : `, { continued: true })
+            .fillColor('#000')
+            .text(this.formatAmount(v));
         });
 
         doc.moveDown();
       };
 
-      add('Global', accounting.global);
+      add('Global société', accounting.global);
       add('Vente', accounting.sale);
       add('Location', accounting.rental);
       add('Yango', accounting.yango);
@@ -165,35 +190,46 @@ async getRealEstateDashboard(tenantId: string) {
   }
 
   // ================================
-  // EXPORT EXCEL (FIX FINAL)
+  // EXPORT EXCEL
   // ================================
   async exportAccountingExcel(tenantId: string) {
     const ExcelJS = require('exceljs');
     const accounting = await this.getAccountingDashboard(tenantId);
 
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Comptabilité');
+    const sheet = workbook.addWorksheet('Comptabilité transport');
 
     sheet.columns = [
       { header: 'Section', key: 'section', width: 25 },
-      { header: 'Type', key: 'type', width: 25 },
+      { header: 'Type', key: 'type', width: 30 },
       { header: 'Montant', key: 'amount', width: 20 },
     ];
+
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
 
     const push = (section: string, obj: any) => {
       Object.entries(obj).forEach(([k, v]) => {
         sheet.addRow({
           section,
-          type: k,
+          type: this.getLabel(k),
           amount: v,
         });
       });
     };
 
-    push('Global', accounting.global);
+    push('Global société', accounting.global);
     push('Vente', accounting.sale);
     push('Location', accounting.rental);
     push('Yango', accounting.yango);
+
+    sheet.eachRow((row: any, rowNumber: number) => {
+      row.alignment = { vertical: 'middle' };
+
+      if (rowNumber > 1) {
+        row.getCell(3).numFmt = '#,##0';
+      }
+    });
 
     const buffer = await workbook.xlsx.writeBuffer();
 
@@ -206,7 +242,7 @@ async getRealEstateDashboard(tenantId: string) {
   }
 
   // ================================
-  // MOCK SIMPLE (à remplacer par tes vraies méthodes existantes)
+  // MOCK SIMPLE (à remplacer plus tard par tes vraies méthodes)
   // ================================
   async getSaleDashboard(tenantId: string) {
     return {
