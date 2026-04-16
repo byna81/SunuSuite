@@ -241,6 +241,7 @@ model User {
   canManageDrivers       Boolean     @default(false)
   canManagePayments      Boolean     @default(false)
   canManageUsers         Boolean     @default(false)
+  canManageExpenses      Boolean     @default(true)
 
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
