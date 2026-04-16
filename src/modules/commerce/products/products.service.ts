@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -8,6 +9,24 @@ import { PrismaService } from '../../../prisma/prisma.service';
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
+
+  private ensureCanManageProducts(currentUser: any, tenantId: string) {
+    if (!currentUser) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    if (currentUser.tenantId !== tenantId) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    const isManager = currentUser.role === 'manager';
+    const isAllowedAgent =
+      currentUser.role === 'agent' && !!currentUser.canManageProducts;
+
+    if (!isManager && !isAllowedAgent) {
+      throw new ForbiddenException('Accès refusé');
+    }
+  }
 
   async findAll(tenantId: string) {
     return this.prisma.product.findMany({
@@ -61,15 +80,19 @@ export class ProductsService {
     return product;
   }
 
-  async create(body: any) {
+  async create(currentUser: any, body: any) {
     const tenantId = String(body?.tenantId || '').trim();
+    this.ensureCanManageProducts(currentUser, tenantId);
+
     const name = String(body?.name || '').trim();
     const price = Number(body?.price);
     const stock = Number(body?.stock ?? 0);
     const barcode = body?.barcode ? String(body.barcode).trim() : null;
 
     const stockCost =
-      body?.stockCost !== undefined && body?.stockCost !== null && body?.stockCost !== ''
+      body?.stockCost !== undefined &&
+      body?.stockCost !== null &&
+      body?.stockCost !== ''
         ? Number(body.stockCost)
         : null;
 
@@ -93,7 +116,9 @@ export class ProductsService {
     }
 
     if (Number.isNaN(stock) || stock < 0) {
-      throw new BadRequestException('Le stock doit être supérieur ou égal à 0');
+      throw new BadRequestException(
+        'Le stock doit être supérieur ou égal à 0',
+      );
     }
 
     if (stockCost !== null && (Number.isNaN(stockCost) || stockCost < 0)) {
@@ -120,7 +145,7 @@ export class ProductsService {
           data: {
             productId: product.id,
             tenantId,
-            userId: body?.userId || null,
+            userId: currentUser?.id || body?.userId || null,
             type: 'in',
             quantity: stock,
             previousStock: 0,
@@ -144,7 +169,10 @@ export class ProductsService {
             amount: stockCost,
             expenseDate: new Date(),
             paymentMethod,
-            note: expenseNoteParts.length > 0 ? expenseNoteParts.join(' | ') : null,
+            note:
+              expenseNoteParts.length > 0
+                ? expenseNoteParts.join(' | ')
+                : null,
           },
         });
       }
@@ -153,7 +181,7 @@ export class ProductsService {
     });
   }
 
-  async update(id: string, body: any) {
+  async update(currentUser: any, id: string, body: any) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
     });
@@ -161,6 +189,8 @@ export class ProductsService {
     if (!existing) {
       throw new NotFoundException('Produit introuvable');
     }
+
+    this.ensureCanManageProducts(currentUser, existing.tenantId);
 
     const name = String(body?.name || '').trim();
     const price = Number(body?.price);
@@ -176,7 +206,9 @@ export class ProductsService {
     }
 
     if (Number.isNaN(stock) || stock < 0) {
-      throw new BadRequestException('Le stock doit être supérieur ou égal à 0');
+      throw new BadRequestException(
+        'Le stock doit être supérieur ou égal à 0',
+      );
     }
 
     return this.prisma.product.update({
@@ -191,7 +223,17 @@ export class ProductsService {
     });
   }
 
-  async remove(id: string) {
+  async remove(currentUser: any, id: string) {
+    const existing = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Produit introuvable');
+    }
+
+    this.ensureCanManageProducts(currentUser, existing.tenantId);
+
     return this.prisma.product.update({
       where: { id },
       data: {
