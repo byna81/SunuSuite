@@ -243,6 +243,10 @@ model User {
   canManageUsers         Boolean     @default(false)
   canManageExpenses      Boolean     @default(true)
 
+  canManageProducts      Boolean     @default(false)
+  canManageStock         Boolean     @default(false)
+  canViewDashboard       Boolean     @default(false)
+
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
   sales                  Sale[]
