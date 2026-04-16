@@ -53,6 +53,18 @@ export class AuthService {
       canManageRents: !!user.canManageRents,
       canManageOwnerPayments: !!user.canManageOwnerPayments,
       canViewDashboard: !!user.canViewDashboard,
+
+      canAccessSale: !!user.canAccessSale,
+      canAccessRental: !!user.canAccessRental,
+      canAccessYango: !!user.canAccessYango,
+      canManageExpenses: !!user.canManageExpenses,
+      canManageAccounting: !!user.canManageAccounting,
+      canDoDataEntry: !!user.canDoDataEntry,
+      canManageVehicles: !!user.canManageVehicles,
+      canManageDrivers: !!user.canManageDrivers,
+      canManagePayments: !!user.canManagePayments,
+      canManageUsers: !!user.canManageUsers,
+      
     };
   }
 
@@ -83,6 +95,17 @@ export class AuthService {
       canManageRents: !!user.canManageRents,
       canManageOwnerPayments: !!user.canManageOwnerPayments,
       canViewDashboard: !!user.canViewDashboard,
+
+      canAccessSale: !!user.canAccessSale,
+      canAccessRental: !!user.canAccessRental,
+      canAccessYango: !!user.canAccessYango,
+      canManageExpenses: !!user.canManageExpenses,
+      canManageAccounting: !!user.canManageAccounting,
+      canDoDataEntry: !!user.canDoDataEntry,
+      canManageVehicles: !!user.canManageVehicles,
+      canManageDrivers: !!user.canManageDrivers,
+      canManagePayments: !!user.canManagePayments,
+      canManageUsers: !!user.canManageUsers,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
