@@ -329,7 +329,24 @@ export class AgentService {
       user: this.mapUser(updated),
     };
   }
+async deleteAgent(agentId: string, tenantId: string) {
+  const agent = await this.prisma.user.findFirst({
+    where: {
+      id: agentId,
+      tenantId,
+    },
+  });
 
+  if (!agent) {
+    throw new Error('Agent introuvable');
+  }
+
+  await this.prisma.user.delete({
+    where: { id: agentId },
+  });
+
+  return { message: 'Agent supprimé' };
+}
   async resetPassword(currentUser: any, id: string, body: any) {
     this.ensureManager(currentUser);
 
