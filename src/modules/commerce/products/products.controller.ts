@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
   ForbiddenException,
+  Query,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -31,7 +32,7 @@ export class ProductsController {
   /////////////////////////////////////////////////////////
   @UseGuards(JwtAuthGuard)
   @Get('search')
-  search(@Req() req: any, @Param('q') q: string) {
+  search(@Req() req: any, @Query('q') q: string) {
     return this.productsService.search(req.user.tenantId, q);
   }
 
@@ -64,7 +65,6 @@ export class ProductsController {
   create(@Req() req: any, @Body() body: any) {
     const user = req.user;
 
-    // 🔥 règle métier
     if (user.role === 'agent' && !user.canManageProducts) {
       throw new ForbiddenException('Accès refusé');
     }
