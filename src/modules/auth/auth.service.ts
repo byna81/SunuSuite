@@ -72,48 +72,58 @@ export class AuthService {
   }
 
   private async buildAuthResponse(user: any) {
-    const payload = {
-      sub: user.id,
-      id: user.id,
-      email: user.email,
-      login: user.login,
-      fullName: user.fullName ?? null,
-      phone: user.phone ?? null,
-      role: user.role,
-      isActive: user.isActive,
-      mustChangePassword: !!user.mustChangePassword,
-      tenantId: user.tenantId,
-      tenantName: user.tenant?.name ?? null,
-      tenantSlug: user.tenant?.slug ?? null,
-      tenantLogoUrl: user.tenant?.logoUrl ?? null,
-      tenantAddress: user.tenant?.address ?? null,
-      tenantPhone: user.tenant?.phone ?? null,
-      tenantEmail: user.tenant?.email ?? null,
-      tenantCurrency: user.tenant?.currency ?? 'FCFA',
-      tenantSector: user.tenant?.sector ?? 'commerce',
+  const payload = {
+    sub: user.id,
+    id: user.id,
+    email: user.email,
+    login: user.login,
+    fullName: user.fullName ?? null,
+    phone: user.phone ?? null,
+    role: user.role,
+    isActive: user.isActive,
+    mustChangePassword: !!user.mustChangePassword,
+    tenantId: user.tenantId,
+    tenantName: user.tenant?.name ?? null,
+    tenantSlug: user.tenant?.slug ?? null,
+    tenantLogoUrl: user.tenant?.logoUrl ?? null,
+    tenantAddress: user.tenant?.address ?? null,
+    tenantPhone: user.tenant?.phone ?? null,
+    tenantEmail: user.tenant?.email ?? null,
+    tenantCurrency: user.tenant?.currency ?? 'FCFA',
 
-      canManageProperties: !!user.canManageProperties,
-      canManageTenants: !!user.canManageTenants,
-      canManageContracts: !!user.canManageContracts,
-      canManageRents: !!user.canManageRents,
-      canManageOwnerPayments: !!user.canManageOwnerPayments,
-      canViewDashboard: !!user.canViewDashboard,
+    // 🔥 OBLIGATOIRE
+    tenantSector: user.tenant?.sector ?? null,
 
-      canAccessSale: !!user.canAccessSale,
-      canAccessRental: !!user.canAccessRental,
-      canAccessYango: !!user.canAccessYango,
-      canManageExpenses: !!user.canManageExpenses,
-      canManageAccounting: !!user.canManageAccounting,
-      canDoDataEntry: !!user.canDoDataEntry,
-      canManageVehicles: !!user.canManageVehicles,
-      canManageDrivers: !!user.canManageDrivers,
-      canManagePayments: !!user.canManagePayments,
-      canManageUsers: !!user.canManageUsers,
-      
+    canManageProperties: !!user.canManageProperties,
+    canManageTenants: !!user.canManageTenants,
+    canManageContracts: !!user.canManageContracts,
+    canManageRents: !!user.canManageRents,
+    canManageOwnerPayments: !!user.canManageOwnerPayments,
+    canViewDashboard: !!user.canViewDashboard,
+
+    canAccessSale: !!user.canAccessSale,
+    canAccessRental: !!user.canAccessRental,
+    canAccessYango: !!user.canAccessYango,
+    canManageExpenses: !!user.canManageExpenses,
+    canManageAccounting: !!user.canManageAccounting,
+    canDoDataEntry: !!user.canDoDataEntry,
+    canManageVehicles: !!user.canManageVehicles,
+    canManageDrivers: !!user.canManageDrivers,
+    canManagePayments: !!user.canManagePayments,
+    canManageUsers: !!user.canManageUsers,
+
     canManageProducts: !!user.canManageProducts,
     canManageStock: !!user.canManageStock,
-    };
+  };
 
+  const accessToken = await this.jwtService.signAsync(payload);
+
+  return {
+    accessToken,
+    mustChangePassword: !!user.mustChangePassword,
+    user: this.buildUserResponse(user),
+  };
+}
     const accessToken = await this.jwtService.signAsync(payload);
 
     return {
