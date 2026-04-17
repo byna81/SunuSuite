@@ -64,6 +64,10 @@ export class AuthService {
       canManageDrivers: !!user.canManageDrivers,
       canManagePayments: !!user.canManagePayments,
       canManageUsers: !!user.canManageUsers,
+
+      canManageProducts: !!user.canManageProducts,
+      canManageStock: !!user.canManageStock,
+      canViewDashboard: !!user.canViewDashboard,
       
     };
   }
