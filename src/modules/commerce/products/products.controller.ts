@@ -8,7 +8,6 @@ import {
   Post,
   Req,
   UseGuards,
-  ForbiddenException,
   Query,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
@@ -63,17 +62,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Req() req: any, @Body() body: any) {
-    const user = req.user;
-
-    if (user.role === 'agent' && !user.canManageProducts) {
-      throw new ForbiddenException('Accès refusé');
-    }
-
-    return this.productsService.create({
-      ...body,
-      tenantId: user.tenantId,
-      userId: user.id,
-    });
+    return this.productsService.create(req.user, body);
   }
 
   /////////////////////////////////////////////////////////
@@ -82,13 +71,7 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    const user = req.user;
-
-    if (user.role === 'agent' && !user.canManageProducts) {
-      throw new ForbiddenException('Accès refusé');
-    }
-
-    return this.productsService.update(id, body);
+    return this.productsService.update(req.user, id, body);
   }
 
   /////////////////////////////////////////////////////////
@@ -97,12 +80,6 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Req() req: any, @Param('id') id: string) {
-    const user = req.user;
-
-    if (user.role === 'agent' && !user.canManageProducts) {
-      throw new ForbiddenException('Accès refusé');
-    }
-
-    return this.productsService.remove(id);
+    return this.productsService.remove(req.user, id);
   }
 }
