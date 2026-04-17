@@ -90,4 +90,10 @@ export class ProductsController {
   remove(@Req() req: any, @Param('id') id: string) {
     return this.productsService.remove(req.user, id);
   }
+
+   @UseGuards(JwtAuthGuard)
+  @Post(':id/add-stock')
+  addStock(@Req() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.productsService.addStock(req.user, id, body);
+  }
 }
