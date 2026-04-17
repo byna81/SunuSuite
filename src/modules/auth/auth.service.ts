@@ -417,66 +417,68 @@ export class AuthService {
   }
 
   async registerCashier(
-    tenantId: string,
-    login: string,
-    password: string,
-  ) {
-    const normalizedLogin = login?.trim().toLowerCase();
-    const rawPassword = password?.trim();
+  tenantId: string,
+  login: string,
+  password: string,
+) {
+  const normalizedLogin = login?.trim().toLowerCase();
+  const rawPassword = password?.trim();
 
-    if (!normalizedLogin || !rawPassword) {
-      throw new BadRequestException('Identifiant et mot de passe obligatoires');
-    }
-
-    if (normalizedLogin.length < 3) {
-      throw new BadRequestException(
-        'L’identifiant de caisse doit contenir au moins 3 caractères',
-      );
-    }
-
-    if (rawPassword.length < 4) {
-      throw new BadRequestException(
-        'Le mot de passe doit contenir au moins 4 caractères',
-      );
-    }
-
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ login: normalizedLogin }, { email: normalizedLogin }],
-      },
-    });
-
-    if (existingUser) {
-      throw new BadRequestException('Cet identifiant de caisse existe déjà');
-    }
-
-    const hashed = await bcrypt.hash(rawPassword, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        login: normalizedLogin,
-        password: hashed,
-        role: 'cashier',
-        tenantId,
-        isActive: true,
-        mustChangePassword: false,
-        canManageProperties: false,
-        canManageTenants: false,
-        canManageContracts: false,
-        canManageRents: true,
-        canManageOwnerPayments: false,
-        canViewDashboard: false,
-      },
-      include: {
-        tenant: true,
-      },
-    });
-
-    return {
-      user: this.buildUserResponse(user),
-    };
+  if (!normalizedLogin || !rawPassword) {
+    throw new BadRequestException('Identifiant et mot de passe obligatoires');
   }
 
+  if (normalizedLogin.length < 3) {
+    throw new BadRequestException(
+      'L’identifiant de caisse doit contenir au moins 3 caractères',
+    );
+  }
+
+  if (rawPassword.length < 4) {
+    throw new BadRequestException(
+      'Le mot de passe doit contenir au moins 4 caractères',
+    );
+  }
+
+  const existingUser = await this.prisma.user.findFirst({
+    where: {
+      tenantId,
+      OR: [{ login: normalizedLogin }, { email: normalizedLogin }],
+    },
+  });
+
+  if (existingUser) {
+    throw new BadRequestException(
+      'Cet identifiant de caisse existe déjà dans cette boutique',
+    );
+  }
+
+  const hashed = await bcrypt.hash(rawPassword, 10);
+
+  const user = await this.prisma.user.create({
+    data: {
+      login: normalizedLogin,
+      password: hashed,
+      role: 'cashier',
+      tenantId,
+      isActive: true,
+      mustChangePassword: false,
+      canManageProperties: false,
+      canManageTenants: false,
+      canManageContracts: false,
+      canManageRents: true,
+      canManageOwnerPayments: false,
+      canViewDashboard: false,
+    },
+    include: {
+      tenant: true,
+    },
+  });
+
+  return {
+    user: this.buildUserResponse(user),
+  };
+}
   async getCashiers(tenantId: string) {
     const users = await this.prisma.user.findMany({
       where: {
