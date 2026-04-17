@@ -6,9 +6,9 @@ import {
   Param,
   Patch,
   Post,
-  Query,
   Req,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -17,44 +17,92 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  /////////////////////////////////////////////////////////
+  // GET ALL
+  /////////////////////////////////////////////////////////
+  @UseGuards(JwtAuthGuard)
   @Get()
-  findAll(@Query('tenantId') tenantId: string) {
-    return this.productsService.findAll(tenantId);
+  findAll(@Req() req: any) {
+    return this.productsService.findAll(req.user.tenantId);
   }
 
+  /////////////////////////////////////////////////////////
+  // SEARCH
+  /////////////////////////////////////////////////////////
+  @UseGuards(JwtAuthGuard)
   @Get('search')
-  search(@Query('tenantId') tenantId: string, @Query('q') q: string) {
-    return this.productsService.search(tenantId, q);
+  search(@Req() req: any, @Param('q') q: string) {
+    return this.productsService.search(req.user.tenantId, q);
   }
 
+  /////////////////////////////////////////////////////////
+  // BARCODE
+  /////////////////////////////////////////////////////////
+  @UseGuards(JwtAuthGuard)
   @Get('barcode/:barcode')
-  findByBarcode(
-    @Param('barcode') barcode: string,
-    @Query('tenantId') tenantId: string,
-  ) {
-    return this.productsService.findByBarcode(tenantId, barcode);
+  findByBarcode(@Req() req: any, @Param('barcode') barcode: string) {
+    return this.productsService.findByBarcode(
+      req.user.tenantId,
+      barcode,
+    );
   }
 
+  /////////////////////////////////////////////////////////
+  // GET ONE
+  /////////////////////////////////////////////////////////
+  @UseGuards(JwtAuthGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
   }
 
+  /////////////////////////////////////////////////////////
+  // CREATE
+  /////////////////////////////////////////////////////////
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Req() req: any, @Body() body: any) {
-    return this.productsService.create(req.user, body);
+    const user = req.user;
+
+    // 🔥 règle métier
+    if (user.role === 'agent' && !user.canManageProducts) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    return this.productsService.create({
+      ...body,
+      tenantId: user.tenantId,
+      userId: user.id,
+    });
   }
 
+  /////////////////////////////////////////////////////////
+  // UPDATE
+  /////////////////////////////////////////////////////////
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   update(@Req() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.productsService.update(req.user, id, body);
+    const user = req.user;
+
+    if (user.role === 'agent' && !user.canManageProducts) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    return this.productsService.update(id, body);
   }
 
+  /////////////////////////////////////////////////////////
+  // DELETE
+  /////////////////////////////////////////////////////////
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Req() req: any, @Param('id') id: string) {
-    return this.productsService.remove(req.user, id);
+    const user = req.user;
+
+    if (user.role === 'agent' && !user.canManageProducts) {
+      throw new ForbiddenException('Accès refusé');
+    }
+
+    return this.productsService.remove(id);
   }
 }
