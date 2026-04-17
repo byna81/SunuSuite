@@ -57,15 +57,21 @@ export class ProductsController {
   }
 
   /////////////////////////////////////////////////////////
-  // CREATE
+  // CREATE (FIX PRINCIPAL ICI)
   /////////////////////////////////////////////////////////
-@UseGuards(JwtAuthGuard)
-@Post()
-create(@Req() req: any, @Body() body: any) {
-  console.log('CREATE PRODUCT USER =', req.user);
+  @UseGuards(JwtAuthGuard)
+  @Post()
+  create(@Req() req: any, @Body() body: any) {
+    console.log('CREATE PRODUCT USER =', req.user);
 
-  return this.productsService.create(req.user, body);
-}
+    // 🔥 IMPORTANT : on force le tenantId depuis le token
+    const payload = {
+      ...body,
+      tenantId: req.user.tenantId,
+    };
+
+    return this.productsService.create(req.user, payload);
+  }
 
   /////////////////////////////////////////////////////////
   // UPDATE
