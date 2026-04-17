@@ -219,19 +219,19 @@ export class AuthService {
   }
 
   async login(identifier: string, password: string) {
-    const normalizedIdentifier = identifier?.trim().toLowerCase();
-    const rawPassword = password?.trim();
+  const normalizedIdentifier = identifier?.trim().toLowerCase();
+  const rawPassword = password?.trim();
 
-    if (!normalizedIdentifier || !rawPassword) {
-      throw new UnauthorizedException('Identifiants invalides');
-    }
+  if (!normalizedIdentifier || !rawPassword) {
+    throw new UnauthorizedException('Identifiants invalides');
+  }
 
+  const looksLikeEmail = normalizedIdentifier.includes('@');
+
+  if (looksLikeEmail) {
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email: normalizedIdentifier },
-          { login: normalizedIdentifier },
-        ],
+        email: normalizedIdentifier,
       },
       include: { tenant: true },
     });
@@ -249,6 +249,28 @@ export class AuthService {
     return this.buildAuthResponse(user);
   }
 
+  const users = await this.prisma.user.findMany({
+    where: {
+      login: normalizedIdentifier,
+      isActive: true,
+    },
+    include: { tenant: true },
+  });
+
+  if (!users.length) {
+    throw new UnauthorizedException('Identifiants invalides');
+  }
+
+  for (const user of users) {
+    const isPasswordValid = await bcrypt.compare(rawPassword, user.password);
+
+    if (isPasswordValid) {
+      return this.buildAuthResponse(user);
+    }
+  }
+
+  throw new UnauthorizedException('Identifiants invalides');
+}
   async forgotPassword(email: string) {
     const normalizedEmail = email?.trim().toLowerCase();
 
