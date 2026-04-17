@@ -27,6 +27,10 @@ export class AgentService {
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
+
+      canManageProducts: !!user.canManageProducts,
+      canManageStock: !!user.canManageStock,
+      canViewDashboard: !!user.canViewDashboard,
     };
   }
 
@@ -39,7 +43,7 @@ export class AgentService {
     const users = await this.prisma.user.findMany({
       where: {
         tenantId: currentUser.tenantId,
-        role: 'agent', // ✅ IMPORTANT
+        role: 'agent',
       },
       orderBy: {
         createdAt: 'desc',
@@ -61,7 +65,7 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
-        role: 'agent', // ✅ IMPORTANT
+        role: 'agent',
       },
     });
 
@@ -124,10 +128,9 @@ export class AgentService {
         email,
         login,
         password: hashedPassword,
-        role: 'agent', // ✅ FORCÉ
+        role: 'agent',
         isActive: true,
 
-        // droits
         canManageProducts: !!body?.canManageProducts,
         canManageStock: !!body?.canManageStock,
         canViewDashboard: !!body?.canViewDashboard,
@@ -150,7 +153,7 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
-        role: 'agent', // ✅ IMPORTANT
+        role: 'agent',
       },
     });
 
@@ -209,10 +212,22 @@ export class AgentService {
         phone,
         email,
         login,
-        role: 'agent', // ✅ FORCÉ
-        canManageProducts: !!body?.canManageProducts,
-        canManageStock: !!body?.canManageStock,
-        canViewDashboard: !!body?.canViewDashboard,
+        role: 'agent',
+
+        canManageProducts:
+          body?.canManageProducts !== undefined
+            ? !!body.canManageProducts
+            : existing.canManageProducts,
+
+        canManageStock:
+          body?.canManageStock !== undefined
+            ? !!body.canManageStock
+            : existing.canManageStock,
+
+        canViewDashboard:
+          body?.canViewDashboard !== undefined
+            ? !!body.canViewDashboard
+            : existing.canViewDashboard,
       },
     });
 
@@ -232,7 +247,7 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
-        role: 'agent', // ✅ IMPORTANT
+        role: 'agent',
       },
     });
 
@@ -273,7 +288,7 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
-        role: 'agent', // ✅ IMPORTANT
+        role: 'agent',
       },
     });
 
@@ -305,7 +320,7 @@ export class AgentService {
       where: {
         id,
         tenantId: currentUser.tenantId,
-        role: 'agent', // ✅ IMPORTANT
+        role: 'agent',
       },
     });
 
