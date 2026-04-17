@@ -109,6 +109,9 @@ export class AuthService {
       canManageDrivers: !!user.canManageDrivers,
       canManagePayments: !!user.canManagePayments,
       canManageUsers: !!user.canManageUsers,
+      
+    canManageProducts: !!user.canManageProducts,
+    canManageStock: !!user.canManageStock,
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
