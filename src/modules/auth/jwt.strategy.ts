@@ -13,50 +13,52 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    return {
-      // compat existante
-      userId: payload.sub,
-      email: payload.email ?? null,
-      login: payload.login ?? null,
-      role: payload.role,
-      tenantId: payload.tenantId,
-      tenantName: payload.tenantName ?? null,
+  return {
+    // compat existante
+    userId: payload.sub,
+    email: payload.email ?? null,
+    login: payload.login ?? null,
+    role: payload.role,
+    tenantId: payload.tenantId,
+    tenantName: payload.tenantName ?? null,
 
-      // ajout utile
-      id: payload.sub,
-      sub: payload.sub,
-      fullName: payload.fullName ?? null,
-      phone: payload.phone ?? null,
-      isActive: payload.isActive ?? true,
-      mustChangePassword: !!payload.mustChangePassword,
-      tenantSlug: payload.tenantSlug ?? null,
-      tenantLogoUrl: payload.tenantLogoUrl ?? null,
-      tenantAddress: payload.tenantAddress ?? null,
-      tenantPhone: payload.tenantPhone ?? null,
-      tenantEmail: payload.tenantEmail ?? null,
-      tenantCurrency: payload.tenantCurrency ?? 'FCFA',
-      tenantSector: payload.tenantSector ?? 'commerce',
+    // ajout utile
+    id: payload.sub,
+    sub: payload.sub,
+    fullName: payload.fullName ?? null,
+    phone: payload.phone ?? null,
+    isActive: payload.isActive ?? true,
+    mustChangePassword: !!payload.mustChangePassword,
+    tenantSlug: payload.tenantSlug ?? null,
+    tenantLogoUrl: payload.tenantLogoUrl ?? null,
+    tenantAddress: payload.tenantAddress ?? null,
+    tenantPhone: payload.tenantPhone ?? null,
+    tenantEmail: payload.tenantEmail ?? null,
+    tenantCurrency: payload.tenantCurrency ?? 'FCFA',
 
-      canManageProperties: !!payload.canManageProperties,
-      canManageTenants: !!payload.canManageTenants,
-      canManageContracts: !!payload.canManageContracts,
-      canManageRents: !!payload.canManageRents,
-      canManageOwnerPayments: !!payload.canManageOwnerPayments,
-      canViewDashboard: !!payload.canViewDashboard,
+    // 🔥 FIX ICI : ne pas forcer commerce
+    tenantSector: payload.tenantSector ?? null,
 
-      canAccessSale: !!payload.canAccessSale,
-      canAccessRental: !!payload.canAccessRental,
-      canAccessYango: !!payload.canAccessYango,
-      canManageExpenses: !!payload.canManageExpenses,
-      canManageAccounting: !!payload.canManageAccounting,
-      canDoDataEntry: !!payload.canDoDataEntry,
-      canManageVehicles: !!payload.canManageVehicles,
-      canManageDrivers: !!payload.canManageDrivers,
-      canManagePayments: !!payload.canManagePayments,
-      canManageUsers: !!payload.canManageUsers,
+    canManageProperties: !!payload.canManageProperties,
+    canManageTenants: !!payload.canManageTenants,
+    canManageContracts: !!payload.canManageContracts,
+    canManageRents: !!payload.canManageRents,
+    canManageOwnerPayments: !!payload.canManageOwnerPayments,
+    canViewDashboard: !!payload.canViewDashboard,
 
-      canManageProducts: !!payload.canManageProducts,
-      canManageStock: !!payload.canManageStock,
-    };
-  }
+    canAccessSale: !!payload.canAccessSale,
+    canAccessRental: !!payload.canAccessRental,
+    canAccessYango: !!payload.canAccessYango,
+    canManageExpenses: !!payload.canManageExpenses,
+    canManageAccounting: !!payload.canManageAccounting,
+    canDoDataEntry: !!payload.canDoDataEntry,
+    canManageVehicles: !!payload.canManageVehicles,
+    canManageDrivers: !!payload.canManageDrivers,
+    canManagePayments: !!payload.canManagePayments,
+    canManageUsers: !!payload.canManageUsers,
+
+    canManageProducts: !!payload.canManageProducts,
+    canManageStock: !!payload.canManageStock,
+  };
+}
 }
