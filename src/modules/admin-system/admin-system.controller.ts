@@ -18,7 +18,11 @@ export class AdminSystemController {
       throw new ForbiddenException('Admin only');
     }
   }
-
+@Get('dashboard')
+async getDashboard(@Req() req: any) {
+  this.checkAdmin(req.user);
+  return this.adminSystemService.getDashboard();
+}
   @Get('me')
   async me(@Req() req: any) {
     this.checkAdmin(req.user);
