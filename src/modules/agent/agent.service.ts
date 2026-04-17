@@ -131,10 +131,25 @@ export class AgentService {
         role: 'agent',
         isActive: true,
 
+        canManageProperties: !!body?.canManageProperties,
+        canManageTenants: !!body?.canManageTenants,
+        canManageContracts: !!body?.canManageContracts,
+        canManageRents: !!body?.canManageRents,
+        canManageOwnerPayments: !!body?.canManageOwnerPayments,
+        canViewDashboard: !!body?.canViewDashboard,
+        canAccessSale: !!body?.canAccessSale,
+        canAccessRental: !!body?.canAccessRental,
+        canAccessYango: !!body?.canAccessYango,
+        canManageExpenses: !!body?.canManageExpenses,
+        canManageAccounting: !!body?.canManageAccounting,
+        canDoDataEntry: !!body?.canDoDataEntry,
+        canManageVehicles: !!body?.canManageVehicles,
+        canManageDrivers: !!body?.canManageDrivers,
+        canManagePayments: !!body?.canManagePayments,
+        canManageUsers: !!body?.canManageUsers,
         canManageProducts: !!body?.canManageProducts,
         canManageStock: !!body?.canManageStock,
-        canViewDashboard: !!body?.canViewDashboard,
-      },
+          },
     });
 
     return {
