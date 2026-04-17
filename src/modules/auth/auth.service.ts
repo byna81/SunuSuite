@@ -71,7 +71,7 @@ export class AuthService {
     };
   }
 
-  private async buildAuthResponse(user: any) {
+ private async buildAuthResponse(user: any) {
   const payload = {
     sub: user.id,
     id: user.id,
@@ -90,8 +90,6 @@ export class AuthService {
     tenantPhone: user.tenant?.phone ?? null,
     tenantEmail: user.tenant?.email ?? null,
     tenantCurrency: user.tenant?.currency ?? 'FCFA',
-
-    // 🔥 OBLIGATOIRE
     tenantSector: user.tenant?.sector ?? null,
 
     canManageProperties: !!user.canManageProperties,
