@@ -59,11 +59,13 @@ export class ProductsController {
   /////////////////////////////////////////////////////////
   // CREATE
   /////////////////////////////////////////////////////////
-  @UseGuards(JwtAuthGuard)
-  @Post()
-  create(@Req() req: any, @Body() body: any) {
-    return this.productsService.create(req.user, body);
-  }
+@UseGuards(JwtAuthGuard)
+@Post()
+create(@Req() req: any, @Body() body: any) {
+  console.log('CREATE PRODUCT USER =', req.user);
+
+  return this.productsService.create(req.user, body);
+}
 
   /////////////////////////////////////////////////////////
   // UPDATE
