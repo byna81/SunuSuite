@@ -14,7 +14,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: any) {
   return {
-    // compat existante
     userId: payload.sub,
     email: payload.email ?? null,
     login: payload.login ?? null,
@@ -22,7 +21,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     tenantId: payload.tenantId,
     tenantName: payload.tenantName ?? null,
 
-    // ajout utile
     id: payload.sub,
     sub: payload.sub,
     fullName: payload.fullName ?? null,
@@ -36,7 +34,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     tenantEmail: payload.tenantEmail ?? null,
     tenantCurrency: payload.tenantCurrency ?? 'FCFA',
 
-    // 🔥 FIX ICI : ne pas forcer commerce
+    // 🔥 ne surtout pas forcer commerce
     tenantSector: payload.tenantSector ?? null,
 
     canManageProperties: !!payload.canManageProperties,
