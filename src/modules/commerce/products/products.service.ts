@@ -183,7 +183,93 @@ export class ProductsService {
       return product;
     });
   }
+async addStock(currentUser: any, id: string, body: any) {
+  const existing = await this.prisma.product.findUnique({
+    where: { id },
+  });
 
+  if (!existing) {
+    throw new NotFoundException('Produit introuvable');
+  }
+
+  this.ensureCanManageProducts(currentUser, existing.tenantId);
+
+  const quantity = Number(body?.quantity ?? 0);
+  const stockCost =
+    body?.stockCost !== undefined &&
+    body?.stockCost !== null &&
+    body?.stockCost !== ''
+      ? Number(body.stockCost)
+      : null;
+
+  const paymentMethod = body?.paymentMethod
+    ? String(body.paymentMethod).trim()
+    : null;
+
+  const supplier = body?.supplier ? String(body.supplier).trim() : null;
+  const note = body?.note ? String(body.note).trim() : null;
+
+  if (Number.isNaN(quantity) || quantity <= 0) {
+    throw new BadRequestException(
+      'La quantité à ajouter doit être supérieure à 0',
+    );
+  }
+
+  if (stockCost !== null && (Number.isNaN(stockCost) || stockCost < 0)) {
+    throw new BadRequestException(
+      'Le montant dépensé doit être supérieur ou égal à 0',
+    );
+  }
+
+  return this.prisma.$transaction(async (tx) => {
+    const updatedProduct = await tx.product.update({
+      where: { id },
+      data: {
+        stock: existing.stock + quantity,
+      },
+    });
+
+    await tx.stockMovement.create({
+      data: {
+        productId: existing.id,
+        tenantId: existing.tenantId,
+        userId: currentUser?.id || currentUser?.userId || null,
+        type: 'in',
+        quantity,
+        previousStock: existing.stock,
+        newStock: existing.stock + quantity,
+        note: note || 'Réapprovisionnement de stock',
+      },
+    });
+
+    if (stockCost !== null && stockCost > 0) {
+      const expenseNoteParts = [
+        supplier ? `Fournisseur: ${supplier}` : null,
+        note || null,
+      ].filter(Boolean);
+
+      await tx.commerceExpense.create({
+        data: {
+          tenantId: existing.tenantId,
+          label: `Réapprovisionnement stock - ${existing.name}`,
+          category: 'stock',
+          amount: stockCost,
+          expenseDate: new Date(),
+          paymentMethod,
+          note:
+            expenseNoteParts.length > 0
+              ? expenseNoteParts.join(' | ')
+              : null,
+        },
+      });
+    }
+
+    return {
+      message: 'Stock réapprovisionné avec succès',
+      product: updatedProduct,
+    };
+  });
+}
   async update(currentUser: any, id: string, body: any) {
     const existing = await this.prisma.product.findUnique({
       where: { id },
