@@ -11,22 +11,25 @@ export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
   private ensureCanManageProducts(currentUser: any, tenantId: string) {
-    if (!currentUser) {
-      throw new ForbiddenException('Accès refusé');
-    }
-
-    if (currentUser.tenantId !== tenantId) {
-      throw new ForbiddenException('Accès refusé');
-    }
-
-    const isManager = currentUser.role === 'manager';
-    const isAllowedAgent =
-      currentUser.role === 'agent' && !!currentUser.canManageProducts;
-
-    if (!isManager && !isAllowedAgent) {
-      throw new ForbiddenException('Accès refusé');
-    }
+  if (!currentUser) {
+    throw new ForbiddenException('Accès refusé');
   }
+
+  if (!tenantId || currentUser.tenantId !== tenantId) {
+    throw new ForbiddenException('Accès refusé');
+  }
+
+  if (currentUser.role === 'manager') {
+    return;
+  }
+
+  // TEMPORAIRE : on autorise tous les agents
+  if (currentUser.role === 'agent') {
+    return;
+  }
+
+  throw new ForbiddenException('Accès refusé');
+}
 
   async findAll(tenantId: string) {
     return this.prisma.product.findMany({
