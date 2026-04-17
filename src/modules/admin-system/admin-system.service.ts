@@ -56,4 +56,21 @@ export class AdminSystemService implements OnModuleInit {
 
     console.log('🔥 Admin créé (admin-system)');
   }
+
+  async getDashboard() {
+    const [tenantsCount, subscriptionsCount, pendingRequestsCount] =
+      await Promise.all([
+        this.prisma.tenant.count(),
+        this.prisma.subscription.count(),
+        this.prisma.businessRequest.count({
+          where: { status: 'pending' as any },
+        }),
+      ]);
+
+    return {
+      tenantsCount,
+      subscriptionsCount,
+      pendingRequestsCount,
+    };
+  }
 }
