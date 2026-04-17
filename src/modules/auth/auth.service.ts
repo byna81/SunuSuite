@@ -67,7 +67,6 @@ export class AuthService {
 
       canManageProducts: !!user.canManageProducts,
       canManageStock: !!user.canManageStock,
-      canViewDashboard: !!user.canViewDashboard,
       
     };
   }
