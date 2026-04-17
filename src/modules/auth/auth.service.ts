@@ -240,12 +240,15 @@ export class AuthService {
 
   if (looksLikeEmail) {
     const user = await this.prisma.user.findFirst({
-      where: {
-        email: normalizedIdentifier,
-      },
-      include: { tenant: true },
-    });
-
+  where: {
+    OR: [
+      { email: normalizedIdentifier },
+      { login: normalizedIdentifier },
+    ],
+  },
+  include: { tenant: true }, // 🔥 obligatoire
+});
+    
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Identifiants invalides');
     }
