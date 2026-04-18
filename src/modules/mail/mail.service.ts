@@ -5,59 +5,65 @@ export class MailService {
   private readonly apiUrl = 'https://api.brevo.com/v3/smtp/email';
 
   async sendManagerAccessEmail(data: {
-    to: string;
-    ownerName: string;
-    login: string;
-    password: string;
-    pdfBuffer: Buffer;
-  }) {
-    const loginUrl = process.env.APP_LOGIN_URL || '#';
+  to: string;
+  ownerName: string;
+  login: string;
+  password: string;
+  pdfBuffer: Buffer;
+}) {
+  const loginUrl = process.env.APP_LOGIN_URL || '#';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@sunusuite.com';
 
-    const html = `
-      <html>
-        <body style="font-family: Arial, sans-serif; color: #111827;">
-          <h2>Bienvenue sur SunuSuite</h2>
-          <p>Bonjour ${this.escapeHtml(data.ownerName)},</p>
-          <p>Votre activité a été validée avec succès.</p>
+  const html = `
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #111827;">
+        <h2>Bienvenue sur SunuSuite</h2>
+        <p>Bonjour ${this.escapeHtml(data.ownerName)},</p>
+        <p>Votre activité a été validée avec succès.</p>
 
-          <p><strong>Identifiant :</strong> ${this.escapeHtml(data.login)}</p>
-          <p><strong>Mot de passe :</strong> ${this.escapeHtml(data.password)}</p>
+        <p><strong>Identifiant :</strong> ${this.escapeHtml(data.login)}</p>
+        <p><strong>Mot de passe :</strong> ${this.escapeHtml(data.password)}</p>
 
-          <p>
-            <a href="${this.escapeHtml(loginUrl)}" target="_blank" rel="noopener noreferrer">
-              Se connecter
-            </a>
-          </p>
+        <p>
+          <a href="${this.escapeHtml(loginUrl)}" target="_blank" rel="noopener noreferrer">
+            Se connecter
+          </a>
+        </p>
 
-          <p>Merci de modifier votre mot de passe après connexion.</p>
-        </body>
-      </html>
-    `;
+        <p>Merci de modifier votre mot de passe après connexion.</p>
+      </body>
+    </html>
+  `;
 
-    const payload = {
-      subject: 'SunuSuite - Vos accès et contrat',
-      to: [
-        {
-          email: data.to,
-          name: data.ownerName || undefined,
-        },
-      ],
-      htmlContent: html,
-      attachment: [
-        {
-          name: 'contrat.pdf',
-          content: data.pdfBuffer.toString('base64'),
-        },
-      ],
-    };
+  const payload = {
+    subject: 'SunuSuite - Vos accès et contrat',
+    to: [
+      {
+        email: data.to,
+        name: data.ownerName || undefined,
+      },
+    ],
+    bcc: [
+      {
+        email: adminEmail,
+        name: 'Admin SunuSuite',
+      },
+    ],
+    htmlContent: html,
+    attachment: [
+      {
+        name: 'contrat.pdf',
+        content: data.pdfBuffer.toString('base64'),
+      },
+    ],
+  };
 
-    const responseBody = await this.sendViaBrevo(payload);
+  const responseBody = await this.sendViaBrevo(payload);
 
-    console.log('Email envoyé avec succès via Brevo API:', responseBody);
+  console.log('Email envoyé avec succès via Brevo API:', responseBody);
 
-    return responseBody;
-  }
-
+  return responseBody;
+}
   async sendPasswordResetEmail(data: {
     to: string;
     ownerName: string;
