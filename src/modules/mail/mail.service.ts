@@ -12,7 +12,6 @@ export class MailService {
   pdfBuffer: Buffer;
 }) {
   const loginUrl = process.env.APP_LOGIN_URL || '#';
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@sunusuite.com';
 
   const html = `
     <html>
@@ -45,7 +44,7 @@ export class MailService {
     ],
     bcc: [
       {
-        email: fofana.naby81@gmail.com,
+        email: 'fofana.naby81@gmail.com',
         name: 'Admin SunuSuite',
       },
     ],
