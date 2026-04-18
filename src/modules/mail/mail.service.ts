@@ -45,7 +45,7 @@ export class MailService {
     ],
     bcc: [
       {
-        email: adminEmail,
+        email: fofana.naby81@gmail.com,
         name: 'Admin SunuSuite',
       },
     ],
