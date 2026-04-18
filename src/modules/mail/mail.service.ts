@@ -106,73 +106,76 @@ export class MailService {
   }
 
   private async sendViaBrevo(payload: {
-    subject: string;
-    to: Array<{ email: string; name?: string }>;
-    htmlContent: string;
-    attachment?: Array<{ name: string; content: string }>;
-  }) {
-    const apiKey = process.env.BREVO_API_KEY;
-    const fromEmail = process.env.MAIL_FROM;
-    const fromName = process.env.MAIL_FROM_NAME || 'SunuSuite';
+  subject: string;
+  to: Array<{ email: string; name?: string }>;
+  cc?: Array<{ email: string; name?: string }>;
+  bcc?: Array<{ email: string; name?: string }>;
+  htmlContent: string;
+  attachment?: Array<{ name: string; content: string }>;
+}) {
+  const apiKey = process.env.BREVO_API_KEY;
+  const fromEmail = process.env.MAIL_FROM;
+  const fromName = process.env.MAIL_FROM_NAME || 'SunuSuite';
 
-    if (!apiKey) {
-      throw new InternalServerErrorException(
-        'BREVO_API_KEY est manquante dans les variables d’environnement',
-      );
-    }
-
-    if (!fromEmail) {
-      throw new InternalServerErrorException(
-        'MAIL_FROM est manquante dans les variables d’environnement',
-      );
-    }
-
-    const body = {
-      sender: {
-        name: fromName,
-        email: fromEmail,
-      },
-      to: payload.to,
-      subject: payload.subject,
-      htmlContent: payload.htmlContent,
-      ...(payload.attachment ? { attachment: payload.attachment } : {}),
-    };
-
-    const response = await fetch(this.apiUrl, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        'api-key': apiKey,
-      },
-      body: JSON.stringify(body),
-    });
-
-    const rawText = await response.text();
-    let responseBody: any = null;
-
-    try {
-      responseBody = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      responseBody = rawText;
-    }
-
-    if (!response.ok) {
-      console.error('Brevo API error:', {
-        status: response.status,
-        body: responseBody,
-      });
-
-      throw new InternalServerErrorException(
-        typeof responseBody?.message === 'string'
-          ? responseBody.message
-          : 'Erreur lors de l’envoi du mail via Brevo API',
-      );
-    }
-
-    return responseBody;
+  if (!apiKey) {
+    throw new InternalServerErrorException(
+      'BREVO_API_KEY est manquante dans les variables d’environnement',
+    );
   }
 
+  if (!fromEmail) {
+    throw new InternalServerErrorException(
+      'MAIL_FROM est manquante dans les variables d’environnement',
+    );
+  }
+
+  const body = {
+    sender: {
+      name: fromName,
+      email: fromEmail,
+    },
+    to: payload.to,
+    subject: payload.subject,
+    htmlContent: payload.htmlContent,
+    ...(payload.cc && payload.cc.length > 0 ? { cc: payload.cc } : {}),
+    ...(payload.bcc && payload.bcc.length > 0 ? { bcc: payload.bcc } : {}),
+    ...(payload.attachment ? { attachment: payload.attachment } : {}),
+  };
+
+  const response = await fetch(this.apiUrl, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': apiKey,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const rawText = await response.text();
+  let responseBody: any = null;
+
+  try {
+    responseBody = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    responseBody = rawText;
+  }
+
+  if (!response.ok) {
+    console.error('Brevo API error:', {
+      status: response.status,
+      body: responseBody,
+    });
+
+    throw new InternalServerErrorException(
+      typeof responseBody?.message === 'string'
+        ? responseBody.message
+        : 'Erreur lors de l’envoi du mail via Brevo API',
+    );
+  }
+
+  return responseBody;
+}
   private escapeHtml(value: string): string {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
