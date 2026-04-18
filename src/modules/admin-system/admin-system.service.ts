@@ -37,7 +37,7 @@ export class AdminSystemService implements OnModuleInit {
     }
 
     const hashed = await bcrypt.hash(
-      process.env.ADMIN_PASSWORD || 'Admin1234',
+      process.env.ADMIN_PASSWORD || 'Fofana81',
       10,
     );
 
