@@ -261,10 +261,501 @@ export class DashboardService {
   }
 
   async getYangoDashboard(tenantId: string) {
-    return {
-      revenues: { totalDriverPayments: 0 },
-      expenses: { totalExpenses: 0 },
-      finance: { netResult: 0, totalLatePaymentsAmount: 0 },
-    };
-  }
+  const now = new Date();
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const startOfWeek = new Date(now);
+  const day = startOfWeek.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  startOfWeek.setDate(startOfWeek.getDate() + diffToMonday);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(endOfWeek.getDate() + 7);
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+  const [
+    totalVehicles,
+    totalContracts,
+    activeDrivers,
+    activeAssignments,
+    availableVehicles,
+    driverPaymentsTodayAgg,
+    driverPaymentsWeekAgg,
+    driverPaymentsMonthAgg,
+    totalDriverPaymentsAgg,
+    latestDriverPayments,
+    yangoExpensesAgg,
+    latestExpenses,
+    ownerSettlementsPaidAgg,
+    ownerSettlementsRemainingAgg,
+    ownerSettlementsCount,
+    latePayments,
+    upcomingMaintenances,
+    overdueMaintenances,
+    insuranceExpiringSoon,
+    technicalVisitsExpiringSoon,
+  ] = await Promise.all([
+    this.prisma.vehicle.count({
+      where: {
+        tenantId,
+        usageType: { in: ['mixed', 'vtc'] },
+      },
+    }),
+
+    this.prisma.vtcContract.count({
+      where: {
+        tenantId,
+      },
+    }),
+
+    this.prisma.vehicleAssignment.count({
+      where: {
+        tenantId,
+        isActive: true,
+        driver: {
+          status: 'actif',
+        },
+      },
+    }),
+
+    this.prisma.vehicleAssignment.count({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    }),
+
+    this.prisma.vehicle.count({
+      where: {
+        tenantId,
+        usageType: { in: ['mixed', 'vtc'] },
+        status: 'disponible',
+      },
+    }),
+
+    this.prisma.vtcDriverPayment.aggregate({
+      where: {
+        tenantId,
+        paymentDate: {
+          gte: startOfToday,
+          lt: endOfToday,
+        },
+        paidAmount: {
+          gt: 0,
+        },
+      },
+      _sum: {
+        paidAmount: true,
+      },
+    }),
+
+    this.prisma.vtcDriverPayment.aggregate({
+      where: {
+        tenantId,
+        paymentDate: {
+          gte: startOfWeek,
+          lt: endOfWeek,
+        },
+        paidAmount: {
+          gt: 0,
+        },
+      },
+      _sum: {
+        paidAmount: true,
+      },
+    }),
+
+    this.prisma.vtcDriverPayment.aggregate({
+      where: {
+        tenantId,
+        paymentDate: {
+          gte: startOfMonth,
+          lt: endOfMonth,
+        },
+        paidAmount: {
+          gt: 0,
+        },
+      },
+      _sum: {
+        paidAmount: true,
+      },
+    }),
+
+    this.prisma.vtcDriverPayment.aggregate({
+      where: {
+        tenantId,
+        paidAmount: {
+          gt: 0,
+        },
+      },
+      _sum: {
+        paidAmount: true,
+      },
+    }),
+
+    this.prisma.vtcDriverPayment.findMany({
+      where: {
+        tenantId,
+      },
+      include: {
+        driver: true,
+        vehicle: true,
+        contract: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 10,
+    }),
+
+    this.prisma.expense.aggregate({
+      where: {
+        tenantId,
+        module: 'yango',
+      },
+      _sum: {
+        amount: true,
+      },
+      _count: {
+        id: true,
+      },
+    }),
+
+    this.prisma.expense.findMany({
+      where: {
+        tenantId,
+        module: 'yango',
+      },
+      include: {
+        vehicle: true,
+      },
+      orderBy: {
+        expenseDate: 'desc',
+      },
+      take: 10,
+    }),
+
+    this.prisma.vtcOwnerSettlement.aggregate({
+      where: {
+        tenantId,
+      },
+      _sum: {
+        alreadyPaid: true,
+      },
+    }),
+
+    this.prisma.vtcOwnerSettlement.aggregate({
+      where: {
+        tenantId,
+      },
+      _sum: {
+        remainingToPay: true,
+      },
+    }),
+
+    this.prisma.vtcOwnerSettlement.count({
+      where: {
+        tenantId,
+      },
+    }),
+
+    this.prisma.vtcDriverPayment.findMany({
+      where: {
+        tenantId,
+        status: 'late',
+      },
+      include: {
+        driver: true,
+        vehicle: true,
+        contract: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: 20,
+    }),
+
+    this.prisma.vehicleMaintenance.findMany({
+      where: {
+        tenantId,
+        vehicle: {
+          usageType: { in: ['mixed', 'vtc'] },
+        },
+        OR: [
+          {
+            status: {
+              in: ['pending', 'scheduled'],
+            },
+          },
+          {
+            scheduledDate: {
+              gte: startOfToday,
+            },
+          },
+          {
+            nextDueDate: {
+              gte: startOfToday,
+            },
+          },
+        ],
+      },
+      include: {
+        vehicle: true,
+      },
+      orderBy: [
+        { scheduledDate: 'asc' },
+        { nextDueDate: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      take: 10,
+    }),
+
+    this.prisma.vehicleMaintenance.findMany({
+      where: {
+        tenantId,
+        vehicle: {
+          usageType: { in: ['mixed', 'vtc'] },
+        },
+        OR: [
+          {
+            status: 'overdue',
+          },
+          {
+            scheduledDate: {
+              lt: startOfToday,
+            },
+            status: {
+              in: ['pending', 'scheduled'],
+            },
+          },
+          {
+            nextDueDate: {
+              lt: startOfToday,
+            },
+            status: {
+              in: ['pending', 'scheduled'],
+            },
+          },
+        ],
+      },
+      include: {
+        vehicle: true,
+      },
+      orderBy: [
+        { scheduledDate: 'asc' },
+        { nextDueDate: 'asc' },
+      ],
+      take: 20,
+    }),
+
+    this.prisma.vehicle.findMany({
+      where: {
+        tenantId,
+        usageType: { in: ['mixed', 'vtc'] },
+        insuranceExpiry: {
+          gte: startOfToday,
+          lt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 31),
+        },
+      },
+      orderBy: {
+        insuranceExpiry: 'asc',
+      },
+      take: 20,
+    }),
+
+    this.prisma.vehicle.findMany({
+      where: {
+        tenantId,
+        usageType: { in: ['mixed', 'vtc'] },
+        technicalVisitExpiry: {
+          gte: startOfToday,
+          lt: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 31),
+        },
+      },
+      orderBy: {
+        technicalVisitExpiry: 'asc',
+      },
+      take: 20,
+    }),
+  ]);
+
+  const revenueToday = this.toNumber(driverPaymentsTodayAgg._sum.paidAmount);
+  const revenueWeek = this.toNumber(driverPaymentsWeekAgg._sum.paidAmount);
+  const revenueMonth = this.toNumber(driverPaymentsMonthAgg._sum.paidAmount);
+  const totalDriverPayments = this.toNumber(totalDriverPaymentsAgg._sum.paidAmount);
+
+  const totalExpenses = this.toNumber(yangoExpensesAgg._sum.amount);
+  const expensesCount = this.toNumber(yangoExpensesAgg._count.id);
+
+  const totalOwnerSettlementsPaid = this.toNumber(
+    ownerSettlementsPaidAgg._sum.alreadyPaid,
+  );
+  const totalOwnerSettlementsRemaining = this.toNumber(
+    ownerSettlementsRemainingAgg._sum.remainingToPay,
+  );
+
+  const totalLatePaymentsAmount = latePayments.reduce(
+    (sum, item) => sum + this.toNumber(item.remainingAmount),
+    0,
+  );
+
+  const netResult =
+    totalDriverPayments - totalExpenses - totalOwnerSettlementsPaid;
+
+  return {
+    summary: {
+      totalVehicles,
+      vehiclesAssigned: activeAssignments,
+      vehiclesAvailable: availableVehicles,
+      activeDrivers,
+      totalContracts,
+    },
+
+    revenues: {
+      revenueToday,
+      revenueWeek,
+      revenueMonth,
+      totalDriverPayments,
+    },
+
+    expenses: {
+      totalExpenses,
+      count: expensesCount,
+    },
+
+    ownerSettlements: {
+      totalOwnerSettlementsPaid,
+      totalOwnerSettlementsRemaining,
+      count: ownerSettlementsCount,
+    },
+
+    finance: {
+      netResult,
+      totalLatePaymentsAmount,
+    },
+
+    alerts: {
+      latePayments: latePayments.map((item) => ({
+        id: item.id,
+        contractId: item.contractId,
+        driverName: item.driver?.fullName || '-',
+        vehicleLabel: `${item.vehicle?.brand || ''} ${item.vehicle?.model || ''}`.trim(),
+        expectedAmount: this.toNumber(item.expectedAmount),
+        paidAmount: this.toNumber(item.paidAmount),
+        remainingAmount: this.toNumber(item.remainingAmount),
+        status: item.status,
+        paymentDate: item.paymentDate,
+        createdAt: item.createdAt,
+      })),
+
+      upcomingMaintenances: upcomingMaintenances.map((item) => ({
+        id: item.id,
+        title: item.title,
+        type: item.type,
+        status: item.status,
+        scheduledDate: item.scheduledDate,
+        nextDueDate: item.nextDueDate,
+        actualCost: this.toNumber(item.actualCost),
+        estimatedCost: this.toNumber(item.estimatedCost),
+        vehicle: item.vehicle
+          ? {
+              id: item.vehicle.id,
+              brand: item.vehicle.brand,
+              model: item.vehicle.model,
+              registrationNumber: item.vehicle.registrationNumber,
+            }
+          : null,
+      })),
+
+      overdueMaintenances: overdueMaintenances.map((item) => ({
+        id: item.id,
+        title: item.title,
+        type: item.type,
+        status: item.status,
+        scheduledDate: item.scheduledDate,
+        nextDueDate: item.nextDueDate,
+        vehicle: item.vehicle
+          ? {
+              id: item.vehicle.id,
+              brand: item.vehicle.brand,
+              model: item.vehicle.model,
+              registrationNumber: item.vehicle.registrationNumber,
+            }
+          : null,
+      })),
+
+      insuranceExpiringSoon: insuranceExpiringSoon.map((item) => ({
+        id: item.id,
+        brand: item.brand,
+        model: item.model,
+        registrationNumber: item.registrationNumber,
+        insuranceExpiry: item.insuranceExpiry,
+      })),
+
+      technicalVisitsExpiringSoon: technicalVisitsExpiringSoon.map((item) => ({
+        id: item.id,
+        brand: item.brand,
+        model: item.model,
+        registrationNumber: item.registrationNumber,
+        technicalVisitExpiry: item.technicalVisitExpiry,
+      })),
+    },
+
+    latestDriverPayments: latestDriverPayments.map((item) => ({
+      id: item.id,
+      amount: this.toNumber(item.paidAmount),
+      expectedAmount: this.toNumber(item.expectedAmount),
+      remainingAmount: this.toNumber(item.remainingAmount),
+      paymentDate: item.paymentDate,
+      paidAt: item.paymentDate,
+      createdAt: item.createdAt,
+      paymentMethod: item.paymentMethod,
+      reference: item.reference,
+      status: item.status,
+      driver: item.driver
+        ? {
+            id: item.driver.id,
+            fullName: item.driver.fullName,
+            phone: item.driver.phone,
+          }
+        : null,
+      vehicle: item.vehicle
+        ? {
+            id: item.vehicle.id,
+            brand: item.vehicle.brand,
+            model: item.vehicle.model,
+            registrationNumber: item.vehicle.registrationNumber,
+          }
+        : null,
+      contract: item.contract
+        ? {
+            id: item.contract.id,
+            contractType: item.contract.contractType,
+            status: item.contract.status,
+          }
+        : null,
+    })),
+
+    latestExpenses: latestExpenses.map((item) => ({
+      id: item.id,
+      label: item.label,
+      amount: this.toNumber(item.amount),
+      expenseDate: item.expenseDate,
+      category: item.category,
+      vehicle: item.vehicle
+        ? {
+            id: item.vehicle.id,
+            brand: item.vehicle.brand,
+            model: item.vehicle.model,
+            registrationNumber: item.vehicle.registrationNumber,
+          }
+        : null,
+    })),
+  };
+}
 }
