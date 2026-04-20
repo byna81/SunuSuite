@@ -702,6 +702,8 @@ model LeaseContract {
   inventoryInNotes  String?
   inventoryOutNotes String?
   terminatedAt      DateTime?
+  pdfUrl            String?
+  pdfGeneratedAt    DateTime?
 
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @default(now()) @updatedAt
