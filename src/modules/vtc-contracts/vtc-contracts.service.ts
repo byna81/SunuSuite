@@ -110,12 +110,20 @@ export class VtcContractsService {
       throw new NotFoundException('Chauffeur introuvable');
     }
 
+    const resolvedOwnerId = body?.ownerId?.trim() || vehicle.ownerId || null;
+
+    if (!resolvedOwnerId) {
+      throw new BadRequestException(
+        'Aucun propriétaire n’est défini pour ce véhicule. Veuillez d’abord renseigner un propriétaire avant de créer le contrat Yango.',
+      );
+    }
+
     return this.prisma.vtcContract.create({
       data: {
         tenantId: tenantId.trim(),
         vehicleId: body.vehicleId.trim(),
         driverId: body.driverId.trim(),
-        ownerId: vehicle.ownerId || null,
+        ownerId: resolvedOwnerId,
         contractType: body.contractType,
         status: body.status || 'brouillon',
         startDate: new Date(body.startDate),
@@ -175,16 +183,29 @@ export class VtcContractsService {
       throw new NotFoundException('Chauffeur introuvable');
     }
 
+    const resolvedOwnerId = body?.ownerId?.trim() || vehicle.ownerId || null;
+
+    if (!resolvedOwnerId) {
+      throw new BadRequestException(
+        'Aucun propriétaire n’est défini pour ce véhicule. Veuillez d’abord renseigner un propriétaire avant de modifier le contrat Yango.',
+      );
+    }
+
     return this.prisma.vtcContract.update({
       where: { id },
       data: {
         vehicleId: nextVehicleId,
         driverId: nextDriverId,
-        ownerId: vehicle.ownerId || null,
+        ownerId: resolvedOwnerId,
         contractType: body.contractType || undefined,
         status: body.status || undefined,
         startDate: body.startDate ? new Date(body.startDate) : undefined,
-        endDate: body.endDate ? new Date(body.endDate) : null,
+        endDate:
+          body.endDate !== undefined
+            ? body.endDate
+              ? new Date(body.endDate)
+              : null
+            : undefined,
         dailyTarget:
           body.dailyTarget !== undefined
             ? Number(body.dailyTarget)
@@ -221,7 +242,10 @@ export class VtcContractsService {
           body.restDay !== undefined
             ? body.restDay?.trim() || null
             : undefined,
-        notes: body.notes?.trim() || null,
+        notes:
+          body.notes !== undefined
+            ? body.notes?.trim() || null
+            : undefined,
       },
       include: {
         tenant: true,
