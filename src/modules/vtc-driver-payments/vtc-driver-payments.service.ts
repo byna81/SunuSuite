@@ -185,7 +185,20 @@ export class VtcDriverPaymentsService {
 
     const ownerId = contract.ownerId || vehicle.ownerId || null;
 
+    console.log('DEBUG VTC PAYMENT', {
+      contractId: contract.id,
+      vehicleId: vehicle.id,
+      driverId: driver.id,
+      contractOwnerId: contract.ownerId,
+      vehicleOwnerId: vehicle.ownerId,
+      resolvedOwnerId: ownerId,
+      paidAmount,
+      periodLabel: body.periodLabel?.trim() || null,
+    });
+
     if (ownerId && paidAmount > 0) {
+      console.log('DEBUG owner settlement block entered');
+
       const companyPercent = Number(contract.companyPercent || 0);
       const ownerPercent = Number(contract.ownerPercent || 0);
       const driverPercent = Number(contract.driverPercent || 0);
@@ -194,17 +207,23 @@ export class VtcDriverPaymentsService {
       const ownerShare = (paidAmount * ownerPercent) / 100;
       const driverShare = (paidAmount * driverPercent) / 100;
 
-      const existingSettlement = await this.prisma.vtcOwnerSettlement.findFirst({
-        where: {
-          tenantId: tenantId.trim(),
-          contractId: contract.id,
-          vehicleId: vehicle.id,
-          ownerId,
-          periodLabel: body.periodLabel?.trim() || null,
-        },
-      });
+      const existingSettlement =
+        await this.prisma.vtcOwnerSettlement.findFirst({
+          where: {
+            tenantId: tenantId.trim(),
+            contractId: contract.id,
+            vehicleId: vehicle.id,
+            ownerId,
+            periodLabel: body.periodLabel?.trim() || null,
+          },
+        });
 
       if (existingSettlement) {
+        console.log(
+          'DEBUG owner settlement update',
+          existingSettlement.id,
+        );
+
         const nextGrossRevenue =
           Number(existingSettlement.grossRevenue || 0) + paidAmount;
         const nextCompanyShare =
@@ -233,6 +252,8 @@ export class VtcDriverPaymentsService {
           },
         });
       } else {
+        console.log('DEBUG owner settlement create');
+
         await this.prisma.vtcOwnerSettlement.create({
           data: {
             tenantId: tenantId.trim(),
@@ -254,6 +275,11 @@ export class VtcDriverPaymentsService {
           },
         });
       }
+    } else {
+      console.log('DEBUG owner settlement skipped', {
+        resolvedOwnerId: ownerId,
+        paidAmount,
+      });
     }
 
     return this.findOne(tenantId, createdPayment.id);
