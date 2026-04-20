@@ -8,6 +8,9 @@ export class VehiclesService {
   async findAll(tenantId: string) {
     return this.prisma.vehicle.findMany({
       where: { tenantId },
+      include: {
+        owner: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -17,6 +20,9 @@ export class VehiclesService {
       where: {
         id,
         tenantId,
+      },
+      include: {
+        owner: true,
       },
     });
 
@@ -33,6 +39,7 @@ export class VehiclesService {
       brand: string;
       model: string;
       year: number;
+      ownerId?: string | null;
       registrationNumber?: string;
       color?: string;
       fuelType?: string;
@@ -63,6 +70,7 @@ export class VehiclesService {
     }
 
     const registrationNumber = body.registrationNumber?.trim() || null;
+    const ownerId = body.ownerId?.trim() || null;
 
     if (registrationNumber) {
       const existing = await this.prisma.vehicle.findFirst({
@@ -79,9 +87,23 @@ export class VehiclesService {
       }
     }
 
+    if (ownerId) {
+      const owner = await this.prisma.owner.findFirst({
+        where: {
+          id: ownerId,
+          tenantId,
+        },
+      });
+
+      if (!owner) {
+        throw new BadRequestException('Propriétaire introuvable');
+      }
+    }
+
     return this.prisma.vehicle.create({
       data: {
         tenantId,
+        ownerId,
         brand: body.brand.trim(),
         model: body.model.trim(),
         year: Number(body.year),
@@ -105,6 +127,9 @@ export class VehiclesService {
           : null,
         notes: body.notes?.trim() || null,
       },
+      include: {
+        owner: true,
+      },
     });
   }
 
@@ -115,6 +140,7 @@ export class VehiclesService {
       brand?: string;
       model?: string;
       year?: number;
+      ownerId?: string | null;
       registrationNumber?: string;
       color?: string;
       fuelType?: string;
@@ -164,9 +190,31 @@ export class VehiclesService {
       }
     }
 
+    let nextOwnerId = existing.ownerId;
+
+    if (body.ownerId !== undefined) {
+      nextOwnerId = typeof body.ownerId === 'string'
+        ? body.ownerId.trim() || null
+        : null;
+
+      if (nextOwnerId) {
+        const owner = await this.prisma.owner.findFirst({
+          where: {
+            id: nextOwnerId,
+            tenantId,
+          },
+        });
+
+        if (!owner) {
+          throw new BadRequestException('Propriétaire introuvable');
+        }
+      }
+    }
+
     return this.prisma.vehicle.update({
       where: { id },
       data: {
+        ownerId: nextOwnerId,
         brand: body.brand?.trim() ?? existing.brand,
         model: body.model?.trim() ?? existing.model,
         year:
@@ -224,6 +272,9 @@ export class VehiclesService {
           typeof body.notes === 'string'
             ? body.notes.trim() || null
             : existing.notes,
+      },
+      include: {
+        owner: true,
       },
     });
   }
