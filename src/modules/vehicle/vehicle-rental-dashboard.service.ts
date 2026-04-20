@@ -28,13 +28,24 @@ export class VehicleRentalDashboardService {
       payments,
       contracts,
     ] = await Promise.all([
-      this.prisma.vehicle.count({
-        where: { tenantId, status: 'disponible' },
-      }),
+      // Véhicules disponibles à la location (CORRECTION : + usageType: 'rental')
+this.prisma.vehicle.count({
+  where: {
+    tenantId,
+    status: 'disponible',
+    usageType: 'rental',
+  },
+}),
 
-      this.prisma.vehicle.count({
-        where: { tenantId, status: 'loue' },
-      }),
+// Véhicules actuellement loués (CORRECTION : + usageType: 'rental')
+this.prisma.vehicle.count({
+  where: {
+    tenantId,
+    status: 'loue',
+    usageType: 'rental',
+  },
+}),
+
 
       this.prisma.vehicleRentalContract.count({
         where: { tenantId, status: 'actif' },
