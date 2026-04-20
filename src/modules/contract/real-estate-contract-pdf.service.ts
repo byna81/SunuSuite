@@ -29,117 +29,40 @@ export class RealEstateContractPdfService {
     return value?.trim() || '-';
   }
 
-  private pickFirstString(...values: Array<unknown>) {
-    for (const value of values) {
-      if (typeof value === 'string' && value.trim()) {
-        return value.trim();
-      }
-    }
-    return '';
-  }
-
-  private normalizeParagraph(value?: string | null) {
-    const text = this.safe(value);
-    if (text === '-') return '';
-    return text.replace(/\s+/g, ' ').trim();
-  }
-
-  private async getAgencyInfo(tenantId: string) {
-    let settings: any = null;
-
-    try {
-      settings = await (this.prisma as any).appSettings?.findFirst?.({
-        where: { tenantId },
+  private paragraph(doc: PDFKit.PDFDocument, text: string) {
+    doc
+      .font('Helvetica')
+      .fontSize(10.5)
+      .fillColor('#222222')
+      .text(text, {
+        align: 'justify',
+        lineGap: 2,
       });
-    } catch {
-      settings = null;
-    }
-
-    const agencyName = this.pickFirstString(
-      settings?.realEstateAgencyName,
-      settings?.agencyName,
-      settings?.companyName,
-      settings?.businessName,
-      settings?.name,
-    );
-
-    const agencyAddress = this.pickFirstString(
-      settings?.realEstateAgencyAddress,
-      settings?.agencyAddress,
-      settings?.companyAddress,
-      settings?.address,
-      settings?.location,
-    );
-
-    const agencyPhone = this.pickFirstString(
-      settings?.realEstateAgencyPhone,
-      settings?.agencyPhone,
-      settings?.companyPhone,
-      settings?.phone,
-      settings?.mobile,
-    );
-
-    const agencyActivity = this.pickFirstString(
-      settings?.realEstateAgencyActivity,
-      settings?.agencyActivity,
-      settings?.businessActivity,
-      'Achat - Vente - Location - Gérance',
-    );
-
-    return {
-      agencyName: agencyName || 'Agence immobilière',
-      agencyAddress: agencyAddress || '-',
-      agencyPhone: agencyPhone || '-',
-      agencyActivity,
-    };
+    doc.moveDown(0.45);
   }
 
-  private drawSeparator(doc: PDFKit.PDFDocument) {
+  private sectionTitle(doc: PDFKit.PDFDocument, title: string) {
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(11.5)
+      .fillColor('#111111')
+      .text(title);
     doc.moveDown(0.25);
+  }
+
+  private line(doc: PDFKit.PDFDocument) {
+    doc.moveDown(0.2);
     doc
       .strokeColor('#d1d5db')
       .lineWidth(1)
       .moveTo(50, doc.y)
       .lineTo(545, doc.y)
       .stroke();
-    doc.moveDown(0.6);
+    doc.moveDown(0.45);
   }
 
-  private sectionTitle(doc: PDFKit.PDFDocument, title: string) {
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(12)
-      .fillColor('#111827')
-      .text(title, { align: 'left' });
-    doc.moveDown(0.35);
-  }
-
-  private paragraph(doc: PDFKit.PDFDocument, text: string) {
-    if (!text.trim()) return;
-    doc
-      .font('Helvetica')
-      .fontSize(10.5)
-      .fillColor('#374151')
-      .text(text, {
-        align: 'justify',
-        lineGap: 2,
-      });
-    doc.moveDown(0.5);
-  }
-
-  private bullet(doc: PDFKit.PDFDocument, text: string) {
-    doc
-      .font('Helvetica')
-      .fontSize(10.5)
-      .fillColor('#374151')
-      .text(`• ${text}`, {
-        indent: 10,
-        lineGap: 2,
-      });
-  }
-
-  private ensureSpace(doc: PDFKit.PDFDocument, minY = 720) {
-    if (doc.y > minY) {
+  private addPageIfNeeded(doc: PDFKit.PDFDocument, limit = 720) {
+    if (doc.y > limit) {
       doc.addPage();
     }
   }
@@ -161,8 +84,9 @@ export class RealEstateContractPdfService {
       throw new NotFoundException('Contrat introuvable');
     }
 
-    const { agencyName, agencyAddress, agencyPhone, agencyActivity } =
-      await this.getAgencyInfo(contract.tenantId);
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: contract.tenantId },
+    });
 
     const uploadsDir = path.join(process.cwd(), 'uploads', 'contracts');
     this.ensureDirectoryExists(uploadsDir);
@@ -173,25 +97,34 @@ export class RealEstateContractPdfService {
     const doc = new PDFDocument({
       size: 'A4',
       margin: 50,
-      bufferPages: true,
     });
 
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
 
+    // Infos agence depuis Tenant
+    const agencyName = this.safe(tenant?.name);
+    const agencyAddress = this.safe(tenant?.address);
+    const agencyPhone = this.safe(tenant?.phone);
+    const agencyActivity = 'Achat-vente-location-gérance';
+
+    // Bailleur
     const ownerName = this.safe(contract.property?.owner?.name);
     const ownerAddress = this.safe(contract.property?.owner?.address);
     const ownerPhone = this.safe(contract.property?.owner?.phone);
 
+    // Locataire
     const tenantName = this.safe(contract.tenantProperty?.name);
     const tenantPhone = this.safe(contract.tenantProperty?.phone);
-    const tenantIdentityNumber = '-';
     const tenantAddress = this.safe(contract.tenantProperty?.address);
+    const tenantIdentityNumber = '-';
 
+    // Bien
     const propertyTitle = this.safe(contract.property?.title);
     const propertyAddress = this.safe(contract.property?.address);
     const propertyType = this.safe(contract.property?.type);
 
+    // Dates / montants
     const startDate = this.formatDate(contract.startDate);
     const endDate = contract.endDate
       ? this.formatDate(contract.endDate)
@@ -201,13 +134,11 @@ export class RealEstateContractPdfService {
     const rentAmount = this.formatMoney(contract.rentAmount);
     const depositAmount = this.formatMoney(contract.depositAmount);
     const city = this.safe(contract.property?.city);
-
-    const notes = this.normalizeParagraph(contract.notes);
+    const notes = this.safe(contract.notes);
 
     // En-tête agence
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(agencyName);
-    doc.font('Helvetica').fontSize(9.5).fillColor('#374151');
-    doc.text(agencyAddress);
+    doc.font('Helvetica-Bold').fontSize(10.5).fillColor('#111111').text(agencyName);
+    doc.font('Helvetica').fontSize(9.5).fillColor('#222222').text(agencyAddress);
     doc.text(agencyActivity);
     doc.text(`Tel ${agencyPhone}`);
 
@@ -216,21 +147,28 @@ export class RealEstateContractPdfService {
     // Titre
     doc
       .font('Helvetica-Bold')
-      .fontSize(16)
-      .fillColor('#111827')
-      .text('Contrat de bail', { align: 'center' });
+      .fontSize(15)
+      .fillColor('#111111')
+      .text('Contrat de bail', {
+        align: 'center',
+      });
 
-    doc.moveDown(1);
+    doc.moveDown(0.8);
 
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Entre les soussignés');
-    doc.moveDown(0.3);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10.5)
+      .fillColor('#111111')
+      .text('Entre, les soussignés');
+
+    doc.moveDown(0.35);
 
     doc
       .font('Helvetica')
       .fontSize(10.2)
-      .fillColor('#374151')
+      .fillColor('#222222')
       .text(
-        `M. ${ownerName}, propriétaire de l’immeuble situé à ${propertyAddress}, représenté par ${agencyName}, en qualité de bailleur ;`,
+        `M./Mme ${ownerName} ; propriétaire de l’immeuble situé à ${propertyAddress} ; représenté par ${agencyName} situé à ${agencyAddress}, agissant en qualité de bailleur ;`,
         {
           align: 'justify',
           lineGap: 2,
@@ -240,7 +178,7 @@ export class RealEstateContractPdfService {
     doc.moveDown(0.35);
 
     doc.text(
-      `Et M./Mme ${tenantName}, demeurant à ${tenantAddress}, téléphone ${tenantPhone}, pièce d’identité ${tenantIdentityNumber}, ci-après désigné(e) le locataire ;`,
+      `Et M./Mme ${tenantName} demeurant à ${tenantAddress}, téléphone ${tenantPhone}, pièce d’identité ${tenantIdentityNumber}, ci-après désigné(e) le locataire ;`,
       {
         align: 'justify',
         lineGap: 2,
@@ -248,31 +186,33 @@ export class RealEstateContractPdfService {
     );
 
     doc.moveDown(0.45);
-    doc.text('Il a été convenu et arrêté ce qui suit :', {
-      align: 'center',
-    });
 
-    doc.moveDown(0.7);
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(10.2)
+      .text('Il a été convenu et arrêté ce qui suit :', {
+        align: 'center',
+      });
+
+    doc.moveDown(0.6);
 
     this.sectionTitle(doc, '1-Désignation');
     this.paragraph(
       doc,
-      `Le présent contrat porte sur un ${propertyType.toUpperCase()} dénommé "${propertyTitle}" situé à ${propertyAddress}, que le preneur a visité et accepté tel quel est.`,
+      `Le présent contrat porte sur un ${propertyType.toUpperCase()} dénommé "${propertyTitle}" situé à ${propertyAddress}, que le preneur a visité et accepté tel quel.`,
     );
 
     this.sectionTitle(doc, '2-Usage durée');
     this.paragraph(doc, 'Le local est loué strictement à usage d’habitation.');
     this.paragraph(
       doc,
-      `Le présent contrat de bail est conclu à compter du ${startDate}${
-        endDate !== 'Non définie' ? ` jusqu’au ${endDate}` : ''
-      } et pourra être renouvelé ou révisé selon les dispositions applicables.`,
+      `Le présent contrat de bail prend effet à compter du ${startDate} et est conclu jusqu’au ${endDate}. Il pourra être renouvelé et révisé selon les dispositions applicables.`,
     );
 
     this.sectionTitle(doc, '3-charges et condition liées au contrat');
     this.paragraph(
       doc,
-      `La présente location est consentie et acceptée sous les charges ordinaires et de droit suivant l’usage sur la place, outre les conditions suivantes que le locataire s’oblige à exécuter ou à supporter à peine de résiliation, sans pouvoir prétendre à aucune indemnité, et sans aucun recours contre le bailleur.`,
+      `La présente location est consentie et acceptée sous les charges ordinaires et de droit suivant l’usage sur la place, outre les conditions suivantes, que le locataire s’oblige à exécuter ou à supporter à peine de résiliation, sans pouvoir prétendre à aucune indemnité, et sans aucun recours contre le bailleur.`,
     );
 
     this.paragraph(
@@ -289,11 +229,11 @@ export class RealEstateContractPdfService {
     );
     this.paragraph(
       doc,
-      `ART 4 : d’entretenir le bien loué pendant toute la durée du bail des réparations locatives et de ne pouvoir, sans le consentement exprès et par écrit du bailleur, changer dans la disposition du bien loué.`,
+      `ART 4 : d’entretenir le bien loué pendant toute la durée du bail des réparations locatives, et de ne pouvoir, sans le consentement exprès et par écrit du bailleur, changer dans la disposition du bien loué.`,
     );
     this.paragraph(
       doc,
-      `ART 5 : d’acquitter exactement pendant toute la durée de la location les frais d’enregistrement du compteur d’eau, d’électricité et de la consommation d’eau et d’électricité propre au bien loué ainsi que des contributions personnelles et mobilières enfin qu’aucun recours ne puisse être exercé contre le bailleur.`,
+      `ART 5 : d’acquitter exactement pendant toute la durée de la location les frais d’enregistrement du compteur d’eau, d’électricité et de la consommation d’eau et d’électricité propre au bien loué ainsi que des contributions personnelles et mobilières afin qu’aucun recours ne puisse être exercé contre le bailleur.`,
     );
     this.paragraph(
       doc,
@@ -309,29 +249,28 @@ export class RealEstateContractPdfService {
     );
     this.paragraph(
       doc,
-      `ART 9 : de donner la possibilité au bailleur, lorsqu’un congé aura été reçu ou donné, de faire visiter le local par tout preneur potentiel, tous les jours ouvrables durant deux heures en étant prévenu à moins vingt-quatre heure avant chaque visite.`,
+      `ART 9 : de donner la possibilité au bailleur, lorsqu’un congé aura été reçu ou donné, de faire visiter le local par tout preneur potentiel, tous les jours ouvrables durant deux heures en étant prévenu à moins vingt-quatre heures avant chaque visite.`,
     );
     this.paragraph(
       doc,
-      `ART 10 : de payer les frais d’enregistrement et de l’état des lieux et ceux afférent au présent contrat et notamment les frais de timbre et enregistrement y afférent, ainsi que toutes les amendes, pénalités ou double droit éventuels, sans recours contre le bailleur.`,
+      `ART 10 : de payer les frais d’enregistrement et de l’état des lieux et ceux afférents au présent contrat et notamment les frais de timbre et d’enregistrement y afférents, ainsi que toutes les amendes, pénalités ou double droit éventuels, sans recours contre le bailleur.`,
     );
 
-    this.ensureSpace(doc);
+    this.addPageIfNeeded(doc);
 
     this.sectionTitle(doc, '4-caution');
     this.paragraph(
       doc,
       `De verser à l’entrée dans le bien une caution de ${depositAmount} à titre de dépôt de garantie pour éventuel paiement des réparations locatives causées par le locataire et en particulier :`,
     );
-    this.bullet(doc, 'Le lessivage et la réfection des peintures');
-    this.bullet(doc, 'Le lessivage du carrelage et des sanitaires');
-    this.bullet(doc, 'Les vérifications des installations électriques');
-    this.bullet(doc, 'La désinfection du local');
-    this.bullet(
+    this.paragraph(doc, '- Le lessivage et la réfection des peintures');
+    this.paragraph(doc, '- Le lessivage du carrelage et des sanitaires');
+    this.paragraph(doc, '- Les vérifications des installations électriques');
+    this.paragraph(doc, '- La désinfection du local');
+    this.paragraph(
       doc,
-      'Et en général toutes les réparations de détails qui s’en avéreraient nécessaires pour que le bien rendu soit à neuf',
+      '- Et en général toutes les réparations de détails qui s’en avéreraient nécessaires pour que le bien rendu soit à neuf',
     );
-    doc.moveDown(0.6);
 
     this.sectionTitle(doc, '5-loyer');
     this.paragraph(
@@ -348,24 +287,25 @@ export class RealEstateContractPdfService {
     this.sectionTitle(doc, '7-clauses résolutoires');
     this.paragraph(
       doc,
-      `À défaut de paiement d’un seul terme de loyer à son échéance huit jours après simple mise en demeure par acte extrajudiciaire adressé par le bailleur ou à son représentant et restée sans effet, la présente location sera résiliée de plein droit si le bailleur le décide, sans aucune formalité de justice, et le locataire sera expulsé sur simple ordonnance de référé.`,
+      `À défaut de paiement d’un seul terme de loyer à son échéance, huit jours après simple mise en demeure par acte extrajudiciaire adressé par le bailleur ou à son représentant et restée sans effet, la présente location sera résiliée de plein droit si le bailleur le décide, sans aucune formalité de justice.`,
     );
 
     this.sectionTitle(doc, '8 assurances');
     this.paragraph(
       doc,
-      `Le preneur devra contracter auprès d’une compagnie d’assurance notoirement solvable, une police d’assurance incendie, et dégâts des eaux, les risques locatifs, le recours des voisins, couvrant la valeur au mois dont il est question à l’article ci-dessus.`,
+      `Le preneur devra contracter auprès d’une compagnie d’assurance notoirement solvable, une police d’assurance incendie, dégâts des eaux, risques locatifs et recours des voisins.`,
     );
 
     this.sectionTitle(doc, '9-Clause particulière');
     this.paragraph(
       doc,
-      notes ||
-        `Il est expressément convenu qu’en cas de litige, soumis ou non à l’appréciation des tribunaux compétents, les frais d’huissier, l’expertise et les honoraires d’avocat, qui auraient été engagés et ce, sur pièces justificatives, seront remboursés par la partie qui aura perdu le procès.`,
+      notes !== '-'
+        ? notes
+        : `Il est expressément convenu qu’en cas de litige, soumis ou non à l’appréciation des tribunaux compétents, les frais d’huissier, l’expertise et les honoraires d’avocat, qui auraient été engagés et ce, sur pièces justificatives, seront remboursés par la partie qui aura perdu le procès.`,
     );
 
     this.sectionTitle(doc, 'Election de domicile et attribution de juridiction');
-    this.paragraph(doc, `Le locataire élit domicile dans les lieux loués.`);
+    this.paragraph(doc, 'Le locataire élit domicile dans les lieux loués.');
     this.paragraph(
       doc,
       `Le bailleur dans les bureaux de ${agencyName}. Avec attribution exclusive de juridiction aux tribunaux de ${city}.`,
@@ -381,7 +321,7 @@ export class RealEstateContractPdfService {
       `NB LES FRAIS DE VIDANGES DES FAUSSES SEPTIQUES SONT A LA CHARGE DES LOCATAIRES.`,
     );
 
-    this.drawSeparator(doc);
+    this.line(doc);
 
     doc.font('Helvetica').fontSize(10.5).fillColor('#374151');
     doc.text(`${city.toUpperCase()} LE ${signatureDate}`, {
@@ -392,7 +332,7 @@ export class RealEstateContractPdfService {
 
     const signatureTop = doc.y;
 
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111111');
     doc.text('LE GERANT', 70, signatureTop);
     doc.text('le locataire', 390, signatureTop);
 
