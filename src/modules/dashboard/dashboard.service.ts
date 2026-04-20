@@ -33,60 +33,65 @@ export class DashboardService {
   // DASHBOARD GLOBAL
   // ================================
   async getAccountingDashboard(tenantId: string) {
-    const [sale, rental, yango] = await Promise.all([
-      this.getSaleDashboard(tenantId),
-      this.getRentalDashboard(tenantId),
-      this.getYangoDashboard(tenantId),
-    ]);
+  const [sale, rental, yango] = await Promise.all([
+    this.getSaleDashboard(tenantId),
+    this.getRentalDashboard(tenantId),
+    this.getYangoDashboard(tenantId),
+  ]);
 
-    const globalRevenue =
-      this.toNumber(sale?.revenues?.totalSalesRevenue) +
-      this.toNumber(rental?.revenues?.totalRentalRevenue) +
-      this.toNumber(yango?.revenues?.totalDriverPayments);
+  const globalRevenue =
+    this.toNumber(sale?.revenues?.totalSalesRevenue) +
+    this.toNumber(rental?.revenues?.totalRentalRevenue) +
+    this.toNumber(yango?.revenues?.totalDriverPayments);
 
-    const globalExpenses =
-      this.toNumber(sale?.expenses?.totalExpenses) +
-      this.toNumber(rental?.expenses?.totalExpenses) +
-      this.toNumber(yango?.expenses?.totalExpenses);
+  const globalExpenses =
+    this.toNumber(sale?.expenses?.totalExpenses) +
+    this.toNumber(rental?.expenses?.totalExpenses) +
+    this.toNumber(yango?.expenses?.totalExpenses);
 
-    const globalNet =
-      this.toNumber(sale?.finance?.netResult) +
-      this.toNumber(rental?.finance?.netResult) +
-      this.toNumber(yango?.finance?.netResult);
+  const globalNet =
+    this.toNumber(sale?.finance?.netResult) +
+    this.toNumber(rental?.finance?.netResult) +
+    this.toNumber(yango?.finance?.netResult);
 
-    const globalOutstanding =
-      this.toNumber(sale?.finance?.totalOutstandingSales) +
-      this.toNumber(rental?.finance?.totalOutstandingRentals) +
-      this.toNumber(yango?.finance?.totalLatePaymentsAmount);
+  const globalOutstanding =
+    this.toNumber(sale?.finance?.totalOutstandingSales) +
+    this.toNumber(rental?.finance?.totalOutstandingRentals) +
+    this.toNumber(yango?.finance?.totalLatePaymentsAmount);
 
-    return {
-      sale: {
-        revenue: this.toNumber(sale?.revenues?.totalSalesRevenue),
-        expenses: this.toNumber(sale?.expenses?.totalExpenses),
-        netResult: this.toNumber(sale?.finance?.netResult),
-        outstanding: this.toNumber(sale?.finance?.totalOutstandingSales),
-      },
-      rental: {
-        revenue: this.toNumber(rental?.revenues?.totalRentalRevenue),
-        expenses: this.toNumber(rental?.expenses?.totalExpenses),
-        netResult: this.toNumber(rental?.finance?.netResult),
-        outstanding: this.toNumber(rental?.finance?.totalOutstandingRentals),
-      },
-      yango: {
-        revenue: this.toNumber(yango?.revenues?.totalDriverPayments),
-        expenses: this.toNumber(yango?.expenses?.totalExpenses),
-        netResult: this.toNumber(yango?.finance?.netResult),
-        latePayments: this.toNumber(yango?.finance?.totalLatePaymentsAmount),
-      },
-      global: {
-        revenue: globalRevenue,
-        expenses: globalExpenses,
-        netResult: globalNet,
-        outstanding: globalOutstanding,
-      },
-    };
-  }
-
+  return {
+    sale: {
+      revenue: this.toNumber(sale?.revenues?.totalSalesRevenue),
+      expenses: this.toNumber(sale?.expenses?.totalExpenses),
+      netResult: this.toNumber(sale?.finance?.netResult),
+      outstanding: this.toNumber(sale?.finance?.totalOutstandingSales),
+    },
+    rental: {
+      revenue: this.toNumber(rental?.revenues?.totalRentalRevenue),
+      expenses: this.toNumber(rental?.expenses?.totalExpenses),
+      netResult: this.toNumber(rental?.finance?.netResult),
+      outstanding: this.toNumber(rental?.finance?.totalOutstandingRentals),
+    },
+    yango: {
+      revenue: this.toNumber(yango?.revenues?.totalDriverPayments),
+      expenses: this.toNumber(yango?.expenses?.totalExpenses),
+      ownerPaymentsPaid: this.toNumber(
+        yango?.ownerSettlements?.totalOwnerSettlementsPaid,
+      ),
+      ownerPaymentsRemaining: this.toNumber(
+        yango?.ownerSettlements?.totalOwnerSettlementsRemaining,
+      ),
+      netResult: this.toNumber(yango?.finance?.netResult),
+      latePayments: this.toNumber(yango?.finance?.totalLatePaymentsAmount),
+    },
+    global: {
+      revenue: globalRevenue,
+      expenses: globalExpenses,
+      netResult: globalNet,
+      outstanding: globalOutstanding,
+    },
+  };
+}
   async getRealEstateDashboard(tenantId: string) {
     return {
       summary: {
