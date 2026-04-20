@@ -5,7 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class VehicleRentalDashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getDashboard(tenantId: string, period: string) {
+  async getDashboard(tenantId: string, period: string) { 
     const now = new Date();
 
     let startDate: Date;
