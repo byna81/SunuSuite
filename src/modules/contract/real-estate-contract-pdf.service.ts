@@ -61,8 +61,9 @@ export class RealEstateContractPdfService {
     doc.moveDown(0.45);
   }
 
-  private addPageIfNeeded(doc: PDFKit.PDFDocument, limit = 720) {
-    if (doc.y > limit) {
+  private ensureSpace(doc: PDFKit.PDFDocument, minSpace = 120) {
+    const bottomLimit = doc.page.height - doc.page.margins.bottom;
+    if (bottomLimit - doc.y < minSpace) {
       doc.addPage();
     }
   }
@@ -97,6 +98,7 @@ export class RealEstateContractPdfService {
     const doc = new PDFDocument({
       size: 'A4',
       margin: 50,
+      autoFirstPage: true,
     });
 
     const stream = fs.createWriteStream(filePath);
@@ -255,8 +257,20 @@ export class RealEstateContractPdfService {
       doc,
       `ART 10 : de payer les frais d’enregistrement et de l’état des lieux et ceux afférents au présent contrat et notamment les frais de timbre et d’enregistrement y afférents, ainsi que toutes les amendes, pénalités ou double droit éventuels, sans recours contre le bailleur.`,
     );
+    this.paragraph(
+      doc,
+      `ART 11 : de participer aux frais en cas d’engorgement des tuyaux de descentes ou autre appareil de ce genre situés à l’intérieur du bien loué, les travaux.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 12 : de donner la possibilité au bailleur, lorsqu’un congé aura été reçu ou donné, de faire visiter le local par tout preneur potentiel, tous les jours ouvrables durant deux heures en étant prévenu à moins vingt-quatre heure avant chaque visite.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 13 : de payer les frais d’enregistrement et de l’état des lieux et ceux afférents au présent contrat et notamment les frais de timbre et enregistrement y afférent, ainsi que toutes les amendes, pénalités ou double droit éventuels, sans recours contre le bailleur, étant précisé que le renouvellement de l’enregistrement sera fait, le cas échéant, par lui, à ses frais et sous son entière responsabilité.`,
+    );
 
-    this.addPageIfNeeded(doc);
+    this.ensureSpace(doc, 180);
 
     this.sectionTitle(doc, '4-caution');
     this.paragraph(
@@ -287,7 +301,7 @@ export class RealEstateContractPdfService {
     this.sectionTitle(doc, '7-clauses résolutoires');
     this.paragraph(
       doc,
-      `À défaut de paiement d’un seul terme de loyer à son échéance, huit jours après simple mise en demeure par acte extrajudiciaire adressé par le bailleur ou à son représentant et restée sans effet, la présente location sera résiliée de plein droit si le bailleur le décide, sans aucune formalité de justice.`,
+      `À défaut de paiement d’un seul terme de loyer à son échéance, huit jours après simple mise en demeure par acte extra judiciaire adressé par le bailleur ou à son représentant et restée sans effet, la présente location sera résiliée de plein droit si le bailleur le décide, sans aucune formalité de justice.`,
     );
 
     this.sectionTitle(doc, '8 assurances');
@@ -321,6 +335,8 @@ export class RealEstateContractPdfService {
       `NB LES FRAIS DE VIDANGES DES FAUSSES SEPTIQUES SONT A LA CHARGE DES LOCATAIRES.`,
     );
 
+    this.ensureSpace(doc, 120);
+
     this.line(doc);
 
     doc.font('Helvetica').fontSize(10.5).fillColor('#374151');
@@ -328,19 +344,21 @@ export class RealEstateContractPdfService {
       align: 'right',
     });
 
-    doc.moveDown(2.5);
+    doc.moveDown(2);
 
-    const signatureTop = doc.y;
+    const currentY = doc.y;
 
     doc.font('Helvetica-Bold').fontSize(11).fillColor('#111111');
-    doc.text('LE GERANT', 70, signatureTop);
-    doc.text('le locataire', 390, signatureTop);
+    doc.text('LE GERANT', 70, currentY);
+    doc.text('le locataire', 390, currentY);
 
-    doc.moveDown(5);
+    doc.moveDown(2.5);
+
+    const signY = doc.y;
 
     doc.font('Helvetica').fontSize(10).fillColor('#6b7280');
-    doc.text('(Signature)', 70, signatureTop + 90);
-    doc.text('(Signature)', 390, signatureTop + 90);
+    doc.text('(Signature)', 70, signY);
+    doc.text('(Signature)', 390, signY);
 
     doc.end();
 
