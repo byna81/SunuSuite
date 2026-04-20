@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { RealEstateContractPdfService } from './real-estate-contract-pdf.service';
 
 @Injectable()
 export class ContractService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realEstateContractPdfService: RealEstateContractPdfService,
+  ) {}
 
   private computeAmounts(rentAmount: number, agencyPercent: number) {
     const rent = Number(rentAmount || 0);
@@ -148,7 +152,7 @@ export class ContractService {
       agencyPercent,
     );
 
-    return this.prisma.leaseContract.create({
+    const contract = await this.prisma.leaseContract.create({
       data: {
         tenantId,
         propertyId: body.propertyId,
@@ -167,7 +171,43 @@ export class ContractService {
         inventoryOutNotes: body.inventoryOutNotes?.trim() || null,
       },
       include: {
-        property: true,
+        property: {
+          include: {
+            owner: true,
+          },
+        },
+        tenantProperty: true,
+      },
+    });
+
+    try {
+      const pdfUrl =
+        await this.realEstateContractPdfService.generateLeaseContractPdf(
+          contract.id,
+        );
+
+      await this.prisma.leaseContract.update({
+        where: { id: contract.id },
+        data: {
+          pdfUrl,
+          pdfGeneratedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error(
+        'Erreur génération PDF contrat immobilier:',
+        error,
+      );
+    }
+
+    return this.prisma.leaseContract.findUnique({
+      where: { id: contract.id },
+      include: {
+        property: {
+          include: {
+            owner: true,
+          },
+        },
         tenantProperty: true,
       },
     });
@@ -193,6 +233,14 @@ export class ContractService {
       where: {
         id,
         tenantId,
+      },
+      include: {
+        property: {
+          include: {
+            owner: true,
+          },
+        },
+        tenantProperty: true,
       },
     });
 
@@ -225,7 +273,7 @@ export class ContractService {
       agencyPercent,
     );
 
-    return this.prisma.leaseContract.update({
+    const updated = await this.prisma.leaseContract.update({
       where: { id },
       data: {
         startDate: body.startDate ? new Date(body.startDate) : existing.startDate,
@@ -257,7 +305,43 @@ export class ContractService {
             : existing.inventoryOutNotes,
       },
       include: {
-        property: true,
+        property: {
+          include: {
+            owner: true,
+          },
+        },
+        tenantProperty: true,
+      },
+    });
+
+    try {
+      const pdfUrl =
+        await this.realEstateContractPdfService.generateLeaseContractPdf(
+          updated.id,
+        );
+
+      await this.prisma.leaseContract.update({
+        where: { id: updated.id },
+        data: {
+          pdfUrl,
+          pdfGeneratedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error(
+        'Erreur régénération PDF contrat immobilier:',
+        error,
+      );
+    }
+
+    return this.prisma.leaseContract.findUnique({
+      where: { id: updated.id },
+      include: {
+        property: {
+          include: {
+            owner: true,
+          },
+        },
         tenantProperty: true,
       },
     });
@@ -346,6 +430,8 @@ export class ContractService {
             agencyAmount: contract.agencyAmount,
             ownerAmount: contract.ownerAmount,
             tenantName: contract.tenantProperty?.name || null,
+            pdfUrl: contract.pdfUrl || null,
+            pdfGeneratedAt: contract.pdfGeneratedAt || null,
           }
         : null,
     };
