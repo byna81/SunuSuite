@@ -65,7 +65,7 @@ export class RealEstateContractPdfService {
 
     const tenantName = this.safe(contract.tenantProperty?.name);
     const tenantPhone = this.safe(contract.tenantProperty?.phone);
-    const tenantIdentityNumber = this.safe(contract.tenantProperty?.identityNumber);
+    const tenantIdentityNumber = '-';
     const tenantAddress = this.safe(contract.tenantProperty?.address);
 
     const propertyTitle = this.safe(contract.property?.title);
