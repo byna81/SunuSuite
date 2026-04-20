@@ -281,7 +281,7 @@ export class RealEstateContractPdfService {
     this.sectionTitle(doc, '6-Congé');
     this.paragraph(
       doc,
-      `Le bailleur devra donner son préavis de six (6) mois au preneur par voie d’huissier ou lettre recommandée, s’il entend résilier le bail. Le locataire devra respecter un préavis de deux mois pour donner congé à l’autre partie, et ce par acte extrajudiciaire.`,
+      `Le bailleur devra donner son préavis de six (6) mois au preneur par voie d’huissier ou lettre recommandée, s’il entend résilier le bail. Le locataire devra respecter un préavis de deux mois pour donner congé à l’autre partie, et ce par acte extra judiciaire.`,
     );
 
     this.sectionTitle(doc, '7-clauses résolutoires');
