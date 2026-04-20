@@ -647,6 +647,7 @@ model Property {
   title         String
   type          String
   address       String
+  city          String?
   amount        String
   status        String           @default("disponible")
   description   String?
