@@ -250,20 +250,124 @@ export class DashboardService {
   // MOCK SIMPLE (à remplacer plus tard par tes vraies méthodes)
   // ================================
   async getSaleDashboard(tenantId: string) {
-    return {
-      revenues: { totalSalesRevenue: 0 },
-      expenses: { totalExpenses: 0 },
-      finance: { netResult: 0, totalOutstandingSales: 0 },
-    };
-  }
+  const [
+    saleRevenueAgg,
+    saleExpensesAgg,
+    outstandingSalesAgg,
+  ] = await Promise.all([
+    this.prisma.vehiclePayment.aggregate({
+      where: {
+        tenantId,
+        paymentType: 'sale',
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
 
-  async getRentalDashboard(tenantId: string) {
-    return {
-      revenues: { totalRentalRevenue: 0 },
-      expenses: { totalExpenses: 0 },
-      finance: { netResult: 0, totalOutstandingRentals: 0 },
-    };
-  }
+    this.prisma.expense.aggregate({
+      where: {
+        tenantId,
+        module: 'sale',
+      },
+      _sum: {
+        amount: true,
+      },
+      _count: {
+        id: true,
+      },
+    }),
+
+    this.prisma.vehicleSaleContract.aggregate({
+      where: {
+        tenantId,
+      },
+      _sum: {
+        remainingAmount: true,
+      },
+    }),
+  ]);
+
+  const totalSalesRevenue = this.toNumber(saleRevenueAgg._sum.amount);
+  const totalExpenses = this.toNumber(saleExpensesAgg._sum.amount);
+  const totalOutstandingSales = this.toNumber(
+    outstandingSalesAgg._sum.remainingAmount,
+  );
+
+  return {
+    revenues: {
+      totalSalesRevenue,
+    },
+    expenses: {
+      totalExpenses,
+      count: this.toNumber(saleExpensesAgg._count.id),
+    },
+    finance: {
+      netResult: totalSalesRevenue - totalExpenses,
+      totalOutstandingSales,
+    },
+  };
+}
+
+    async getRentalDashboard(tenantId: string) {
+  const [
+    rentalRevenueAgg,
+    rentalExpensesAgg,
+    outstandingRentalsAgg,
+  ] = await Promise.all([
+    this.prisma.vehiclePayment.aggregate({
+      where: {
+        tenantId,
+        paymentType: 'rental',
+      },
+      _sum: {
+        amount: true,
+      },
+    }),
+
+    this.prisma.expense.aggregate({
+      where: {
+        tenantId,
+        module: 'rental',
+      },
+      _sum: {
+        amount: true,
+      },
+      _count: {
+        id: true,
+      },
+    }),
+
+    this.prisma.vehicleRentalContract.aggregate({
+      where: {
+        tenantId,
+      },
+      _sum: {
+        remainingAmount: true,
+      },
+    }),
+  ]);
+
+  const totalRentalRevenue = this.toNumber(rentalRevenueAgg._sum.amount);
+  const totalExpenses = this.toNumber(rentalExpensesAgg._sum.amount);
+  const totalOutstandingRentals = this.toNumber(
+    outstandingRentalsAgg._sum.remainingAmount,
+  );
+
+  return {
+    revenues: {
+      totalRentalRevenue,
+    },
+    expenses: {
+      totalExpenses,
+      count: this.toNumber(rentalExpensesAgg._count.id),
+    },
+    finance: {
+      netResult: totalRentalRevenue - totalExpenses,
+      totalOutstandingRentals,
+    },
+  };
+}
 
   async getYangoDashboard(tenantId: string) {
   const now = new Date();
