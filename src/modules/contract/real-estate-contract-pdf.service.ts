@@ -17,6 +17,7 @@ export class RealEstateContractPdfService {
   private formatDate(value?: Date | string | null) {
     if (!value) return '-';
     const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('fr-FR');
   }
 
@@ -26,6 +27,121 @@ export class RealEstateContractPdfService {
 
   private safe(value?: string | null) {
     return value?.trim() || '-';
+  }
+
+  private pickFirstString(...values: Array<unknown>) {
+    for (const value of values) {
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+    return '';
+  }
+
+  private normalizeParagraph(value?: string | null) {
+    const text = this.safe(value);
+    if (text === '-') return '';
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
+  private async getAgencyInfo(tenantId: string) {
+    let settings: any = null;
+
+    try {
+      settings = await (this.prisma as any).appSettings?.findFirst?.({
+        where: { tenantId },
+      });
+    } catch {
+      settings = null;
+    }
+
+    const agencyName = this.pickFirstString(
+      settings?.realEstateAgencyName,
+      settings?.agencyName,
+      settings?.companyName,
+      settings?.businessName,
+      settings?.name,
+    );
+
+    const agencyAddress = this.pickFirstString(
+      settings?.realEstateAgencyAddress,
+      settings?.agencyAddress,
+      settings?.companyAddress,
+      settings?.address,
+      settings?.location,
+    );
+
+    const agencyPhone = this.pickFirstString(
+      settings?.realEstateAgencyPhone,
+      settings?.agencyPhone,
+      settings?.companyPhone,
+      settings?.phone,
+      settings?.mobile,
+    );
+
+    const agencyActivity = this.pickFirstString(
+      settings?.realEstateAgencyActivity,
+      settings?.agencyActivity,
+      settings?.businessActivity,
+      'Achat - Vente - Location - Gérance',
+    );
+
+    return {
+      agencyName: agencyName || 'Agence immobilière',
+      agencyAddress: agencyAddress || '-',
+      agencyPhone: agencyPhone || '-',
+      agencyActivity,
+    };
+  }
+
+  private drawSeparator(doc: PDFKit.PDFDocument) {
+    doc.moveDown(0.25);
+    doc
+      .strokeColor('#d1d5db')
+      .lineWidth(1)
+      .moveTo(50, doc.y)
+      .lineTo(545, doc.y)
+      .stroke();
+    doc.moveDown(0.6);
+  }
+
+  private sectionTitle(doc: PDFKit.PDFDocument, title: string) {
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(12)
+      .fillColor('#111827')
+      .text(title, { align: 'left' });
+    doc.moveDown(0.35);
+  }
+
+  private paragraph(doc: PDFKit.PDFDocument, text: string) {
+    if (!text.trim()) return;
+    doc
+      .font('Helvetica')
+      .fontSize(10.5)
+      .fillColor('#374151')
+      .text(text, {
+        align: 'justify',
+        lineGap: 2,
+      });
+    doc.moveDown(0.5);
+  }
+
+  private bullet(doc: PDFKit.PDFDocument, text: string) {
+    doc
+      .font('Helvetica')
+      .fontSize(10.5)
+      .fillColor('#374151')
+      .text(`• ${text}`, {
+        indent: 10,
+        lineGap: 2,
+      });
+  }
+
+  private ensureSpace(doc: PDFKit.PDFDocument, minY = 720) {
+    if (doc.y > minY) {
+      doc.addPage();
+    }
   }
 
   async generateLeaseContractPdf(contractId: string): Promise<string> {
@@ -45,6 +161,9 @@ export class RealEstateContractPdfService {
       throw new NotFoundException('Contrat introuvable');
     }
 
+    const { agencyName, agencyAddress, agencyPhone, agencyActivity } =
+      await this.getAgencyInfo(contract.tenantId);
+
     const uploadsDir = path.join(process.cwd(), 'uploads', 'contracts');
     this.ensureDirectoryExists(uploadsDir);
 
@@ -54,6 +173,7 @@ export class RealEstateContractPdfService {
     const doc = new PDFDocument({
       size: 'A4',
       margin: 50,
+      bufferPages: true,
     });
 
     const stream = fs.createWriteStream(filePath);
@@ -73,178 +193,214 @@ export class RealEstateContractPdfService {
     const propertyType = this.safe(contract.property?.type);
 
     const startDate = this.formatDate(contract.startDate);
-    const endDate = contract.endDate ? this.formatDate(contract.endDate) : 'Non définie';
+    const endDate = contract.endDate
+      ? this.formatDate(contract.endDate)
+      : 'Non définie';
     const signatureDate = this.formatDate(new Date());
 
     const rentAmount = this.formatMoney(contract.rentAmount);
     const depositAmount = this.formatMoney(contract.depositAmount);
-    const city = this.safe(contract.property?.city || 'Dakar');
+    const city = this.safe(contract.property?.city);
 
-    const paymentFrequency = this.safe(contract.paymentFrequency || 'mensuel');
-    const notes = this.safe(contract.notes);
+    const notes = this.normalizeParagraph(contract.notes);
 
-    const line = () => {
-      doc.moveDown(0.3);
-      doc
-        .strokeColor('#d1d5db')
-        .lineWidth(1)
-        .moveTo(50, doc.y)
-        .lineTo(545, doc.y)
-        .stroke();
-      doc.moveDown(0.6);
-    };
-
-    const sectionTitle = (title: string) => {
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(13)
-        .fillColor('#111827')
-        .text(title, { align: 'left' });
-      doc.moveDown(0.4);
-    };
-
-    const paragraph = (text: string) => {
-      doc
-        .font('Helvetica')
-        .fontSize(11)
-        .fillColor('#374151')
-        .text(text, {
-          align: 'justify',
-          lineGap: 2,
-        });
-      doc.moveDown(0.6);
-    };
-
-    const bullet = (text: string) => {
-      doc
-        .font('Helvetica')
-        .fontSize(11)
-        .fillColor('#374151')
-        .text(`• ${text}`, {
-          indent: 10,
-          lineGap: 2,
-        });
-    };
-
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(18)
-      .fillColor('#111827')
-      .text('CONTRAT DE BAIL A USAGE D’HABITATION', {
-        align: 'center',
-      });
+    // En-tête agence
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827').text(agencyName);
+    doc.font('Helvetica').fontSize(9.5).fillColor('#374151');
+    doc.text(agencyAddress);
+    doc.text(agencyActivity);
+    doc.text(`Tel ${agencyPhone}`);
 
     doc.moveDown(1);
 
+    // Titre
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(16)
+      .fillColor('#111827')
+      .text('Contrat de bail', { align: 'center' });
+
+    doc.moveDown(1);
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827').text('Entre les soussignés');
+    doc.moveDown(0.3);
+
     doc
       .font('Helvetica')
-      .fontSize(11)
+      .fontSize(10.2)
       .fillColor('#374151')
-      .text('Entre les soussignés :');
+      .text(
+        `M. ${ownerName}, propriétaire de l’immeuble situé à ${propertyAddress}, représenté par ${agencyName}, en qualité de bailleur ;`,
+        {
+          align: 'justify',
+          lineGap: 2,
+        },
+      );
 
-    doc.moveDown(0.8);
+    doc.moveDown(0.35);
 
-    doc.font('Helvetica-Bold').fillColor('#111827').text('Le Bailleur');
-    doc.font('Helvetica').fillColor('#374151');
-    doc.text(`Nom : ${ownerName}`);
-    doc.text(`Adresse : ${ownerAddress}`);
-    doc.text(`Téléphone : ${ownerPhone}`);
-
-    doc.moveDown(0.8);
-
-    doc.font('Helvetica-Bold').fillColor('#111827').text('Le Locataire');
-    doc.font('Helvetica').fillColor('#374151');
-    doc.text(`Nom : ${tenantName}`);
-    doc.text(`Adresse : ${tenantAddress}`);
-    doc.text(`Téléphone : ${tenantPhone}`);
-    doc.text(`Pièce d’identité : ${tenantIdentityNumber}`);
-
-    line();
-
-    sectionTitle('1. Objet du contrat');
-    paragraph(
-      `Le présent contrat porte sur la location du bien suivant : ${propertyType} - ${propertyTitle}, situé à l’adresse ${propertyAddress}. Le locataire déclare avoir visité le bien et l’accepter dans l’état où il se trouve au jour de la signature du présent contrat.`,
+    doc.text(
+      `Et M./Mme ${tenantName}, demeurant à ${tenantAddress}, téléphone ${tenantPhone}, pièce d’identité ${tenantIdentityNumber}, ci-après désigné(e) le locataire ;`,
+      {
+        align: 'justify',
+        lineGap: 2,
+      },
     );
 
-    sectionTitle('2. Destination');
-    paragraph(
-      `Le bien est loué exclusivement à usage d’habitation. Toute utilisation à des fins professionnelles, commerciales ou contraires à la destination initiale du bien est interdite sauf accord écrit préalable du bailleur.`,
+    doc.moveDown(0.45);
+    doc.text('Il a été convenu et arrêté ce qui suit :', {
+      align: 'center',
+    });
+
+    doc.moveDown(0.7);
+
+    this.sectionTitle(doc, '1-Désignation');
+    this.paragraph(
+      doc,
+      `Le présent contrat porte sur un ${propertyType.toUpperCase()} dénommé "${propertyTitle}" situé à ${propertyAddress}, que le preneur a visité et accepté tel quel est.`,
     );
 
-    sectionTitle('3. Durée');
-    paragraph(
-      `Le présent bail prend effet à compter du ${startDate} et est conclu jusqu’au ${endDate}. À défaut de congé régulièrement donné par l’une des parties, il pourra être renouvelé selon les conditions légales et contractuelles applicables.`,
+    this.sectionTitle(doc, '2-Usage durée');
+    this.paragraph(doc, 'Le local est loué strictement à usage d’habitation.');
+    this.paragraph(
+      doc,
+      `Le présent contrat de bail est conclu à compter du ${startDate}${
+        endDate !== 'Non définie' ? ` jusqu’au ${endDate}` : ''
+      } et pourra être renouvelé ou révisé selon les dispositions applicables.`,
     );
 
-    sectionTitle('4. Conditions financières');
-    paragraph(
-      `Le loyer est fixé à ${rentAmount}, payable selon une périodicité ${paymentFrequency}. Le paiement doit intervenir au plus tard le 5 de chaque mois, par l’un des moyens acceptés par le bailleur.`,
+    this.sectionTitle(doc, '3-charges et condition liées au contrat');
+    this.paragraph(
+      doc,
+      `La présente location est consentie et acceptée sous les charges ordinaires et de droit suivant l’usage sur la place, outre les conditions suivantes que le locataire s’oblige à exécuter ou à supporter à peine de résiliation, sans pouvoir prétendre à aucune indemnité, et sans aucun recours contre le bailleur.`,
     );
 
-    bullet('Espèces');
-    bullet('Wave');
-    bullet('Orange Money');
-    bullet('Virement bancaire');
-
-    doc.moveDown(0.8);
-
-    sectionTitle('5. Caution');
-    paragraph(
-      `Le locataire verse une caution de ${depositAmount}. Cette caution est destinée à couvrir les dégradations éventuelles, les loyers impayés ou les charges restant dues. Elle sera restituée après l’état des lieux de sortie, sous réserve des retenues légalement ou contractuellement justifiées.`,
+    this.paragraph(
+      doc,
+      `ART 1 : de prendre le bien loué dans l’état où il se trouvera le jour de l’entrée, étant précisé qu’un état des lieux sera effectué.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 2 : de garnir et de tenir le local constamment pourvu de meubles, mobilier et matériel ou autre en quantité et de valeur suffisante pour répondre en tout temps du paiement des loyers et des charges, et condition de la location.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 3 : de ne pas prêter ou sous louer le bien loué sans l’autorisation expresse et écrite du bailleur.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 4 : d’entretenir le bien loué pendant toute la durée du bail des réparations locatives et de ne pouvoir, sans le consentement exprès et par écrit du bailleur, changer dans la disposition du bien loué.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 5 : d’acquitter exactement pendant toute la durée de la location les frais d’enregistrement du compteur d’eau, d’électricité et de la consommation d’eau et d’électricité propre au bien loué ainsi que des contributions personnelles et mobilières enfin qu’aucun recours ne puisse être exercé contre le bailleur.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 6 : de payer, s’il y a lieu, la taxe d’enlèvement des ordures ménagères, ainsi que toutes les autres taxes ou impôts locatifs futurs qui seraient inhérents au présent bail.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 7 : de souffrir sans aucune indemnité ni diminution de loyer les travaux que le bailleur jugerait nécessaire de faire exécuter dans le bien loué ou dans l’immeuble.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 8 : de satisfaire à toutes les charges de ville ou de police dont les locataires sont ordinairement tenus, de par la loi, sans qu’aucun recours ne puisse être exercé à cet égard contre le bailleur.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 9 : de donner la possibilité au bailleur, lorsqu’un congé aura été reçu ou donné, de faire visiter le local par tout preneur potentiel, tous les jours ouvrables durant deux heures en étant prévenu à moins vingt-quatre heure avant chaque visite.`,
+    );
+    this.paragraph(
+      doc,
+      `ART 10 : de payer les frais d’enregistrement et de l’état des lieux et ceux afférent au présent contrat et notamment les frais de timbre et enregistrement y afférent, ainsi que toutes les amendes, pénalités ou double droit éventuels, sans recours contre le bailleur.`,
     );
 
-    sectionTitle('6. Obligations du locataire');
-    bullet('Payer régulièrement le loyer et les charges dues.');
-    bullet('User paisiblement du bien loué et respecter le voisinage.');
-    bullet('Entretenir les lieux et prendre en charge les réparations locatives.');
-    bullet('Ne pas sous-louer sans l’accord écrit du bailleur.');
-    bullet('Répondre des dégradations survenues pendant l’occupation.');
-    doc.moveDown(0.8);
+    this.ensureSpace(doc);
 
-    sectionTitle('7. Charges et entretien');
-    paragraph(
-      `Les consommations d’eau, d’électricité, d’internet et toutes autres charges liées à l’usage courant du bien sont à la charge du locataire. Les grosses réparations, sauf faute du locataire, restent à la charge du bailleur.`,
+    this.sectionTitle(doc, '4-caution');
+    this.paragraph(
+      doc,
+      `De verser à l’entrée dans le bien une caution de ${depositAmount} à titre de dépôt de garantie pour éventuel paiement des réparations locatives causées par le locataire et en particulier :`,
+    );
+    this.bullet(doc, 'Le lessivage et la réfection des peintures');
+    this.bullet(doc, 'Le lessivage du carrelage et des sanitaires');
+    this.bullet(doc, 'Les vérifications des installations électriques');
+    this.bullet(doc, 'La désinfection du local');
+    this.bullet(
+      doc,
+      'Et en général toutes les réparations de détails qui s’en avéreraient nécessaires pour que le bien rendu soit à neuf',
+    );
+    doc.moveDown(0.6);
+
+    this.sectionTitle(doc, '5-loyer');
+    this.paragraph(
+      doc,
+      `Le présent bail est consenti moyennant mensuel de ${rentAmount}, payable avant le cinq (5) de chaque mois, loyer portable et non quérable. Tout mois entamé est dû. Il est expressément stipulé qu’en cas de retard dans le paiement du loyer, le locataire s’acquittera des frais qu’il aura été nécessaire de le relancer.`,
     );
 
-    sectionTitle('8. Résiliation');
-    paragraph(
-      `En cas de non-paiement du loyer, de manquement grave aux obligations contractuelles ou de trouble manifeste, le bail pourra être résilié dans les conditions prévues par la réglementation applicable et après mise en demeure restée sans effet.`,
+    this.sectionTitle(doc, '6-Congé');
+    this.paragraph(
+      doc,
+      `Le bailleur devra donner son préavis de six (6) mois au preneur par voie d’huissier ou lettre recommandée, s’il entend résilier le bail. Le locataire devra respecter un préavis de deux mois pour donner congé à l’autre partie, et ce par acte extrajudiciaire.`,
     );
 
-    sectionTitle('9. Assurance et responsabilité');
-    paragraph(
-      `Le locataire demeure responsable des dommages causés au bien pendant la durée du bail. Il lui est recommandé de souscrire une assurance couvrant au minimum les risques locatifs.`,
+    this.sectionTitle(doc, '7-clauses résolutoires');
+    this.paragraph(
+      doc,
+      `À défaut de paiement d’un seul terme de loyer à son échéance huit jours après simple mise en demeure par acte extrajudiciaire adressé par le bailleur ou à son représentant et restée sans effet, la présente location sera résiliée de plein droit si le bailleur le décide, sans aucune formalité de justice, et le locataire sera expulsé sur simple ordonnance de référé.`,
     );
 
-    sectionTitle('10. Juridiction compétente');
-    paragraph(
-      `Tout litige relatif à l’exécution, l’interprétation ou la résiliation du présent contrat sera soumis aux juridictions compétentes de ${city}.`,
+    this.sectionTitle(doc, '8 assurances');
+    this.paragraph(
+      doc,
+      `Le preneur devra contracter auprès d’une compagnie d’assurance notoirement solvable, une police d’assurance incendie, et dégâts des eaux, les risques locatifs, le recours des voisins, couvrant la valeur au mois dont il est question à l’article ci-dessus.`,
     );
 
-    if (notes !== '-') {
-      sectionTitle('11. Clauses particulières');
-      paragraph(notes);
-    }
+    this.sectionTitle(doc, '9-Clause particulière');
+    this.paragraph(
+      doc,
+      notes ||
+        `Il est expressément convenu qu’en cas de litige, soumis ou non à l’appréciation des tribunaux compétents, les frais d’huissier, l’expertise et les honoraires d’avocat, qui auraient été engagés et ce, sur pièces justificatives, seront remboursés par la partie qui aura perdu le procès.`,
+    );
 
-    line();
+    this.sectionTitle(doc, 'Election de domicile et attribution de juridiction');
+    this.paragraph(doc, `Le locataire élit domicile dans les lieux loués.`);
+    this.paragraph(
+      doc,
+      `Le bailleur dans les bureaux de ${agencyName}. Avec attribution exclusive de juridiction aux tribunaux de ${city}.`,
+    );
 
-    doc.font('Helvetica').fontSize(11).fillColor('#374151');
-    doc.text(`Fait à : ${city}`);
-    doc.text(`Le : ${signatureDate}`);
+    this.paragraph(
+      doc,
+      `LE LOCATAIRE S’ENGAGE EXPRESSEMENT A REMETTRE AU BAILLEUR OU A SON MANDATAIRE LA PHOTOCOPIE DE SON CONTRAT D’ABONNEMENT D’ELECTRICITE HUIT JOUR A COMPTER DE LA PRISE EN JOUISSANCE DES LIEUX LOUES. LE LOCATAIRE DOIT EGALEMENT PRODUIRE A SA SORTIE LE QUITUS D’ELECTRICITE, D’EAU ET DE TELEPHONE.`,
+    );
 
-    doc.moveDown(2);
+    this.paragraph(
+      doc,
+      `NB LES FRAIS DE VIDANGES DES FAUSSES SEPTIQUES SONT A LA CHARGE DES LOCATAIRES.`,
+    );
+
+    this.drawSeparator(doc);
+
+    doc.font('Helvetica').fontSize(10.5).fillColor('#374151');
+    doc.text(`${city.toUpperCase()} LE ${signatureDate}`, {
+      align: 'right',
+    });
+
+    doc.moveDown(2.5);
 
     const signatureTop = doc.y;
 
-    doc.font('Helvetica-Bold').fillColor('#111827');
-    doc.text('LE BAILLEUR', 70, signatureTop);
-    doc.text('LE LOCATAIRE', 360, signatureTop);
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
+    doc.text('LE GERANT', 70, signatureTop);
+    doc.text('le locataire', 390, signatureTop);
 
-    doc.moveDown(4);
+    doc.moveDown(5);
 
-    doc.font('Helvetica').fillColor('#6b7280');
-    doc.text('(Signature)', 85, signatureTop + 90);
-    doc.text('(Signature)', 380, signatureTop + 90);
+    doc.font('Helvetica').fontSize(10).fillColor('#6b7280');
+    doc.text('(Signature)', 70, signatureTop + 90);
+    doc.text('(Signature)', 390, signatureTop + 90);
 
     doc.end();
 
