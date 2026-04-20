@@ -37,10 +37,14 @@ export class VehicleAssignmentsService {
       throw new BadRequestException('driverId obligatoire');
     }
 
+    const cleanTenantId = tenantId.trim();
+    const cleanVehicleId = body.vehicleId.trim();
+    const cleanDriverId = body.driverId.trim();
+
     const vehicle = await this.prisma.vehicle.findFirst({
       where: {
-        id: body.vehicleId.trim(),
-        tenantId: tenantId.trim(),
+        id: cleanVehicleId,
+        tenantId: cleanTenantId,
       },
     });
 
@@ -50,8 +54,8 @@ export class VehicleAssignmentsService {
 
     const driver = await this.prisma.vtcDriver.findFirst({
       where: {
-        id: body.driverId.trim(),
-        tenantId: tenantId.trim(),
+        id: cleanDriverId,
+        tenantId: cleanTenantId,
       },
     });
 
@@ -61,8 +65,8 @@ export class VehicleAssignmentsService {
 
     const activeAssignment = await this.prisma.vehicleAssignment.findFirst({
       where: {
-        tenantId: tenantId.trim(),
-        vehicleId: body.vehicleId.trim(),
+        tenantId: cleanTenantId,
+        vehicleId: cleanVehicleId,
         isActive: true,
       },
     });
@@ -73,8 +77,8 @@ export class VehicleAssignmentsService {
 
     const activeDriverAssignment = await this.prisma.vehicleAssignment.findFirst({
       where: {
-        tenantId: tenantId.trim(),
-        driverId: body.driverId.trim(),
+        tenantId: cleanTenantId,
+        driverId: cleanDriverId,
         isActive: true,
       },
     });
@@ -83,20 +87,33 @@ export class VehicleAssignmentsService {
       throw new BadRequestException('Ce chauffeur a déjà un véhicule affecté');
     }
 
-    return this.prisma.vehicleAssignment.create({
-      data: {
-        tenantId: tenantId.trim(),
-        vehicleId: body.vehicleId.trim(),
-        driverId: body.driverId.trim(),
-        assignedAt: body.assignedAt ? new Date(body.assignedAt) : new Date(),
-        note: body.note?.trim() || null,
-        isActive: true,
-      },
-      include: {
-        vehicle: true,
-        driver: true,
-      },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const assignment = await tx.vehicleAssignment.create({
+        data: {
+          tenantId: cleanTenantId,
+          vehicleId: cleanVehicleId,
+          driverId: cleanDriverId,
+          assignedAt: body.assignedAt ? new Date(body.assignedAt) : new Date(),
+          note: body.note?.trim() || null,
+          isActive: true,
+        },
+        include: {
+          vehicle: true,
+          driver: true,
+        },
+      });
+
+      await tx.vehicle.update({
+        where: { id: cleanVehicleId },
+        data: {
+          status: 'indisponible',
+        },
+      });
+
+      return assignment;
     });
+
+    return result;
   }
 
   async unassign(tenantId: string, id: string, body: any) {
@@ -104,10 +121,12 @@ export class VehicleAssignmentsService {
       throw new BadRequestException('tenantId obligatoire');
     }
 
+    const cleanTenantId = tenantId.trim();
+
     const assignment = await this.prisma.vehicleAssignment.findFirst({
       where: {
         id,
-        tenantId: tenantId.trim(),
+        tenantId: cleanTenantId,
       },
     });
 
@@ -115,19 +134,49 @@ export class VehicleAssignmentsService {
       throw new NotFoundException('Affectation introuvable');
     }
 
-    return this.prisma.vehicleAssignment.update({
-      where: { id },
-      data: {
-        isActive: false,
-        unassignedAt: body?.unassignedAt
-          ? new Date(body.unassignedAt)
-          : new Date(),
-        note: body?.note?.trim() || assignment.note,
-      },
-      include: {
-        vehicle: true,
-        driver: true,
-      },
+    if (!assignment.isActive) {
+      throw new BadRequestException('Cette affectation est déjà inactive');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updatedAssignment = await tx.vehicleAssignment.update({
+        where: { id },
+        data: {
+          isActive: false,
+          unassignedAt: body?.unassignedAt
+            ? new Date(body.unassignedAt)
+            : new Date(),
+          note: body?.note?.trim() || assignment.note,
+        },
+        include: {
+          vehicle: true,
+          driver: true,
+        },
+      });
+
+      const anotherActiveAssignment = await tx.vehicleAssignment.findFirst({
+        where: {
+          tenantId: cleanTenantId,
+          vehicleId: assignment.vehicleId,
+          isActive: true,
+          id: {
+            not: id,
+          },
+        },
+      });
+
+      if (!anotherActiveAssignment) {
+        await tx.vehicle.update({
+          where: { id: assignment.vehicleId },
+          data: {
+            status: 'disponible',
+          },
+        });
+      }
+
+      return updatedAssignment;
     });
+
+    return result;
   }
 }
