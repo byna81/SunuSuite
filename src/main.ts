@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { join } from 'path';
+import * as express from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -21,6 +23,9 @@ async function bootstrap() {
   app.enableCors({
     origin: '*',
   });
+
+  // ✅ Exposer les fichiers générés (PDF, etc.)
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // ✅ Port Railway
   const port = process.env.PORT || 3000;
