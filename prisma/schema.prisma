@@ -74,6 +74,7 @@ enum Sector {
   immobilier
   transport
   commerce
+  gym
 }
 
 enum ManualPaymentStatus {
