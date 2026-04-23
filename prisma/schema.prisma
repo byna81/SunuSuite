@@ -207,6 +207,12 @@ model Tenant {
   vtcOwnerSettlements    VtcOwnerSettlement[]
   vehicleMaintenances    VehicleMaintenance[]
   expenses               Expense[]
+
+  gymMembers             GymMember[]
+  gymCoaches             GymCoach[]
+  gymSubscriptions       GymSubscription[]
+  gymPayments            GymPayment[]
+  gymAccessLogs          GymAccessLog[]
 }
 model User {
   id                     String      @id @default(uuid())
@@ -1255,6 +1261,9 @@ model GymMember {
   createdAt DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  subscriptions GymSubscription[]
+  payments      GymPayment[]
+  accessLogs    GymAccessLog[]
 }
 
 model GymCoach {
