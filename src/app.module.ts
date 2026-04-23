@@ -43,7 +43,6 @@ import { OwnersModule } from './modules/Owners/owners.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { TenantModulesModule } from './modules/tenant-modules/tenant-modules.module';
 import { AdminSystemModule } from './modules/admin-system/admin-system.module';
-
 import { GymMembersModule } from './modules/gym-members/gym-members.module';
 
 @Module({
