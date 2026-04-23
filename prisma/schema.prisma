@@ -1239,3 +1239,69 @@ model Expense {
   @@index([tenantId, vehicleId])
   @@index([tenantId, expenseDate])
 }
+
+// =======================
+// GYM MODULE (SAFE)
+// =======================
+
+model GymMember {
+  id        String   @id @default(cuid())
+  tenantId  String
+  firstName String
+  lastName  String
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model GymCoach {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  specialty String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model GymSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  memberId  String
+  type      String
+  price     Float
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id])
+  member GymMember  @relation(fields: [memberId], references: [id])
+}
+
+model GymPayment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  memberId  String
+  amount    Float
+  method    String
+  createdAt DateTime @default(now())
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  member GymMember @relation(fields: [memberId], references: [id])
+}
+
+model GymAccessLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  memberId  String
+  accessAt  DateTime @default(now())
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  member GymMember @relation(fields: [memberId], references: [id])
+}
+
+
+
