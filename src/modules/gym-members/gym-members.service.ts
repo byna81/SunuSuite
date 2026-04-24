@@ -1,17 +1,19 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-
-import { randomUUID } from "crypto";
-import * as bcrypt from "bcryptjs";
+import { randomUUID } from 'crypto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class GymMembersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll(tenantId: string, search?: string) {
-    if (!tenantId?.trim()) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
+    if (!tenantId?.trim()) throw new BadRequestException('tenantId obligatoire');
 
     return this.prisma.gymMember.findMany({
       where: {
@@ -29,6 +31,7 @@ export class GymMembersService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
+        user: true,
         subscriptions: true,
         payments: true,
         accessLogs: true,
@@ -37,25 +40,19 @@ export class GymMembersService {
   }
 
   async findOne(tenantId: string, id: string) {
-    if (!tenantId?.trim()) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
+    if (!tenantId?.trim()) throw new BadRequestException('tenantId obligatoire');
 
     const member = await this.prisma.gymMember.findFirst({
-      where: {
-        id,
-        tenantId: tenantId.trim(),
-      },
+      where: { id, tenantId: tenantId.trim() },
       include: {
+        user: true,
         subscriptions: true,
         payments: true,
         accessLogs: true,
       },
     });
 
-    if (!member) {
-      throw new NotFoundException('Membre introuvable');
-    }
+    if (!member) throw new NotFoundException('Membre introuvable');
 
     return member;
   }
@@ -70,28 +67,77 @@ export class GymMembersService {
       isActive?: boolean;
     },
   ) {
-    if (!tenantId?.trim()) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
+    const cleanTenantId = tenantId?.trim();
+    const firstName = body?.firstName?.trim();
+    const lastName = body?.lastName?.trim();
+    const phone = body?.phone?.trim() || null;
+    const email = body?.email?.trim()?.toLowerCase();
 
-    if (!body?.firstName?.trim()) {
-      throw new BadRequestException('firstName obligatoire');
-    }
+    if (!cleanTenantId) throw new BadRequestException('tenantId obligatoire');
+    if (!firstName) throw new BadRequestException('firstName obligatoire');
+    if (!lastName) throw new BadRequestException('lastName obligatoire');
+    if (!email) throw new BadRequestException('email obligatoire');
 
-    if (!body?.lastName?.trim()) {
-      throw new BadRequestException('lastName obligatoire');
-    }
-
-    return this.prisma.gymMember.create({
-      data: {
-        tenantId: tenantId.trim(),
-        firstName: body.firstName.trim(),
-        lastName: body.lastName.trim(),
-        phone: body.phone?.trim() || null,
-        email: body.email?.trim()?.toLowerCase() || null,
-        isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+    const existingUser = await this.prisma.user.findFirst({
+      where: {
+        tenantId: cleanTenantId,
+        OR: [{ email }, { login: email }],
       },
     });
+
+    if (existingUser) {
+      throw new ConflictException('Un utilisateur existe déjà avec cet email');
+    }
+
+    const tempPassword = 'SunuSuite1234';
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email,
+          login: email,
+          password: hashedPassword,
+          role: 'client',
+          tenantId: cleanTenantId,
+          isActive: true,
+          mustChangePassword: true,
+          fullName: `${firstName} ${lastName}`,
+          phone,
+        },
+      });
+
+      const member = await tx.gymMember.create({
+        data: {
+          tenant: {
+            connect: { id: cleanTenantId },
+          },
+          user: {
+            connect: { id: user.id },
+          },
+          firstName,
+          lastName,
+          phone,
+          email,
+          qrCode: `GYM-${randomUUID()}`,
+          isActive: body.isActive !== undefined ? Boolean(body.isActive) : true,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      return { user, member };
+    });
+
+    return {
+      member: result.member,
+      credentials: {
+        login: email,
+        password: tempPassword,
+        mustChangePassword: true,
+      },
+    };
   }
 
   async update(
@@ -111,17 +157,11 @@ export class GymMembersService {
       where: { id: existing.id },
       data: {
         firstName:
-          body.firstName !== undefined
-            ? body.firstName.trim()
-            : existing.firstName,
+          body.firstName !== undefined ? body.firstName.trim() : existing.firstName,
         lastName:
-          body.lastName !== undefined
-            ? body.lastName.trim()
-            : existing.lastName,
+          body.lastName !== undefined ? body.lastName.trim() : existing.lastName,
         phone:
-          body.phone !== undefined
-            ? body.phone?.trim() || null
-            : existing.phone,
+          body.phone !== undefined ? body.phone?.trim() || null : existing.phone,
         email:
           body.email !== undefined
             ? body.email?.trim()?.toLowerCase() || null
@@ -134,9 +174,6 @@ export class GymMembersService {
 
   async remove(tenantId: string, id: string) {
     const existing = await this.findOne(tenantId, id);
-
-    return this.prisma.gymMember.delete({
-      where: { id: existing.id },
-    });
+    return this.prisma.gymMember.delete({ where: { id: existing.id } });
   }
 }
