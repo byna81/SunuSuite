@@ -1271,6 +1271,7 @@ model GymMember {
   lastName  String
   phone     String?
   email     String?
+  qrCode    String @unique
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
