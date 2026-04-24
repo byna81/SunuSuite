@@ -14,7 +14,12 @@ export class GymCoachesService {
 
   async create(
     tenantId: string,
-    data: { name: string; specialty?: string },
+    data: {
+  name: string;
+  specialty?: string;
+  phone?: string;
+  email?: string;
+},
   ) {
     return this.prisma.gymCoach.create({
       data: {
