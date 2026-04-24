@@ -272,6 +272,7 @@ model User {
   sales                  Sale[]
   stockMovements         StockMovement[]
   inventories            StockInventory[] @relation("InventoryCreatedBy")
+  gymMember              GymMember?
 }
 model Vehicle {
   id                   String                @id @default(uuid())
