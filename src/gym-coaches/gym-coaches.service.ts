@@ -21,6 +21,8 @@ export class GymCoachesService {
         tenantId,
         name: data.name,
         specialty: data.specialty || null,
+        phone: data.phone || null,
+        email: data.email || null,
       },
     });
   }
