@@ -1285,6 +1285,8 @@ model GymCoach {
   tenantId  String
   name      String
   specialty String?
+  phone     String?
+  email     String?
   createdAt DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
