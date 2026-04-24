@@ -7,12 +7,18 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import { GymMembersService } from './gym-members.service';
 
 @Controller('gym-members')
 export class GymMembersController {
   constructor(private readonly gymMembersService: GymMembersService) {}
+
+  @Get('me')
+  me(@Req() req: any) {
+    return this.gymMembersService.findMe(req.user?.id, req.user?.tenantId);
+  }
 
   @Get()
   findAll(
@@ -23,10 +29,7 @@ export class GymMembersController {
   }
 
   @Get(':id')
-  findOne(
-    @Query('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  findOne(@Query('tenantId') tenantId: string, @Param('id') id: string) {
     return this.gymMembersService.findOne(tenantId, id);
   }
 
@@ -56,16 +59,14 @@ export class GymMembersController {
       phone?: string | null;
       email?: string | null;
       isActive?: boolean;
+      photoUrl?: string | null;
     },
   ) {
     return this.gymMembersService.update(tenantId, id, body);
   }
 
   @Delete(':id')
-  remove(
-    @Query('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  remove(@Query('tenantId') tenantId: string, @Param('id') id: string) {
     return this.gymMembersService.remove(tenantId, id);
   }
 }
