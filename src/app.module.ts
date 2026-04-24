@@ -43,7 +43,10 @@ import { OwnersModule } from './modules/Owners/owners.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { TenantModulesModule } from './modules/tenant-modules/tenant-modules.module';
 import { AdminSystemModule } from './modules/admin-system/admin-system.module';
+
 import { GymMembersModule } from './modules/gym-members/gym-members.module';
+import { GymCoachesModule } from './gym-coaches/gym-coaches.module';
+
 
 @Module({
   imports: [PrismaModule,
@@ -85,7 +88,8 @@ import { GymMembersModule } from './modules/gym-members/gym-members.module';
     ExpensesModule,
     TenantModulesModule,
     GymMembersModule,
-    AdminSystemModule,        
+    AdminSystemModule,
+    GymCoachesModule,        
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
