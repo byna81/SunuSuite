@@ -1275,8 +1275,8 @@ model GymMember {
   lastName  String
   phone     String?
   email     String?
-
   qrCode    String
+  photoUrl  String?
 
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
