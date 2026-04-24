@@ -217,6 +217,7 @@ model Tenant {
   gymSubscriptions       GymSubscription[]
   gymPayments            GymPayment[]
   gymAccessLogs          GymAccessLog[]
+  gymPlans               GymPlan[]
 }
 
 model User {
@@ -1342,5 +1343,17 @@ model GymAccessLog {
   member GymMember @relation(fields: [memberId], references: [id])
 }
 
+model GymPlan {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  price     Float
+  durationMonths Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
 
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+}
 
