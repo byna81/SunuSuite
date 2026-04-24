@@ -13,7 +13,13 @@ export class GymCoachesController {
   @Post()
   async create(
     @Query('tenantId') tenantId: string,
-    @Body() body: { name: string; specialty?: string },
+    @Body()
+body: {
+  name: string;
+  specialty?: string;
+  phone?: string;
+  email?: string;
+},
   ) {
     return this.service.create(tenantId, body);
   }
