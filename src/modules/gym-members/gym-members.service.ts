@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 
+import { randomUUID } from "crypto";
+import * as bcrypt from "bcrypt";
+
 @Injectable()
 export class GymMembersService {
   constructor(private readonly prisma: PrismaService) {}
