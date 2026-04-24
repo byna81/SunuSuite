@@ -8,16 +8,19 @@ import {
   Post,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { GymMembersService } from './gym-members.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('gym-members')
 export class GymMembersController {
   constructor(private readonly gymMembersService: GymMembersService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   me(@Req() req: any) {
-    return this.gymMembersService.findMe(req.user?.id, req.user?.tenantId);
+    return this.gymMembersService.findMe(req.user.id, req.user.tenantId);
   }
 
   @Get()
