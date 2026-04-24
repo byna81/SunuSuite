@@ -45,7 +45,7 @@ import { TenantModulesModule } from './modules/tenant-modules/tenant-modules.mod
 import { AdminSystemModule } from './modules/admin-system/admin-system.module';
 
 import { GymMembersModule } from './modules/gym-members/gym-members.module';
-import { GymCoachesModule } from './gym-coaches/gym-coaches.module';
+import { GymCoachesModule } from './modules/gym-coaches/gym-coaches.module';
 
 
 @Module({
