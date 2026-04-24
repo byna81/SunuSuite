@@ -47,6 +47,7 @@ import { AdminSystemModule } from './modules/admin-system/admin-system.module';
 import { GymMembersModule } from './modules/gym-members/gym-members.module';
 import { GymCoachesModule } from './modules/gym-coaches/gym-coaches.module';
 import { GymAccessModule } from './modules/gym-access/gym-access.module';
+import { GymSubscriptionsModule } from './modules/gym-subscriptions/gym-subscriptions.module';
 
 
 @Module({
@@ -92,6 +93,7 @@ import { GymAccessModule } from './modules/gym-access/gym-access.module';
     AdminSystemModule,
     GymCoachesModule,
     GymAccessModule,
+    GymSubscriptionsModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
