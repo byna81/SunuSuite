@@ -12,6 +12,9 @@ enum Role {
   manager
   cashier
   agent
+  staff
+  coach
+  client
 }
 
 enum VehicleStatus {
@@ -215,6 +218,7 @@ model Tenant {
   gymPayments            GymPayment[]
   gymAccessLogs          GymAccessLog[]
 }
+
 model User {
   id                     String      @id @default(uuid())
   email                  String?     
@@ -253,6 +257,15 @@ model User {
 
   canManageProducts      Boolean     @default(false)
   canManageStock         Boolean     @default(false)
+
+  canGymManageMembers        Boolean @default(false)
+  canGymManageCoaches        Boolean @default(false)
+  canGymManageCourses        Boolean @default(false)
+  canGymManageSubscriptions  Boolean @default(false)
+  canGymManagePayments       Boolean @default(false)
+  canGymScanAccess           Boolean @default(false)
+  canGymManageProducts       Boolean @default(false)
+  canGymAccessCashier        Boolean @default(false)
 
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
@@ -1308,6 +1321,9 @@ model GymAccessLog {
   tenantId  String
   memberId  String
   accessAt  DateTime @default(now())
+  scannedByUserId String?
+  success         Boolean @default(true)
+  reason          String?
 
   tenant Tenant    @relation(fields: [tenantId], references: [id])
   member GymMember @relation(fields: [memberId], references: [id])
