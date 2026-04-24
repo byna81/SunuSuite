@@ -1264,21 +1264,30 @@ model Expense {
 // GYM MODULE (SAFE)
 // =======================
 
+
 model GymMember {
   id        String   @id @default(cuid())
   tenantId  String
+  userId    String?  @unique
+
   firstName String
   lastName  String
   phone     String?
   email     String?
-  qrCode    String @unique
+
+  qrCode    String
+
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
   subscriptions GymSubscription[]
   payments      GymPayment[]
   accessLogs    GymAccessLog[]
+
+  @@unique([tenantId, qrCode])
 }
 
 model GymCoach {
