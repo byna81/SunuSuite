@@ -265,6 +265,7 @@ model User {
   canGymManageSubscriptions  Boolean @default(false)
   canGymManagePayments       Boolean @default(false)
   canGymScanAccess           Boolean @default(false)
+  canGymManagePlans          Boolean @default(false)
   canGymManageProducts       Boolean @default(false)
   canGymAccessCashier        Boolean @default(false)
 
