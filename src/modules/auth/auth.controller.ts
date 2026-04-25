@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -20,24 +21,13 @@ import { Roles } from './roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // =========================
-  // MANAGER
-  // =========================
-
   @Post('register-manager')
   registerManager(@Body() body: any) {
     return this.authService.registerManager(body);
   }
 
-  // =========================
-  // STAFF (AGENTS)
-  // =========================
-
   @Post('staff')
-  createStaff(
-    @Query('tenantId') tenantId: string,
-    @Body() body: any,
-  ) {
+  createStaff(@Query('tenantId') tenantId: string, @Body() body: any) {
     return this.authService.registerStaff(tenantId, body);
   }
 
@@ -46,18 +36,40 @@ export class AuthController {
     return this.authService.getStaff(tenantId);
   }
 
-  // =========================
-  // AUTH
-  // =========================
+  @Patch('staff/:id')
+  updateStaff(
+    @Query('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: any,
+  ) {
+    return this.authService.updateStaff(tenantId, id, body);
+  }
+
+  @Patch('staff/:id/activate')
+  activateStaff(@Query('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.authService.activateStaff(tenantId, id);
+  }
+
+  @Patch('staff/:id/deactivate')
+  deactivateStaff(@Query('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.authService.deactivateStaff(tenantId, id);
+  }
+
+  @Patch('staff/:id/reset-password')
+  resetStaffPassword(
+    @Query('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.authService.resetStaffPassword(tenantId, id);
+  }
+
+  @Delete('staff/:id')
+  deleteStaff(@Query('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.authService.deleteStaff(tenantId, id);
+  }
 
   @Post('login')
-  login(
-    @Body()
-    body: {
-      identifier: string;
-      password: string;
-    },
-  ) {
+  login(@Body() body: { identifier: string; password: string }) {
     return this.authService.login(body.identifier, body.password);
   }
 
@@ -92,11 +104,7 @@ export class AuthController {
       newPassword: string;
     },
   ) {
-    const userId =
-      req.user?.sub ||
-      req.user?.id ||
-      req.user?.userId ||
-      null;
+    const userId = req.user?.sub || req.user?.id || req.user?.userId || null;
 
     if (!userId) {
       throw new BadRequestException('Utilisateur non authentifié');
@@ -108,10 +116,6 @@ export class AuthController {
       body.newPassword,
     );
   }
-
-  // =========================
-  // CASHIERS
-  // =========================
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
@@ -159,10 +163,6 @@ export class AuthController {
   deactivateCashier(@Req() req: any, @Param('id') id: string) {
     return this.authService.deactivateCashier(req.user.tenantId, id);
   }
-
-  // =========================
-  // USER INFO
-  // =========================
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
