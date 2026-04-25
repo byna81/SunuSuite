@@ -49,6 +49,7 @@ import { GymCoachesModule } from './modules/gym-coaches/gym-coaches.module';
 import { GymAccessModule } from './modules/gym-access/gym-access.module';
 import { GymSubscriptionsModule } from './modules/gym-subscriptions/gym-subscriptions.module';
 import { GymPlansModule } from './modules/gym-plans/gym-plans.module';
+import { GymCoursesModule } from './modules/gym-courses/gym-courses.module';
 
 @Module({
   imports: [PrismaModule,
@@ -94,7 +95,8 @@ import { GymPlansModule } from './modules/gym-plans/gym-plans.module';
     GymCoachesModule,
     GymAccessModule,
     GymSubscriptionsModule,
-    GymPlansModule,        
+    GymPlansModule, 
+    GymCoursesModule,        
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
