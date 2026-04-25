@@ -1358,3 +1358,22 @@ model GymPlan {
   @@unique([tenantId, name])
 }
 
+model GymCourse {
+  id          String   @id @default(cuid())
+  tenantId    String
+  coachId     String?
+  title       String
+  description String?
+  dayOfWeek   String
+  startTime   String
+  endTime     String
+  capacity    Int?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  coach  GymCoach? @relation(fields: [coachId], references: [id])
+}
+
+
