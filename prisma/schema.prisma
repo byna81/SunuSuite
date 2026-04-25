@@ -1361,18 +1361,22 @@ model GymPlan {
 }
 
 model GymCourse {
-  id          String   @id @default(cuid())
-  tenantId    String
-  coachId     String?
-  title       String
-  description String?
-  dayOfWeek   String
-  startTime   String
-  endTime     String
-  capacity    Int?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  tenantId     String
+  coachId      String?
+  title        String
+  description  String?
+  daysOfWeek   String[]
+  startTime    String
+  endTime      String
+  capacity     Int?
+  location     String?
+  level        String?
+  accessType   String?  @default("subscription")
+  sessionPrice Float?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenant Tenant    @relation(fields: [tenantId], references: [id])
   coach  GymCoach? @relation(fields: [coachId], references: [id])
