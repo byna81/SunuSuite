@@ -8,6 +8,8 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { MailService } from '../mail/mail.service';
 
+const TEMP_PASSWORD = 'SunuSuite1234';
+
 function generateSlug(name: string) {
   return name
     .toLowerCase()
@@ -64,14 +66,24 @@ export class AuthService {
       canManageDrivers: !!user.canManageDrivers,
       canManagePayments: !!user.canManagePayments,
       canManageUsers: !!user.canManageUsers,
-
       canManageProducts: !!user.canManageProducts,
       canManageStock: !!user.canManageStock,
+
+      canGymManageMembers: !!user.canGymManageMembers,
+      canGymManageCoaches: !!user.canGymManageCoaches,
+      canGymManageCourses: !!user.canGymManageCourses,
+      canGymManageSubscriptions: !!user.canGymManageSubscriptions,
+      canGymManagePayments: !!user.canGymManagePayments,
+      canGymScanAccess: !!user.canGymScanAccess,
+      canGymManagePlans: !!user.canGymManagePlans,
+      canGymManageProducts: !!user.canGymManageProducts,
+      canGymAccessCashier: !!user.canGymAccessCashier,
     };
   }
 
   private async buildAuthResponse(user: any) {
     const payload = this.buildUserResponse(user);
+
     const accessToken = await this.jwtService.signAsync({
       ...payload,
       sub: user.id,
@@ -84,18 +96,7 @@ export class AuthService {
     };
   }
 
-  async registerManager(body: {
-    boutiqueName: string;
-    email: string;
-    password: string;
-    logoUrl?: string;
-    address?: string;
-    phone?: string;
-    shopEmail?: string;
-    description?: string;
-    currency?: string;
-    sector?: string;
-  }) {
+  async registerManager(body: any) {
     const boutiqueName = body.boutiqueName?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password?.trim();
@@ -119,9 +120,7 @@ export class AuthService {
     }
 
     const existingUser = await this.prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { login: email }],
-      },
+      where: { OR: [{ email }, { login: email }] },
     });
 
     if (existingUser) {
@@ -156,17 +155,35 @@ export class AuthService {
       const user = await tx.user.create({
         data: {
           email,
+          login: email,
           password: hashedPassword,
           role: 'manager',
           tenantId: tenant.id,
           isActive: true,
           mustChangePassword: false,
+
+          canViewDashboard: true,
+          canManageUsers: true,
+          canManagePayments: true,
+          canManageProducts: true,
+          canManageStock: true,
+          canManageExpenses: true,
+
           canManageProperties: true,
           canManageTenants: true,
           canManageContracts: true,
           canManageRents: true,
           canManageOwnerPayments: true,
-          canViewDashboard: true,
+
+          canGymManageMembers: true,
+          canGymManageCoaches: true,
+          canGymManageCourses: true,
+          canGymManageSubscriptions: true,
+          canGymManagePayments: true,
+          canGymScanAccess: true,
+          canGymManagePlans: true,
+          canGymManageProducts: true,
+          canGymAccessCashier: true,
         },
         include: { tenant: true },
       });
@@ -216,10 +233,6 @@ export class AuthService {
       include: { tenant: true },
     });
 
-    if (!users.length) {
-      throw new UnauthorizedException('Identifiants invalides');
-    }
-
     for (const user of users) {
       const isPasswordValid = await bcrypt.compare(rawPassword, user.password);
 
@@ -261,22 +274,13 @@ export class AuthService {
       },
     });
 
-    try {
-      await this.mailService.sendPasswordResetEmail({
-        to: normalizedEmail,
-        ownerName: user.fullName || user.tenant?.name || 'Manager',
-        code,
-      });
-    } catch (error) {
-      console.error('Erreur envoi mail reset password:', error);
-      throw new BadRequestException(
-        "Impossible d'envoyer l'email de réinitialisation pour le moment",
-      );
-    }
+    await this.mailService.sendPasswordResetEmail({
+      to: normalizedEmail,
+      ownerName: user.fullName || user.tenant?.name || 'Manager',
+      code,
+    });
 
-    return {
-      message: 'Un email de réinitialisation a été envoyé',
-    };
+    return { message: 'Un email de réinitialisation a été envoyé' };
   }
 
   async resetPassword(email: string, code: string, newPassword: string) {
@@ -330,9 +334,7 @@ export class AuthService {
       },
     });
 
-    return {
-      message: 'Mot de passe réinitialisé avec succès',
-    };
+    return { message: 'Mot de passe réinitialisé avec succès' };
   }
 
   async changePassword(
@@ -406,18 +408,6 @@ export class AuthService {
       throw new BadRequestException('Identifiant et mot de passe obligatoires');
     }
 
-    if (normalizedLogin.length < 3) {
-      throw new BadRequestException(
-        'L’identifiant de caisse doit contenir au moins 3 caractères',
-      );
-    }
-
-    if (rawPassword.length < 4) {
-      throw new BadRequestException(
-        'Le mot de passe doit contenir au moins 4 caractères',
-      );
-    }
-
     const existingUser = await this.prisma.user.findFirst({
       where: {
         tenantId,
@@ -441,34 +431,22 @@ export class AuthService {
         tenantId,
         isActive: true,
         mustChangePassword: false,
-        canManageProperties: false,
-        canManageTenants: false,
-        canManageContracts: false,
         canManageRents: true,
-        canManageOwnerPayments: false,
-        canViewDashboard: false,
       },
       include: { tenant: true },
     });
 
-    return {
-      user: this.buildUserResponse(user),
-    };
+    return { user: this.buildUserResponse(user) };
   }
 
   async getCashiers(tenantId: string) {
     const users = await this.prisma.user.findMany({
-      where: {
-        tenantId,
-        role: 'cashier',
-      },
+      where: { tenantId, role: 'cashier' },
       include: { tenant: true },
       orderBy: { createdAt: 'desc' },
     });
 
-    return {
-      items: users.map((user) => this.buildUserResponse(user)),
-    };
+    return { items: users.map((user) => this.buildUserResponse(user)) };
   }
 
   async resetCashierPassword(
@@ -485,12 +463,7 @@ export class AuthService {
     }
 
     const cashier = await this.prisma.user.findFirst({
-      where: {
-        id,
-        tenantId,
-        role: 'cashier',
-      },
-      include: { tenant: true },
+      where: { id, tenantId, role: 'cashier' },
     });
 
     if (!cashier) {
@@ -512,12 +485,7 @@ export class AuthService {
 
   async deactivateCashier(tenantId: string, id: string) {
     const cashier = await this.prisma.user.findFirst({
-      where: {
-        id,
-        tenantId,
-        role: 'cashier',
-      },
-      include: { tenant: true },
+      where: { id, tenantId, role: 'cashier' },
     });
 
     if (!cashier) {
@@ -532,27 +500,18 @@ export class AuthService {
     return { message: 'Caisse désactivée avec succès' };
   }
 
-  async registerStaff(
-    tenantId: string,
-    body: {
-      fullName: string;
-      email?: string;
-      login: string;
-      password: string;
-      role: string;
-    },
-  ) {
+  async registerStaff(tenantId: string, body: any) {
     const normalizedTenantId = tenantId?.trim();
     const login = body.login?.trim().toLowerCase();
-    const password = body.password?.trim();
+    const password = body.password?.trim() || TEMP_PASSWORD;
     const email = body.email?.trim().toLowerCase() || null;
 
     if (!normalizedTenantId) {
       throw new BadRequestException('tenantId obligatoire');
     }
 
-    if (!login || !password) {
-      throw new BadRequestException('Login et mot de passe obligatoires');
+    if (!login) {
+      throw new BadRequestException('Login obligatoire');
     }
 
     const existing = await this.prisma.user.findFirst({
@@ -579,11 +538,22 @@ export class AuthService {
         isActive: true,
         mustChangePassword: true,
 
-        canViewDashboard: true,
-        canManageUsers: false,
-        canManagePayments: false,
-        canManageProducts: false,
-        canManageExpenses: false,
+        canViewDashboard: !!body.canViewDashboard,
+        canManageUsers: !!body.canManageUsers,
+        canManagePayments: !!body.canManagePayments,
+        canManageProducts: !!body.canManageProducts,
+        canManageStock: !!body.canManageStock,
+        canManageExpenses: !!body.canManageExpenses,
+
+        canGymManageMembers: !!body.canGymManageMembers,
+        canGymManageCoaches: !!body.canGymManageCoaches,
+        canGymManageCourses: !!body.canGymManageCourses,
+        canGymManageSubscriptions: !!body.canGymManageSubscriptions,
+        canGymManagePayments: !!body.canGymManagePayments,
+        canGymScanAccess: !!body.canGymScanAccess,
+        canGymManagePlans: !!body.canGymManagePlans,
+        canGymManageProducts: !!body.canGymManageProducts,
+        canGymAccessCashier: !!body.canGymAccessCashier,
       },
       include: { tenant: true },
     });
@@ -601,14 +571,134 @@ export class AuthService {
     const users = await this.prisma.user.findMany({
       where: {
         tenantId: normalizedTenantId,
-        role: {
-          in: ['agent', 'coach', 'staff', 'cashier'],
-        },
+        role: { in: ['agent', 'coach', 'staff', 'cashier'] as any },
       },
       include: { tenant: true },
       orderBy: { createdAt: 'desc' },
     });
 
     return users.map((user) => this.buildUserResponse(user));
+  }
+
+  async updateStaff(tenantId: string, id: string, body: any) {
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        tenantId,
+        role: { in: ['agent', 'coach', 'staff', 'cashier'] as any },
+      },
+    });
+
+    if (!existing) {
+      throw new BadRequestException('Agent introuvable');
+    }
+
+    const email = body.email?.trim().toLowerCase() || null;
+    const login = body.login?.trim().toLowerCase();
+
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        fullName: body.fullName?.trim() || existing.fullName,
+        email,
+        login: login || existing.login,
+
+        canViewDashboard: !!body.canViewDashboard,
+        canManageUsers: !!body.canManageUsers,
+        canManagePayments: !!body.canManagePayments,
+        canManageProducts: !!body.canManageProducts,
+        canManageStock: !!body.canManageStock,
+        canManageExpenses: !!body.canManageExpenses,
+
+        canGymManageMembers: !!body.canGymManageMembers,
+        canGymManageCoaches: !!body.canGymManageCoaches,
+        canGymManageCourses: !!body.canGymManageCourses,
+        canGymManageSubscriptions: !!body.canGymManageSubscriptions,
+        canGymManagePayments: !!body.canGymManagePayments,
+        canGymScanAccess: !!body.canGymScanAccess,
+        canGymManagePlans: !!body.canGymManagePlans,
+        canGymManageProducts: !!body.canGymManageProducts,
+        canGymAccessCashier: !!body.canGymAccessCashier,
+      },
+      include: { tenant: true },
+    });
+  }
+
+  async activateStaff(tenantId: string, id: string) {
+    return this.setStaffActive(tenantId, id, true);
+  }
+
+  async deactivateStaff(tenantId: string, id: string) {
+    return this.setStaffActive(tenantId, id, false);
+  }
+
+  private async setStaffActive(tenantId: string, id: string, isActive: boolean) {
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        tenantId,
+        role: { in: ['agent', 'coach', 'staff', 'cashier'] as any },
+      },
+    });
+
+    if (!existing) {
+      throw new BadRequestException('Agent introuvable');
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { isActive },
+    });
+
+    return { message: isActive ? 'Agent activé' : 'Agent désactivé' };
+  }
+
+  async resetStaffPassword(tenantId: string, id: string) {
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        tenantId,
+        role: { in: ['agent', 'coach', 'staff', 'cashier'] as any },
+      },
+    });
+
+    if (!existing) {
+      throw new BadRequestException('Agent introuvable');
+    }
+
+    const hashed = await bcrypt.hash(TEMP_PASSWORD, 10);
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        password: hashed,
+        mustChangePassword: true,
+      },
+    });
+
+    return {
+      message: 'Mot de passe réinitialisé',
+      password: TEMP_PASSWORD,
+    };
+  }
+
+  async deleteStaff(tenantId: string, id: string) {
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        id,
+        tenantId,
+        role: { in: ['agent', 'coach', 'staff', 'cashier'] as any },
+      },
+    });
+
+    if (!existing) {
+      throw new BadRequestException('Agent introuvable');
+    }
+
+    await this.prisma.user.delete({
+      where: { id },
+    });
+
+    return { message: 'Agent supprimé' };
   }
 }
