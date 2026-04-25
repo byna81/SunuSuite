@@ -1304,6 +1304,7 @@ model GymCoach {
   createdAt DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  courses   GymCourse[]
 }
 
 model GymSubscription {
