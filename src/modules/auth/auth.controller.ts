@@ -22,7 +22,13 @@ export class AuthController {
   registerManager(@Body() body: any) {
     return this.authService.registerManager(body);
   }
-
+  @Post('staff')
+createStaff(
+  @Query('tenantId') tenantId: string,
+  @Body() body: any,
+) {
+  return this.authService.registerStaff(tenantId, body);
+}
   @Post('login')
   login(
     @Body()
