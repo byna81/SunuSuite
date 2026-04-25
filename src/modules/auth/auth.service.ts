@@ -578,4 +578,56 @@ private async buildAuthResponse(user: any) {
 
     return { message: 'Caisse désactivée avec succès' };
   }
+  async registerStaff(
+  tenantId: string,
+  body: {
+    fullName: string;
+    email?: string;
+    login: string;
+    password: string;
+    role: string;
+  },
+) {
+  const login = body.login?.trim().toLowerCase();
+  const password = body.password?.trim();
+
+  if (!login || !password) {
+    throw new BadRequestException('Login et mot de passe obligatoires');
+  }
+
+  const existing = await this.prisma.user.findFirst({
+    where: {
+      tenantId,
+      OR: [{ login }, { email: login }],
+    },
+  });
+
+  if (existing) {
+    throw new BadRequestException('Utilisateur déjà existant');
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
+
+  const user = await this.prisma.user.create({
+    data: {
+      fullName: body.fullName,
+      email: body.email || null,
+      login,
+      password: hashed,
+      role: body.role || 'agent',
+      tenantId,
+      isActive: true,
+
+      // permissions par défaut
+      canViewDashboard: true,
+      canManageUsers: false,
+      canManagePayments: false,
+      canManageProducts: false,
+      canManageExpenses: false,
+    },
+    include: { tenant: true },
+  });
+
+  return this.buildUserResponse(user);
+}
 }
