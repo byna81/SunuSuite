@@ -6,9 +6,11 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -18,17 +20,36 @@ import { Roles } from './roles.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // =========================
+  // MANAGER
+  // =========================
+
   @Post('register-manager')
   registerManager(@Body() body: any) {
     return this.authService.registerManager(body);
   }
+
+  // =========================
+  // STAFF (AGENTS)
+  // =========================
+
   @Post('staff')
-createStaff(
-  @Query('tenantId') tenantId: string,
-  @Body() body: any,
-) {
-  return this.authService.registerStaff(tenantId, body);
-}
+  createStaff(
+    @Query('tenantId') tenantId: string,
+    @Body() body: any,
+  ) {
+    return this.authService.registerStaff(tenantId, body);
+  }
+
+  @Get('staff')
+  getStaff(@Query('tenantId') tenantId: string) {
+    return this.authService.getStaff(tenantId);
+  }
+
+  // =========================
+  // AUTH
+  // =========================
+
   @Post('login')
   login(
     @Body()
@@ -88,6 +109,10 @@ createStaff(
     );
   }
 
+  // =========================
+  // CASHIERS
+  // =========================
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('manager')
   @Post('register-cashier')
@@ -134,6 +159,10 @@ createStaff(
   deactivateCashier(@Req() req: any, @Param('id') id: string) {
     return this.authService.deactivateCashier(req.user.tenantId, id);
   }
+
+  // =========================
+  // USER INFO
+  // =========================
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
