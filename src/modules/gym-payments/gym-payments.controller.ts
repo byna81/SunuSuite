@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { GymPaymentsService } from './gym-payments.service';
 
 @Controller('gym-payments')
@@ -13,5 +13,14 @@ export class GymPaymentsController {
   @Post()
   create(@Query('tenantId') tenantId: string, @Body() body: any) {
     return this.service.create(tenantId, body);
+  }
+
+  @Patch(':id/correct')
+  correct(
+    @Param('id') id: string,
+    @Query('tenantId') tenantId: string,
+    @Body() body: any,
+  ) {
+    return this.service.correct(id, tenantId, body);
   }
 }
