@@ -1327,10 +1327,33 @@ model GymPayment {
   memberId  String
   amount    Float
   method    String
+  reason    String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenant Tenant    @relation(fields: [tenantId], references: [id])
   member GymMember @relation(fields: [memberId], references: [id])
+
+  corrections GymPaymentCorrection[]
+}
+
+model GymPaymentCorrection {
+  id        String   @id @default(cuid())
+  paymentId String
+  tenantId  String
+
+  oldAmount Float
+  newAmount Float
+
+  reason String
+
+  correctedByUserId String?
+  correctedByName   String?
+  correctedByLogin  String?
+
+  createdAt DateTime @default(now())
+
+  payment GymPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 }
 
 model GymAccessLog {
