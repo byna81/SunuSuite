@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   Body,
+  BadRequestException,
 } from '@nestjs/common';
 import { GymCoursesService } from './gym-courses.service';
 
@@ -14,37 +15,99 @@ import { GymCoursesService } from './gym-courses.service';
 export class GymCoursesController {
   constructor(private readonly service: GymCoursesService) {}
 
+  // =============================
+  // GET ALL COURSES
+  // =============================
   @Get()
-  getAll(@Query('tenantId') tenantId: string) {
+  async getAll(@Query('tenantId') tenantId: string) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
     return this.service.getAll(tenantId);
   }
 
+  // =============================
+  // CREATE COURSE
+  // =============================
   @Post()
-  create(@Query('tenantId') tenantId: string, @Body() body: any) {
+  async create(
+    @Query('tenantId') tenantId: string,
+    @Body() body: any,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
     return this.service.create(tenantId, body);
   }
 
+  // =============================
+  // UPDATE COURSE
+  // =============================
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Query('tenantId') tenantId: string,
     @Body() body: any,
   ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    if (!id) {
+      throw new BadRequestException('id obligatoire');
+    }
+
     return this.service.update(id, tenantId, body);
   }
 
+  // =============================
+  // ACTIVATE COURSE
+  // =============================
   @Patch(':id/activate')
-  activate(@Param('id') id: string, @Query('tenantId') tenantId: string) {
+  async activate(
+    @Param('id') id: string,
+    @Query('tenantId') tenantId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
     return this.service.activate(id, tenantId);
   }
 
+  // =============================
+  // DEACTIVATE COURSE
+  // =============================
   @Patch(':id/deactivate')
-  deactivate(@Param('id') id: string, @Query('tenantId') tenantId: string) {
+  async deactivate(
+    @Param('id') id: string,
+    @Query('tenantId') tenantId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
     return this.service.deactivate(id, tenantId);
   }
 
+  // =============================
+  // DELETE COURSE
+  // =============================
   @Delete(':id')
-  delete(@Param('id') id: string, @Query('tenantId') tenantId: string) {
+  async delete(
+    @Param('id') id: string,
+    @Query('tenantId') tenantId: string,
+  ) {
+    if (!tenantId) {
+      throw new BadRequestException('tenantId obligatoire');
+    }
+
+    if (!id) {
+      throw new BadRequestException('id obligatoire');
+    }
+
     return this.service.delete(id, tenantId);
   }
 }
