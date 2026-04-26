@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query, Body } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { GymCoachesService } from './gym-coaches.service';
 
 @Controller('gym-coaches')
@@ -7,19 +7,29 @@ export class GymCoachesController {
 
   @Get()
   async findAll(@Query('tenantId') tenantId: string) {
-    return this.service.findAll(tenantId);
+    const coaches = await this.service.findAll(tenantId);
+
+    return coaches.map((coach: any) => ({
+      ...coach,
+      displayName:
+        coach.name ||
+        coach.fullName ||
+        `${coach.firstName || ''} ${coach.lastName || ''}`.trim() ||
+        coach.email ||
+        'Coach',
+    }));
   }
 
   @Post()
   async create(
     @Query('tenantId') tenantId: string,
     @Body()
-body: {
-  name: string;
-  specialty?: string;
-  phone?: string;
-  email?: string;
-},
+    body: {
+      name: string;
+      specialty?: string;
+      phone?: string;
+      email?: string;
+    },
   ) {
     return this.service.create(tenantId, body);
   }
