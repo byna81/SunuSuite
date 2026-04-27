@@ -1405,4 +1405,35 @@ model GymCourse {
   coach  GymCoach? @relation(fields: [coachId], references: [id])
 }
 
+model GymExpense {
+  id             String   @id @default(uuid())
+  tenantId       String
+  type           String
+  amount         Float
+  beneficiary    String?
+  description    String?
+  createdByUserId String?
+  createdByName  String?
+  createdByLogin String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  corrections    GymExpenseCorrection[]
+}
+
+model GymExpenseCorrection {
+  id                String   @id @default(uuid())
+  expenseId          String
+  oldAmount          Float
+  newAmount          Float
+  reason             String
+  correctedByUserId  String?
+  correctedByName    String?
+  correctedByLogin   String?
+  createdAt          DateTime @default(now())
+
+  expense            GymExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+}
+
+
 
