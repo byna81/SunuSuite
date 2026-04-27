@@ -51,6 +51,7 @@ import { GymSubscriptionsModule } from './modules/gym-subscriptions/gym-subscrip
 import { GymPlansModule } from './modules/gym-plans/gym-plans.module';
 import { GymCoursesModule } from './modules/gym-courses/gym-courses.module';
 import { GymPaymentsModule } from './modules/gym-payments/gym-payments.module';
+import { GymExpensesModule } from './modules/gym-expenses/gym-expenses.module';
 
 @Module({
   imports: [PrismaModule,
@@ -98,7 +99,8 @@ import { GymPaymentsModule } from './modules/gym-payments/gym-payments.module';
     GymSubscriptionsModule,
     GymPlansModule, 
     GymCoursesModule,
-    GymPaymentsModule,        
+    GymPaymentsModule, 
+    GymExpensesModule,        
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
