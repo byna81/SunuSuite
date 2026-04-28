@@ -1370,19 +1370,20 @@ model GymAccessLog {
 }
 
 model GymPlan {
-  id        String   @id @default(cuid())
-  tenantId  String
-  name      String
-  price     Float
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+
+  name           String
+  price          Float
   durationMonths Int
-  startDate DateTime
-  endDate   DateTime?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  startDate      DateTime?
+  endDate        DateTime?
+  isActive       Boolean  @default(true)
 
-  @@unique([tenantId, name])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model GymCourse {
