@@ -88,7 +88,29 @@ async updateStatus(id: string, tenantId: string, body: any) {
     },
   });
 } 
-  
+async update(id: string, tenantId: string, body: any) {
+  const subscription = await this.prisma.gymSubscription.findFirst({
+    where: {
+      id,
+      tenantId,
+    },
+  });
+
+  if (!subscription) {
+    throw new Error("Abonnement introuvable");
+  }
+
+  return this.prisma.gymSubscription.update({
+    where: { id },
+    data: {
+      memberId: body.memberId,
+      type: body.type,
+      price: Number(body.price),
+      startDate: body.startDate ? new Date(body.startDate) : undefined,
+      endDate: body.endDate ? new Date(body.endDate) : undefined,
+    },
+  });
+}  
 }
 
 
