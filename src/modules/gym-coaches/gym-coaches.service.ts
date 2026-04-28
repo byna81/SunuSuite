@@ -58,4 +58,19 @@ export class GymCoachesService {
       },
     });
   }
+
+  async update(id: string, tenantId: string, body: any) {
+  return this.prisma.gymCoach.update({
+    where: { id },
+    data: {
+      name: body.name,
+      specialty: body.specialty,
+      phone: body.phone,
+      email: body.email,
+    },
+  });
 }
+}
+
+
+
