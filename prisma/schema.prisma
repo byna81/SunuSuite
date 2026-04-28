@@ -1375,6 +1375,8 @@ model GymPlan {
   name      String
   price     Float
   durationMonths Int
+  startDate DateTime
+  endDate   DateTime?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
