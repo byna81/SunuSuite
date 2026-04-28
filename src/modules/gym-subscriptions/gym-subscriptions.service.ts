@@ -55,7 +55,7 @@ export class GymSubscriptionsService {
     });
   }
 
- async updateStatus(id: string, tenantId: string, body: any) {
+async updateStatus(id: string, tenantId: string, body: any) {
   const subscription = await this.prisma.gymSubscription.findFirst({
     where: {
       id,
@@ -85,9 +85,10 @@ export class GymSubscriptionsService {
     where: { id },
     data: {
       isActive,
-      updatedAt: new Date(),
     },
   });
-}}
+} 
+  
+}
 
 
