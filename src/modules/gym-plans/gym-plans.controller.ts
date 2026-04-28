@@ -25,7 +25,10 @@ export class GymPlansController {
   }
 
   @Patch(':id/toggle')
-  toggle(@Param('id') id: string) {
-    return this.service.toggle(id);
-  }
+toggle(@Param('id') id: string, @Query('tenantId') tenantId: string) {
+  return this.service.toggle(id, tenantId);
 }
+}
+
+
+
