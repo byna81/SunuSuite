@@ -55,7 +55,7 @@ export class GymSubscriptionsService {
     });
   }
 
-  async updateStatus(id: string, tenantId: string, body: any) {
+ async updateStatus(id: string, tenantId: string, body: any) {
   const subscription = await this.prisma.gymSubscription.findFirst({
     where: {
       id,
@@ -68,32 +68,26 @@ export class GymSubscriptionsService {
   }
 
   let isActive = subscription.isActive;
-  let status = subscription.status;
 
   if (body.action === 'activate') {
     isActive = true;
-    status = 'active';
   }
 
   if (body.action === 'suspend') {
     isActive = false;
-    status = 'suspended';
   }
 
   if (body.action === 'deactivate') {
     isActive = false;
-    status = 'inactive';
   }
 
   return this.prisma.gymSubscription.update({
     where: { id },
     data: {
       isActive,
-      status,
       updatedAt: new Date(),
     },
   });
-}
-}
+}}
 
 
