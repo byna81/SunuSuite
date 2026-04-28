@@ -19,6 +19,14 @@ export class GymCoachesController {
         'Coach',
     }));
   }
+  @Patch(':id')
+update(
+  @Param('id') id: string,
+  @Query('tenantId') tenantId: string,
+  @Body() body: any,
+) {
+  return this.service.update(id, tenantId, body);
+}
 
   @Post()
   async create(
