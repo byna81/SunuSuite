@@ -54,6 +54,7 @@ import { GymPaymentsModule } from './modules/gym-payments/gym-payments.module';
 import { GymExpensesModule } from './modules/gym-expenses/gym-expenses.module';
 import { GymDashboardModule } from './modules/gym-dashboard/gym-dashboard.module';
 
+
 @Module({
   imports: [PrismaModule,
     CommerceModule,
