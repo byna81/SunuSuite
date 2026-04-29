@@ -6,7 +6,10 @@ export class GymDashboardController {
   constructor(private readonly service: GymDashboardService) {}
 
   @Get()
-  getDashboard(@Query('tenantId') tenantId: string) {
-    return this.service.getDashboard(tenantId);
+  getDashboard(
+    @Query('tenantId') tenantId: string,
+    @Query('period') period?: string,
+  ) {
+    return this.service.getDashboard(tenantId, period || 'month');
   }
 }
