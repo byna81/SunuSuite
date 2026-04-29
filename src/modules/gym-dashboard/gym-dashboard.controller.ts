@@ -10,6 +10,6 @@ export class GymDashboardController {
     @Query('tenantId') tenantId: string,
     @Query('period') period?: string,
   ) {
-    return this.service.getDashboard(tenantId, period || 'month');
+    return this.service.getDashboard(tenantId);
   }
 }
