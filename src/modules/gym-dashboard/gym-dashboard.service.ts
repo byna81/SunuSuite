@@ -6,28 +6,83 @@ export class GymDashboardService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboard(tenantId: string) {
-    const revenue = await this.prisma.payment.aggregate({
+    const payments = await this.prisma.payment.aggregate({
       _sum: { amount: true },
-      where: { tenantId },
+      where: {
+        sale: {
+          tenantId,
+        },
+      },
     });
 
-    const salesCount = await this.prisma.payment.count({
-      where: { tenantId },
+    const salesCount = await this.prisma.sale.count({
+      where: {
+        tenantId,
+      },
     });
 
-    const subscriptions = await this.prisma.gymSubscription.count({
-      where: { tenantId, isActive: true },
+    const activeSubscriptions = await this.prisma.gymSubscription.count({
+      where: {
+        tenantId,
+        isActive: true,
+      },
     });
 
-    const products = await this.prisma.product.count({
-      where: { tenantId, isActive: true },
+    const expiredSubscriptions = await this.prisma.gymSubscription.count({
+      where: {
+        tenantId,
+        isActive: true,
+        endDate: {
+          lt: new Date(),
+        },
+      },
     });
+
+    const membersCount = await this.prisma.gymMember.count({
+      where: {
+        tenantId,
+      },
+    });
+
+    const productsCount = await this.prisma.product.count({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+    });
+
+    const expenses = await this.prisma.gymExpense.aggregate({
+      _sum: { amount: true },
+      where: {
+        tenantId,
+      },
+    });
+
+    const revenue = Number(payments._sum.amount || 0);
+    const expensesAmount = Number(expenses._sum.amount || 0);
 
     return {
-      revenue: revenue._sum.amount || 0,
+      revenue,
+      subscriptionRevenue: 0,
+      productRevenue: revenue,
+      expenses: expensesAmount,
+      profit: revenue - expensesAmount,
+
       salesCount,
-      subscriptions,
-      products,
+      activeSubscriptions,
+      expiredSubscriptions,
+      membersCount,
+      productsCount,
+
+      paymentsByMethod: [],
+      lowStockProducts: [],
+      recentSubscriptions: [],
+      recentExpenses: [],
+
+      alerts: {
+        expiredSubscriptions,
+        lowStockProductsCount: 0,
+      },
     };
   }
 }
