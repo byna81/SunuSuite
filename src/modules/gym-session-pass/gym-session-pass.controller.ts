@@ -11,7 +11,7 @@ export class GymSessionPassController {
   }
 
   @Post("use")
-  use(@Query("tenantId") tenantId: string, @Body() body: any) {
+  usePass(@Query("tenantId") tenantId: string, @Body() body: any) {
     return this.service.use(body.qrCode, tenantId);
   }
 
