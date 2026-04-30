@@ -219,6 +219,7 @@ model Tenant {
   gymAccessLogs          GymAccessLog[]
   gymPlans               GymPlan[]
   gymCourses             GymCourse[]
+  gymSessionPasses       GymSessionPass[]
 }
 
 model User {
