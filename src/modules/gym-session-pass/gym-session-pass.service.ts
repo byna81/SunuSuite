@@ -19,45 +19,73 @@ export class GymSessionPassService {
       soldByUserName,
     } = body;
 
-    if (!price || !validFrom || !validUntil) {
-      throw new BadRequestException("Champs obligatoires manquants");
+    if (!tenantId) {
+      throw new BadRequestException("tenantId obligatoire");
+    }
+
+    if (!price || Number(price) <= 0) {
+      throw new BadRequestException("Prix obligatoire");
+    }
+
+    if (!validFrom || !validUntil) {
+      throw new BadRequestException("Plage horaire obligatoire");
+    }
+
+    const qty = Number(quantity || 1);
+
+    if (qty <= 0) {
+      throw new BadRequestException("Nombre de passes invalide");
+    }
+
+    const start = new Date(validFrom);
+    const end = new Date(validUntil);
+
+    if (end <= start) {
+      throw new BadRequestException("L’heure de fin doit être après l’heure de début");
     }
 
     const passes = [];
 
-    for (let i = 0; i < (quantity || 1); i++) {
+    for (let i = 0; i < qty; i++) {
       passes.push({
         tenantId,
-        buyerName,
-        buyerPhone,
+        buyerName: buyerName || null,
+        buyerPhone: buyerPhone || null,
         price: Number(price),
         quantity: 1,
         paymentMethod: paymentMethod || "cash",
-        validFrom: new Date(validFrom),
-        validUntil: new Date(validUntil),
+        validFrom: start,
+        validUntil: end,
         qrCode: randomUUID(),
-        soldByUserId,
-        soldByUserName,
+        status: "active",
+        soldByUserId: soldByUserId || null,
+        soldByUserName: soldByUserName || null,
       });
     }
 
-    const created = await this.prisma.gymSessionPass.createMany({
+    await this.prisma.gymSessionPass.createMany({
       data: passes,
     });
 
-    // 🔥 IMPORTANT → créer aussi un paiement (comptabilité)
-    await this.prisma.payment.create({
-      data: {
+    const createdPasses = await this.prisma.gymSessionPass.findMany({
+      where: {
         tenantId,
-        amount: Number(price) * (quantity || 1),
-        method: paymentMethod || "cash",
-        status: "paid",
-        description: "Vente passes séance",
-        type: "session_pass",
+        buyerPhone: buyerPhone || null,
+        validFrom: start,
+        validUntil: end,
       },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: qty,
     });
 
-    return { success: true, count: created.count };
+    return {
+      success: true,
+      count: createdPasses.length,
+      totalAmount: Number(price) * qty,
+      passes: createdPasses,
+    };
   }
 
   async validate(qrCode: string, tenantId: string) {
@@ -65,7 +93,9 @@ export class GymSessionPassService {
       where: { qrCode, tenantId },
     });
 
-    if (!pass) throw new BadRequestException("Passe introuvable");
+    if (!pass) {
+      throw new BadRequestException("Passe introuvable");
+    }
 
     const now = new Date();
 
@@ -85,7 +115,9 @@ export class GymSessionPassService {
       where: { qrCode, tenantId },
     });
 
-    if (!pass) throw new BadRequestException("Passe introuvable");
+    if (!pass) {
+      throw new BadRequestException("Passe introuvable");
+    }
 
     if (pass.status !== "active") {
       throw new BadRequestException("Passe déjà utilisée ou invalide");
@@ -101,7 +133,7 @@ export class GymSessionPassService {
       where: { id: pass.id },
       data: {
         status: "used",
-        usedAt: new Date(),
+        usedAt: now,
       },
     });
   }
