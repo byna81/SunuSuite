@@ -14,6 +14,10 @@ export class GymSessionPassController {
   validate(@Param("qrCode") qrCode: string, @Query("tenantId") tenantId: string) {
     return this.service.validate(qrCode, tenantId);
   }
+  @Get()
+findAll(@Query("tenantId") tenantId: string) {
+  return this.service.findAll(tenantId);
+}
 
   @Patch("use/:qrCode")
   use(@Param("qrCode") qrCode: string, @Query("tenantId") tenantId: string) {
