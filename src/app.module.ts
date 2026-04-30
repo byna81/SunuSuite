@@ -53,6 +53,7 @@ import { GymCoursesModule } from './modules/gym-courses/gym-courses.module';
 import { GymPaymentsModule } from './modules/gym-payments/gym-payments.module';
 import { GymExpensesModule } from './modules/gym-expenses/gym-expenses.module';
 import { GymDashboardModule } from './modules/gym-dashboard/gym-dashboard.module';
+import { GymSessionPassModule } from "./modules/gym-session-pass/gym-session-pass.module";
 
 
 @Module({
@@ -103,7 +104,8 @@ import { GymDashboardModule } from './modules/gym-dashboard/gym-dashboard.module
     GymCoursesModule,
     GymPaymentsModule, 
     GymExpensesModule,  
-    GymDashboardModule,        
+    GymDashboardModule,
+    GymSessionPassModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],
