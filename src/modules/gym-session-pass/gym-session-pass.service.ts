@@ -111,32 +111,39 @@ export class GymSessionPassService {
   }
 
   async use(qrCode: string, tenantId: string) {
-    const pass = await this.prisma.gymSessionPass.findFirst({
-      where: { qrCode, tenantId },
-    });
+  const pass = await this.prisma.gymSessionPass.findFirst({
+    where: { qrCode, tenantId },
+  });
 
-    if (!pass) {
-      throw new BadRequestException("Passe introuvable");
-    }
+  if (!pass) throw new BadRequestException("Passe introuvable");
 
-    if (pass.status !== "active") {
-      throw new BadRequestException("Passe déjà utilisée ou invalide");
-    }
-
-    const now = new Date();
-
-    if (now < pass.validFrom || now > pass.validUntil) {
-      throw new BadRequestException("Passe expirée");
-    }
-
-    return this.prisma.gymSessionPass.update({
-      where: { id: pass.id },
-      data: {
-        status: "used",
-        usedAt: now,
-      },
-    });
+  if (pass.status !== "active") {
+    throw new BadRequestException("Passe déjà utilisée ou invalide");
   }
+
+  const now = new Date();
+
+  if (now < pass.validFrom) {
+    throw new BadRequestException("Passe pas encore valide");
+  }
+
+  if (now > pass.validUntil) {
+    throw new BadRequestException("Passe expirée");
+  }
+
+  const updated = await this.prisma.gymSessionPass.update({
+    where: { id: pass.id },
+    data: {
+      status: "used",
+      usedAt: new Date(),
+    },
+  });
+
+  return {
+    allowed: true,
+    pass: updated,
+  };
+}
   async findAll(tenantId: string) {
   return this.prisma.gymSessionPass.findMany({
     where: { tenantId },
