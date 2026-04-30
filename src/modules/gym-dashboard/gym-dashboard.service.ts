@@ -15,6 +15,18 @@ export class GymDashboardService {
       },
     });
 
+    const sessionPassRevenue = await this.prisma.gymSessionPass.aggregate({
+      _sum: {
+        price: true,
+      },
+      where: {
+        tenantId,
+        status: {
+          in: ['active', 'used'],
+        },
+      },
+    });
+
     const salesCount = await this.prisma.sale.count({
       where: {
         tenantId,
@@ -58,13 +70,17 @@ export class GymDashboardService {
       },
     });
 
-    const revenue = Number(payments._sum.amount || 0);
+    const productRevenue = Number(payments._sum.amount || 0);
+    const sessionPassRevenueValue = Number(sessionPassRevenue._sum.price || 0);
     const expensesAmount = Number(expenses._sum.amount || 0);
+
+    const revenue = productRevenue + sessionPassRevenueValue;
 
     return {
       revenue,
       subscriptionRevenue: 0,
-      productRevenue: revenue,
+      productRevenue,
+      sessionPassRevenue: sessionPassRevenueValue,
       expenses: expensesAmount,
       profit: revenue - expensesAmount,
 
