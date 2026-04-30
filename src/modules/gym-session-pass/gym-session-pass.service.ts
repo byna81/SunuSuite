@@ -137,4 +137,11 @@ export class GymSessionPassService {
       },
     });
   }
+  async findAll(tenantId: string) {
+  return this.prisma.gymSessionPass.findMany({
+    where: { tenantId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+}
 }
