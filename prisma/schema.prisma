@@ -1440,4 +1440,32 @@ model GymExpenseCorrection {
 }
 
 
+model GymSessionPass {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+
+  buyerName       String?
+  buyerPhone      String?
+
+  price           Float
+  quantity        Int      @default(1)
+  paymentMethod   String   @default("cash")
+
+  validFrom       DateTime
+  validUntil      DateTime
+
+  qrCode          String   @unique
+  status          String   @default("active") // active | used | expired | cancelled
+
+  soldByUserId    String?
+  soldByUserName  String?
+
+  paymentId       String?
+
+  usedAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
 
