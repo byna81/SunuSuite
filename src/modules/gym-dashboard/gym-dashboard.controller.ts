@@ -8,8 +8,8 @@ export class GymDashboardController {
   @Get()
   getDashboard(
     @Query('tenantId') tenantId: string,
-    @Query('period') period?: string,
+    @Query('period') period: 'today' | 'week' | 'month' = 'today',
   ) {
-    return this.service.getDashboard(tenantId);
+    return this.service.getDashboard(tenantId, period);
   }
 }
