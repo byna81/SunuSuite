@@ -10,6 +10,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { GymCoursesService } from './gym-courses.service';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 
 @Controller('gym-courses')
 export class GymCoursesController {
