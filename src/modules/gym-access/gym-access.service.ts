@@ -16,9 +16,7 @@ export class GymAccessService {
       },
     });
 
-    if (!pass) {
-      throw new BadRequestException('Passe introuvable');
-    }
+    if (!pass) throw new BadRequestException('Passe introuvable');
 
     if (pass.status !== 'active') {
       throw new BadRequestException('Passe déjà utilisée ou invalide');
@@ -26,11 +24,11 @@ export class GymAccessService {
 
     const now = new Date();
 
-    if (pass.validFrom && now < pass.validFrom) {
+    if (now < pass.validFrom) {
       throw new BadRequestException('Passe pas encore valide');
     }
 
-    if (pass.validUntil && now > pass.validUntil) {
+    if (now > pass.validUntil) {
       throw new BadRequestException('Passe expirée');
     }
 
@@ -38,33 +36,89 @@ export class GymAccessService {
       where: { id: pass.id },
       data: {
         status: 'used',
-        usedAt: new Date(),
+        usedAt: now,
       },
     });
 
     return {
       allowed: true,
+      type: 'session_pass',
       pass: updated,
     };
   }
 
-  async check(qrCode: string) {
+  async check(qrCode: string, tenantId: string) {
+    if (!qrCode) throw new BadRequestException('qrCode obligatoire');
+    if (!tenantId) throw new BadRequestException('tenantId obligatoire');
+
+    const now = new Date();
+
+    // 1) Vérifier d'abord les passes journée
+    const pass = await this.prisma.gymSessionPass.findFirst({
+      where: {
+        qrCode,
+        tenantId,
+      },
+    });
+
+    if (pass) {
+      if (pass.status !== 'active') {
+        return {
+          allowed: false,
+          type: 'session_pass',
+          reason: 'Passe déjà utilisée ou invalide',
+        };
+      }
+
+      if (now < pass.validFrom) {
+        return {
+          allowed: false,
+          type: 'session_pass',
+          reason: 'Passe pas encore valide',
+        };
+      }
+
+      if (now > pass.validUntil) {
+        return {
+          allowed: false,
+          type: 'session_pass',
+          reason: 'Passe expirée',
+        };
+      }
+
+      const updated = await this.prisma.gymSessionPass.update({
+        where: { id: pass.id },
+        data: {
+          status: 'used',
+          usedAt: now,
+        },
+      });
+
+      return {
+        allowed: true,
+        type: 'session_pass',
+        pass: updated,
+      };
+    }
+
+    // 2) Sinon vérifier les clients / abonnements
     const member = await this.prisma.gymMember.findFirst({
-      where: { qrCode },
+      where: {
+        qrCode,
+        tenantId,
+      },
       include: {
         subscriptions: true,
       },
     });
 
     if (!member) {
-      return { allowed: false, reason: 'Client introuvable' };
+      return { allowed: false, reason: 'QR invalide' };
     }
 
     if (!member.isActive) {
       return { allowed: false, reason: 'Client désactivé' };
     }
-
-    const now = new Date();
 
     const activeSubscription = member.subscriptions.find(
       (s) =>
@@ -86,6 +140,7 @@ export class GymAccessService {
 
     return {
       allowed: true,
+      type: 'subscription',
       member: {
         firstName: member.firstName,
         lastName: member.lastName,
