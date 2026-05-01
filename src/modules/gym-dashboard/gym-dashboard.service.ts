@@ -43,6 +43,25 @@ export class GymDashboardService {
     return { start, end };
   }
 
+  async getLateSubscriptions(tenantId: string) {
+  const now = new Date();
+
+  return this.prisma.gymSubscription.findMany({
+    where: {
+      tenantId,
+      isActive: true,
+      endDate: {
+        lt: now,
+      },
+    },
+    include: {
+      member: true,
+    },
+    orderBy: {
+      endDate: 'asc',
+    },
+  });
+}
   async getDashboard(tenantId: string, period: Period = 'today') {
     const { start, end } = this.getPeriodRange(period);
 
@@ -145,15 +164,17 @@ export class GymDashboardService {
       },
     });
 
-    const expiredSubscriptions = await this.prisma.gymSubscription.count({
-      where: {
-        tenantId,
-        isActive: true,
-        endDate: {
-          lt: new Date(),
-        },
-      },
-    });
+    const lateSubscriptions = await this.prisma.gymSubscription.count({
+  where: {
+    tenantId,
+    isActive: true,
+    endDate: {
+      lt: new Date(),
+    },
+  },
+});
+
+const expiredSubscriptions = lateSubscriptions;
 
     const membersCount = await this.prisma.gymMember.count({
       where: {
