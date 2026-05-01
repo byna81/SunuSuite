@@ -23,6 +23,12 @@ export class GymMembersController {
     return this.gymMembersService.findMe(req.user.id, req.user.tenantId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @Post('me/photo')
+  uploadMyPhoto(@Req() req: any, @Body() body: any) {
+    return this.gymMembersService.updateMyPhoto(req.user?.id, body.photoUrl);
+  }
+
   @Get()
   findAll(
     @Query('tenantId') tenantId: string,
@@ -35,13 +41,7 @@ export class GymMembersController {
   findOne(@Query('tenantId') tenantId: string, @Param('id') id: string) {
     return this.gymMembersService.findOne(tenantId, id);
   }
- @Post("me/photo")
-async uploadMyPhoto(
-  @Req() req: any,
-  @Body() body: any,
-) {
-  return this.service.updateMyPhoto(req.user?.id, body.photoUrl);
-}
+
   @Post()
   create(
     @Query('tenantId') tenantId: string,
