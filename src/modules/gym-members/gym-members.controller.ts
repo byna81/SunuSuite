@@ -35,7 +35,13 @@ export class GymMembersController {
   findOne(@Query('tenantId') tenantId: string, @Param('id') id: string) {
     return this.gymMembersService.findOne(tenantId, id);
   }
-
+ @Post("me/photo")
+async uploadMyPhoto(
+  @Req() req: any,
+  @Body() body: any,
+) {
+  return this.service.updateMyPhoto(req.user?.id, body.photoUrl);
+}
   @Post()
   create(
     @Query('tenantId') tenantId: string,
