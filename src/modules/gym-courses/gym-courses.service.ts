@@ -6,24 +6,28 @@ export class GymCoursesService {
   constructor(private prisma: PrismaService) {}
 
   async getAll(tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
+  if (!tenantId) {
+    throw new BadRequestException('tenantId obligatoire');
+  }
 
-    return this.prisma.gymCourse.findMany({
-      where: { tenantId },
-      include: {
-        coach: true,
-        bookings: true,
-        _count: {
-          select: {
-            bookings: true,
-          },
+  return this.prisma.gymCourse.findMany({
+    where: { tenantId },
+    include: {
+      coach: true,
+      bookings: {
+        include: {
+          member: true,
         },
       },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
+      _count: {
+        select: {
+          bookings: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 
   async create(tenantId: string, body: any) {
     if (!tenantId) throw new BadRequestException('tenantId obligatoire');
