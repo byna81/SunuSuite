@@ -1469,4 +1469,17 @@ model GymSessionPass {
   updatedAt       DateTime @updatedAt
 }
 
+model GymCourseBooking {
+  id        String   @id @default(cuid())
+  tenantId  String
+  courseId  String
+  memberId  String
+  createdAt DateTime @default(now())
+
+  course GymCourse @relation(fields: [courseId], references: [id])
+  member GymMember @relation(fields: [memberId], references: [id])
+
+  @@unique([courseId, memberId])
+}
+
 
