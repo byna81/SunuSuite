@@ -143,8 +143,8 @@ export class GymCoursesService {
   // BOOK COURSE
   // =============================
 async bookCourse(courseId: string, tenantId: string, userId: string) {
-  const member = await this.prisma.gymMember.findUnique({
-    where: { userId },
+  const member = await this.prisma.gymMember.findFirst({
+    where: { userId, tenantId },
   });
 
   if (!member) {
@@ -159,15 +159,19 @@ async bookCourse(courseId: string, tenantId: string, userId: string) {
     throw new BadRequestException('Cours introuvable');
   }
 
-  if (course.remainingSpots <= 0) {
-    throw new BadRequestException('Plus de places disponibles');
+  const bookedCount = await this.prisma.gymCourseBooking.count({
+    where: { courseId, tenantId },
+  });
+
+  if (course.capacity && bookedCount >= course.capacity) {
+    throw new BadRequestException('Cours complet');
   }
 
-  // éviter double réservation
   const existing = await this.prisma.gymCourseBooking.findFirst({
     where: {
       courseId,
       memberId: member.id,
+      tenantId,
     },
   });
 
@@ -175,24 +179,14 @@ async bookCourse(courseId: string, tenantId: string, userId: string) {
     throw new BadRequestException('Déjà inscrit à ce cours');
   }
 
-  await this.prisma.gymCourseBooking.create({
+  return this.prisma.gymCourseBooking.create({
     data: {
+      tenantId,
       courseId,
       memberId: member.id,
-      tenantId,
     },
   });
-
-  await this.prisma.gymCourse.update({
-    where: { id: courseId },
-    data: {
-      remainingSpots: { decrement: 1 },
-    },
-  });
-
-  return { success: true };
-}
-  
+}  
   // =============================
   // ACTIVATE / DEACTIVATE
   // =============================
