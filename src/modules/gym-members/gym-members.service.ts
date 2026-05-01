@@ -201,9 +201,18 @@ export class GymMembersService {
       },
     });
   }
-
+  async updatePhoto(id: string, tenantId: string, photoUrl: string) {
+  return this.prisma.gymMember.update({
+    where: { id },
+    data: { photoUrl },
+  });
+}
   async remove(tenantId: string, id: string) {
     const existing = await this.findOne(tenantId, id);
     return this.prisma.gymMember.delete({ where: { id: existing.id } });
   }
 }
+
+
+
+
