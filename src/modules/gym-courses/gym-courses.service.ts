@@ -210,6 +210,51 @@ async bookCourse(courseId: string, tenantId: string, userId?: string, memberId?:
     },
   });
 }
+
+async unbookCourse(courseId: string, tenantId: string, userId?: string, memberId?: string) {
+  if (!tenantId) {
+    throw new BadRequestException('tenantId obligatoire');
+  }
+
+  if (!courseId) {
+    throw new BadRequestException('courseId obligatoire');
+  }
+
+  let member = null;
+
+  if (memberId) {
+    member = await this.prisma.gymMember.findFirst({
+      where: { id: memberId, tenantId },
+    });
+  } else if (userId) {
+    member = await this.prisma.gymMember.findFirst({
+      where: { userId, tenantId },
+    });
+  }
+
+  if (!member) {
+    throw new BadRequestException('Client introuvable');
+  }
+
+  const booking = await this.prisma.gymCourseBooking.findFirst({
+    where: {
+      courseId,
+      tenantId,
+      memberId: member.id,
+    },
+  });
+
+  if (!booking) {
+    throw new BadRequestException('Inscription introuvable');
+  }
+
+  await this.prisma.gymCourseBooking.delete({
+    where: { id: booking.id },
+  });
+
+  return { success: true, message: 'Désinscription confirmée' };
+}
+  
   // =============================
   // ACTIVATE / DEACTIVATE
   // =============================
