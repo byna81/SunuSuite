@@ -18,8 +18,13 @@ export class GymAccessController {
   }
 
   @Get('check')
-  async check(@Query('qrCode') qrCode: string) {
+  async check(
+    @Query('qrCode') qrCode: string,
+    @Query('tenantId') tenantId: string,
+  ) {
     if (!qrCode) throw new BadRequestException('qrCode obligatoire');
-    return this.service.check(qrCode);
+    if (!tenantId) throw new BadRequestException('tenantId obligatoire');
+
+    return this.service.check(qrCode, tenantId);
   }
 }
