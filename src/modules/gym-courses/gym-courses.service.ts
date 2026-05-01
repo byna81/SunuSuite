@@ -17,7 +17,7 @@ export class GymCoursesService {
     where: { tenantId },
     include: {
       coach: true,
-      bookings: true, // 👈 CRUCIAL
+      bookings: true,
       _count: {
         select: {
           bookings: true,
