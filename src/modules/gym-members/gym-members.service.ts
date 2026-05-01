@@ -164,7 +164,15 @@ export class GymMembersService {
       },
     };
   }
+async updateMyPhoto(userId: string, photoUrl: string) {
+  if (!userId) throw new BadRequestException("Utilisateur introuvable");
+  if (!photoUrl) throw new BadRequestException("Photo obligatoire");
 
+  return this.prisma.gymMember.update({
+    where: { userId },
+    data: { photoUrl },
+  });
+}
   async update(
     tenantId: string,
     id: string,
