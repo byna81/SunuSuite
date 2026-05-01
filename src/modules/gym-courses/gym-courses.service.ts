@@ -142,25 +142,48 @@ export class GymCoursesService {
   // =============================
   // BOOK COURSE
   // =============================
-async bookCourse(courseId: string, tenantId: string, userId: string) {
-  const member = await this.prisma.gymMember.findFirst({
-    where: { userId, tenantId },
-  });
+async bookCourse(courseId: string, tenantId: string, userId?: string, memberId?: string) {
+  if (!tenantId) {
+    throw new BadRequestException('tenantId obligatoire');
+  }
+
+  if (!courseId) {
+    throw new BadRequestException('courseId obligatoire');
+  }
+
+  let member = null;
+
+  if (memberId) {
+    member = await this.prisma.gymMember.findFirst({
+      where: { id: memberId, tenantId },
+    });
+  } else if (userId) {
+    member = await this.prisma.gymMember.findFirst({
+      where: { userId, tenantId },
+    });
+  }
 
   if (!member) {
     throw new BadRequestException('Client introuvable');
   }
 
   const course = await this.prisma.gymCourse.findFirst({
-    where: { id: courseId, tenantId },
+    where: {
+      id: courseId,
+      tenantId,
+      isActive: true,
+    },
   });
 
   if (!course) {
-    throw new BadRequestException('Cours introuvable');
+    throw new BadRequestException('Cours introuvable ou inactif');
   }
 
   const bookedCount = await this.prisma.gymCourseBooking.count({
-    where: { courseId, tenantId },
+    where: {
+      courseId,
+      tenantId,
+    },
   });
 
   if (course.capacity && bookedCount >= course.capacity) {
@@ -186,7 +209,7 @@ async bookCourse(courseId: string, tenantId: string, userId: string) {
       memberId: member.id,
     },
   });
-}  
+}
   // =============================
   // ACTIVATE / DEACTIVATE
   // =============================
