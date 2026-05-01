@@ -1293,6 +1293,7 @@ model GymMember {
   accessLogs    GymAccessLog[]
 
   @@unique([tenantId, qrCode])
+  courseBookings GymCourseBooking[]
 }
 
 model GymCoach {
@@ -1408,6 +1409,7 @@ model GymCourse {
 
   tenant Tenant    @relation(fields: [tenantId], references: [id])
   coach  GymCoach? @relation(fields: [coachId], references: [id])
+  bookings GymCourseBooking[]
 }
 
 model GymExpense {
