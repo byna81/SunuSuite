@@ -2,13 +2,16 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
+
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
@@ -23,14 +26,50 @@ export class AuthController {
     return this.authService.registerManager(body);
   }
 
-  @Post('login')
-  login(
-    @Body()
-    body: {
-      identifier: string;
-      password: string;
-    },
+  @Post('staff')
+  createStaff(@Query('tenantId') tenantId: string, @Body() body: any) {
+    return this.authService.registerStaff(tenantId, body);
+  }
+
+  @Get('staff')
+  getStaff(@Query('tenantId') tenantId: string) {
+    return this.authService.getStaff(tenantId);
+  }
+
+  @Patch('staff/:id')
+  updateStaff(
+    @Query('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: any,
   ) {
+    return this.authService.updateStaff(tenantId, id, body);
+  }
+
+  @Patch('staff/:id/activate')
+  activateStaff(@Query('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.authService.activateStaff(tenantId, id);
+  }
+
+  @Patch('staff/:id/deactivate')
+  deactivateStaff(@Query('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.authService.deactivateStaff(tenantId, id);
+  }
+
+  @Patch('staff/:id/reset-password')
+  resetStaffPassword(
+    @Query('tenantId') tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.authService.resetStaffPassword(tenantId, id);
+  }
+
+  @Delete('staff/:id')
+  deleteStaff(@Query('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.authService.deleteStaff(tenantId, id);
+  }
+
+  @Post('login')
+  login(@Body() body: { identifier: string; password: string }) {
     return this.authService.login(body.identifier, body.password);
   }
 
@@ -65,11 +104,7 @@ export class AuthController {
       newPassword: string;
     },
   ) {
-    const userId =
-      req.user?.sub ||
-      req.user?.id ||
-      req.user?.userId ||
-      null;
+    const userId = req.user?.sub || req.user?.id || req.user?.userId || null;
 
     if (!userId) {
       throw new BadRequestException('Utilisateur non authentifié');

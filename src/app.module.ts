@@ -44,6 +44,18 @@ import { ExpensesModule } from './modules/expenses/expenses.module';
 import { TenantModulesModule } from './modules/tenant-modules/tenant-modules.module';
 import { AdminSystemModule } from './modules/admin-system/admin-system.module';
 
+import { GymMembersModule } from './modules/gym-members/gym-members.module';
+import { GymCoachesModule } from './modules/gym-coaches/gym-coaches.module';
+import { GymAccessModule } from './modules/gym-access/gym-access.module';
+import { GymSubscriptionsModule } from './modules/gym-subscriptions/gym-subscriptions.module';
+import { GymPlansModule } from './modules/gym-plans/gym-plans.module';
+import { GymCoursesModule } from './modules/gym-courses/gym-courses.module';
+import { GymPaymentsModule } from './modules/gym-payments/gym-payments.module';
+import { GymExpensesModule } from './modules/gym-expenses/gym-expenses.module';
+import { GymDashboardModule } from './modules/gym-dashboard/gym-dashboard.module';
+import { GymSessionPassModule } from "./modules/gym-session-pass/gym-session-pass.module";
+
+
 @Module({
   imports: [PrismaModule,
     CommerceModule,
@@ -81,6 +93,19 @@ import { AdminSystemModule } from './modules/admin-system/admin-system.module';
     ExpensesModule,
     TenantModulesModule,  
     AdminSystemModule,
+    ExpensesModule,
+    TenantModulesModule,
+    GymMembersModule,
+    AdminSystemModule,
+    GymCoachesModule,
+    GymAccessModule,
+    GymSubscriptionsModule,
+    GymPlansModule, 
+    GymCoursesModule,
+    GymPaymentsModule, 
+    GymExpensesModule,  
+    GymDashboardModule,
+    GymSessionPassModule,
   ],
   controllers: [TenantsController],
   providers: [TenantsService],

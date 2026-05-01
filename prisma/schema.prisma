@@ -12,6 +12,9 @@ enum Role {
   manager
   cashier
   agent
+  staff
+  coach
+  client
 }
 
 enum VehicleStatus {
@@ -74,6 +77,7 @@ enum Sector {
   immobilier
   transport
   commerce
+  gym
 }
 
 enum ManualPaymentStatus {
@@ -207,7 +211,17 @@ model Tenant {
   vtcOwnerSettlements    VtcOwnerSettlement[]
   vehicleMaintenances    VehicleMaintenance[]
   expenses               Expense[]
+
+  gymMembers             GymMember[]
+  gymCoaches             GymCoach[]
+  gymSubscriptions       GymSubscription[]
+  gymPayments            GymPayment[]
+  gymAccessLogs          GymAccessLog[]
+  gymPlans               GymPlan[]
+  gymCourses             GymCourse[]
+  gymSessionPasses       GymSessionPass[]
 }
+
 model User {
   id                     String      @id @default(uuid())
   email                  String?     
@@ -247,11 +261,22 @@ model User {
   canManageProducts      Boolean     @default(false)
   canManageStock         Boolean     @default(false)
 
+  canGymManageMembers        Boolean @default(false)
+  canGymManageCoaches        Boolean @default(false)
+  canGymManageCourses        Boolean @default(false)
+  canGymManageSubscriptions  Boolean @default(false)
+  canGymManagePayments       Boolean @default(false)
+  canGymScanAccess           Boolean @default(false)
+  canGymManagePlans          Boolean @default(false)
+  canGymManageProducts       Boolean @default(false)
+  canGymAccessCashier        Boolean @default(false)
+
   tenant                 Tenant      @relation(fields: [tenantId], references: [id])
 
   sales                  Sale[]
   stockMovements         StockMovement[]
   inventories            StockInventory[] @relation("InventoryCreatedBy")
+  gymMember              GymMember?
 }
 model Vehicle {
   id                   String                @id @default(uuid())
@@ -1239,3 +1264,224 @@ model Expense {
   @@index([tenantId, vehicleId])
   @@index([tenantId, expenseDate])
 }
+
+// =======================
+// GYM MODULE (SAFE)
+// =======================
+
+
+model GymMember {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String?  @unique
+
+  firstName String
+  lastName  String
+  phone     String?
+  email     String?
+  qrCode    String
+  photoUrl  String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User?  @relation(fields: [userId], references: [id])
+
+  subscriptions GymSubscription[]
+  payments      GymPayment[]
+  accessLogs    GymAccessLog[]
+
+  @@unique([tenantId, qrCode])
+  courseBookings GymCourseBooking[]
+}
+
+model GymCoach {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  specialty String?
+  phone     String?
+  email     String?
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  courses   GymCourse[]
+  updatedAt DateTime @updatedAt
+}
+
+model GymSubscription {
+  id        String   @id @default(cuid())
+  tenantId  String
+  memberId  String
+  type      String
+  price     Float
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id])
+  member GymMember  @relation(fields: [memberId], references: [id])
+}
+
+model GymPayment {
+  id        String   @id @default(cuid())
+  tenantId  String
+  memberId  String
+  amount    Float
+  method    String
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  member GymMember @relation(fields: [memberId], references: [id])
+
+  corrections GymPaymentCorrection[]
+}
+
+model GymPaymentCorrection {
+  id        String   @id @default(cuid())
+  paymentId String
+  tenantId  String
+
+  oldAmount Float
+  newAmount Float
+
+  reason String
+
+  correctedByUserId String?
+  correctedByName   String?
+  correctedByLogin  String?
+
+  createdAt DateTime @default(now())
+
+  payment GymPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+}
+
+model GymAccessLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  memberId  String
+  accessAt  DateTime @default(now())
+  scannedByUserId String?
+  success         Boolean @default(true)
+  reason          String?
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  member GymMember @relation(fields: [memberId], references: [id])
+}
+
+model GymPlan {
+  id             String   @id @default(cuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+
+  name           String
+  price          Float
+  durationMonths Int
+
+  startDate      DateTime?
+  endDate        DateTime?
+  isActive       Boolean  @default(true)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model GymCourse {
+  id           String   @id @default(cuid())
+  tenantId     String
+  coachId      String?
+  title        String
+  description  String?
+  daysOfWeek   String[]
+  startTime    String
+  endTime      String
+  capacity     Int?
+  location     String?
+  level        String?
+  accessType   String?  @default("subscription")
+  sessionPrice Float?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id])
+  coach  GymCoach? @relation(fields: [coachId], references: [id])
+  bookings GymCourseBooking[]
+}
+
+model GymExpense {
+  id             String   @id @default(uuid())
+  tenantId       String
+  type           String
+  amount         Float
+  beneficiary    String?
+  description    String?
+  createdByUserId String?
+  createdByName  String?
+  createdByLogin String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  corrections    GymExpenseCorrection[]
+}
+
+model GymExpenseCorrection {
+  id                String   @id @default(uuid())
+  expenseId          String
+  oldAmount          Float
+  newAmount          Float
+  reason             String
+  correctedByUserId  String?
+  correctedByName    String?
+  correctedByLogin   String?
+  createdAt          DateTime @default(now())
+
+  expense            GymExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+}
+
+
+model GymSessionPass {
+  id              String   @id @default(cuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+
+  buyerName       String?
+  buyerPhone      String?
+
+  price           Float
+  quantity        Int      @default(1)
+  paymentMethod   String   @default("cash")
+
+  validFrom       DateTime
+  validUntil      DateTime
+
+  qrCode          String   @unique
+  status          String   @default("active") // active | used | expired | cancelled
+
+  soldByUserId    String?
+  soldByUserName  String?
+
+  paymentId       String?
+
+  usedAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model GymCourseBooking {
+  id        String   @id @default(cuid())
+  tenantId  String
+  courseId  String
+  memberId  String
+  createdAt DateTime @default(now())
+
+  course GymCourse @relation(fields: [courseId], references: [id])
+  member GymMember @relation(fields: [memberId], references: [id])
+
+  @@unique([courseId, memberId])
+}
+
+
