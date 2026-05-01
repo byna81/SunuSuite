@@ -9,9 +9,24 @@ export class GymCoursesService {
   // GET ALL COURSES
   // =============================
   async getAll(tenantId: string) {
-    if (!tenantId) {
-      throw new BadRequestException('tenantId obligatoire');
-    }
+  if (!tenantId) {
+    throw new BadRequestException('tenantId obligatoire');
+  }
+
+  return this.prisma.gymCourse.findMany({
+    where: { tenantId },
+    include: {
+      coach: true,
+      bookings: true, // 👈 CRUCIAL
+      _count: {
+        select: {
+          bookings: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
 
     return this.prisma.gymCourse.findMany({
       where: { tenantId },
