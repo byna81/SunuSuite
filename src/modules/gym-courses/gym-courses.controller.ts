@@ -1,16 +1,6 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Query,
-  Body,
-  BadRequestException,
-} from '@nestjs/common';
-import { GymCoursesService } from './gym-courses.service';
 import { Body, Controller, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
+import { GymCoursesService } from './gym-courses.service';
+
 
 @Controller('gym-courses')
 export class GymCoursesController {
