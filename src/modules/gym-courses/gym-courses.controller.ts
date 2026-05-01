@@ -41,7 +41,20 @@ export class GymCoursesController {
 
     return this.service.create(tenantId, body);
   }
-
+  
+  // =============================
+  // Participer cours 
+  // =============================
+  
+  @Post(':id/book')
+bookCourse(
+  @Param('id') courseId: string,
+  @Query('tenantId') tenantId: string,
+  @Req() req: any,
+) {
+  return this.service.bookCourse(courseId, tenantId, req.user.id);
+}
+  
   // =============================
   // UPDATE COURSE
   // =============================
