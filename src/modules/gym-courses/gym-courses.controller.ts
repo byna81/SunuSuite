@@ -62,7 +62,21 @@ bookCourse(
     body.memberId,
   );
 }
-  
+
+  @Delete(':id/book')
+unbookCourse(
+  @Param('id') courseId: string,
+  @Query('tenantId') tenantId: string,
+  @Req() req: any,
+  @Body() body: any,
+) {
+  return this.service.unbookCourse(
+    courseId,
+    tenantId,
+    req.user?.id,
+    body.memberId,
+  );
+}
   // =============================
   // UPDATE COURSE
   // =============================
