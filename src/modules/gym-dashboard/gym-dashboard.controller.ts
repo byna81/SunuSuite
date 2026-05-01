@@ -12,4 +12,9 @@ export class GymDashboardController {
   ) {
     return this.service.getDashboard(tenantId, period);
   }
+
+  @Get('late-subscriptions')
+  getLateSubscriptions(@Query('tenantId') tenantId: string) {
+    return this.service.getLateSubscriptions(tenantId);
+  }
 }
